@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CIPHER — Admin Panel</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: { c: { bg:'#06080F', surf:'#0C1220', elev:'#131D30', border:'#1E2D45', accent:'#00FFB3', text:'#DDE8F8', muted:'#7A8FA8', danger:'#FF3D6B' } },
+        fontFamily: { display:['Syne','sans-serif'], mono:['JetBrains Mono','monospace'] }
+      }}
+    }
+  </script>
+  <style>body{overflow:auto;height:auto}</style>
+</head>
+<body class="min-h-screen" style="background:#06080F;color:#DDE8F8">
+
+<!-- Auth gate -->
+<div id="admin-auth" class="fixed inset-0 flex items-center justify-center grid-bg" style="z-index:100">
+  <div class="w-full max-w-sm px-5">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center gap-3 mb-2">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#FFD700,#FFA500)">⚡</div>
+        <span class="text-2xl font-black" style="font-family:Syne,sans-serif">CIPHER ADMIN</span>
+      </div>
+      <p class="text-xs font-mono" style="color:#7A8FA8">YÖNETİCİ PANELİ</p>
+    </div>
+    <div class="rounded-2xl border p-6" style="background:#0C1220;border-color:#1E2D45">
+      <input id="admin-key-input" type="password" placeholder="Admin anahtarı…"
+        class="w-full px-4 py-3 rounded-xl text-sm border mb-3 outline-none" style="background:#06080F;border-color:#1E2D45;color:#DDE8F8"
+        onkeydown="if(event.key==='Enter')checkAdminKey()">
+      <div id="admin-auth-err" class="hidden text-xs mb-3 px-3 py-2 rounded-lg" style="background:rgba(255,61,107,.1);color:#FF3D6B;border:1px solid rgba(255,61,107,.2)"></div>
+      <button onclick="checkAdminKey()" class="w-full py-3 rounded-xl text-sm font-bold" style="background:linear-gradient(135deg,#FFD700,#FFA500);color:#1A1A00">Giriş</button>
+      <p class="text-center text-xs mt-3" style="color:#7A8FA8">URL'ye ?key=ADMIN_KEY ekleyebilirsiniz</p>
+    </div>
+  </div>
+</div>
+
+<!-- Admin panel content (shown after auth) -->
+<div id="admin-panel" class="hidden min-h-screen">
+  <!-- Topbar -->
+  <div class="border-b px-6 py-4 flex items-center justify-between sticky top-0 z-10" style="background:#0C1220;border-color:#1E2D45">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#FFD700,#FFA500)">⚡</div>
+      <div>
+        <div class="font-bold text-base" style="font-family:Syne,sans-serif">CIPHER Admin</div>
+        <div class="text-xs font-mono" style="color:#7A8FA8">Kullanıcı Yönetimi</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div id="user-count-badge" class="text-xs px-3 py-1 rounded-full font-mono" style="background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2)">0 kullanıcı</div>
+      <a href="index.html" class="text-xs px-3 py-1.5 rounded-lg" style="background:#131D30;color:#7A8FA8;border:1px solid #1E2D45">← Uygulamaya Dön</a>
+    </div>
+  </div>
+
+  <div class="max-w-4xl mx-auto px-6 py-8 space-y-8">
+
+    <!-- Add User -->
+    <div class="rounded-2xl border p-6" style="background:#0C1220;border-color:#1E2D45">
+      <h2 class="font-bold text-lg mb-5 flex items-center gap-2" style="font-family:Syne,sans-serif">
+        <span class="text-xl">➕</span> Yeni Kullanıcı Ekle
+      </h2>
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+          <label class="block text-xs mb-1.5 font-mono font-semibold" style="color:#7A8FA8;font-size:10px">KULLANICI ADI *</label>
+          <input id="new-username" type="text" placeholder="user123" autocomplete="off"
+            class="w-full px-3 py-2.5 rounded-xl text-sm border outline-none" style="background:#06080F;border-color:#1E2D45;color:#DDE8F8">
+        </div>
+        <div>
+          <label class="block text-xs mb-1.5 font-mono font-semibold" style="color:#7A8FA8;font-size:10px">GÖRÜNEN AD *</label>
+          <input id="new-displayname" type="text" placeholder="Ad Soyad"
+            class="w-full px-3 py-2.5 rounded-xl text-sm border outline-none" style="background:#06080F;border-color:#1E2D45;color:#DDE8F8">
+        </div>
+        <div>
+          <label class="block text-xs mb-1.5 font-mono font-semibold" style="color:#7A8FA8;font-size:10px">ŞİFRE *</label>
+          <div class="relative">
+            <input id="new-password" type="password" placeholder="Min. 8 karakter" autocomplete="new-password"
+              class="w-full px-3 py-2.5 rounded-xl text-sm border outline-none pr-10" style="background:#06080F;border-color:#1E2D45;color:#DDE8F8">
+            <button onclick="toggleField('new-password')" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs" style="color:#7A8FA8">👁</button>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs mb-1.5 font-mono font-semibold" style="color:#7A8FA8;font-size:10px">ROL</label>
+          <select id="new-role" class="w-full px-3 py-2.5 rounded-xl text-sm border outline-none" style="background:#06080F;border-color:#1E2D45;color:#DDE8F8">
+            <option value="user">Kullanıcı</option>
+            <option value="admin">Yönetici</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs mb-1.5 font-mono font-semibold" style="color:#7A8FA8;font-size:10px">E-POSTA</label>
+          <input id="new-email" type="email" placeholder="user@domain.com"
+            class="w-full px-3 py-2.5 rounded-xl text-sm border outline-none" style="background:#06080F;border-color:#1E2D45;color:#DDE8F8">
+        </div>
+        <div>
+          <label class="block text-xs mb-1.5 font-mono font-semibold" style="color:#7A8FA8;font-size:10px">BİYOGRAFİ</label>
+          <input id="new-bio" type="text" placeholder="Kısa biyografi"
+            class="w-full px-3 py-2.5 rounded-xl text-sm border outline-none" style="background:#06080F;border-color:#1E2D45;color:#DDE8F8">
+        </div>
+      </div>
+      <div id="add-err" class="hidden text-xs mb-3 px-3 py-2 rounded-lg" style="background:rgba(255,61,107,.1);color:#FF3D6B;border:1px solid rgba(255,61,107,.2)"></div>
+      <button onclick="addUser()" class="px-6 py-2.5 rounded-xl text-sm font-bold" style="background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F">
+        Kullanıcı Ekle
+      </button>
+    </div>
+
+    <!-- User List -->
+    <div class="rounded-2xl border p-6" style="background:#0C1220;border-color:#1E2D45">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-bold text-lg flex items-center gap-2" style="font-family:Syne,sans-serif">
+          <span class="text-xl">👥</span> Kullanıcılar
+        </h2>
+        <button onclick="loadUsers()" class="text-xs px-3 py-1.5 rounded-lg" style="background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2)">↻ Yenile</button>
+      </div>
+      <div id="users-table" class="space-y-2"></div>
+    </div>
+
+    <!-- Supabase SQL -->
+    <div class="rounded-2xl border p-6" style="background:#0C1220;border-color:#1E2D45">
+      <h2 class="font-bold text-lg mb-4 flex items-center gap-2" style="font-family:Syne,sans-serif">
+        <span class="text-xl">🗄</span> Supabase Kurulum SQL
+      </h2>
+      <p class="text-sm mb-4" style="color:#7A8FA8">config.js'te USE_SUPABASE=true yapıp aşağıdaki SQL'i Supabase SQL Editor'da çalıştırın:</p>
+      <pre class="p-4 rounded-xl text-xs overflow-x-auto" style="background:#06080F;border:1px solid #1E2D45;color:#00FFB3;font-family:'JetBrains Mono',monospace;line-height:1.6">-- USERS table
+CREATE TABLE users (
+  username     TEXT PRIMARY KEY,
+  password_hash TEXT NOT NULL,
+  display_name TEXT,
+  bio          TEXT DEFAULT '',
+  avatar_url   TEXT,
+  banner_color TEXT DEFAULT '#0A1628',
+  status       TEXT DEFAULT '',
+  status_emoji TEXT DEFAULT '',
+  is_admin     BOOLEAN DEFAULT false,
+  badges       TEXT[] DEFAULT '{}',
+  email        TEXT,
+  created_at   BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())*1000
+);
+
+-- CONVERSATIONS table
+CREATE TABLE conversations (
+  id           TEXT PRIMARY KEY,
+  type         TEXT NOT NULL CHECK (type IN ('direct','group')),
+  name         TEXT,
+  participants TEXT[] NOT NULL,
+  avatar       TEXT,
+  banner_color TEXT DEFAULT '#0A1628',
+  last_msg     TEXT DEFAULT '',
+  last_time    BIGINT DEFAULT 0,
+  unread_for   JSONB DEFAULT '{}',
+  admin        TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- MESSAGES table
+CREATE TABLE messages (
+  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  conv_id      TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  "from"       TEXT NOT NULL,
+  text         TEXT DEFAULT '',
+  type         TEXT DEFAULT 'text',
+  file_data    TEXT,
+  file_name    TEXT,
+  file_type    TEXT,
+  audio_data   TEXT,
+  duration     TEXT,
+  transcript   TEXT,
+  reply_to     TEXT,
+  reply_to_text TEXT,
+  reactions    JSONB DEFAULT '{}',
+  status       TEXT DEFAULT 'sent',
+  edited       BOOLEAN DEFAULT false,
+  recalled     BOOLEAN DEFAULT false,
+  destruct_at  BIGINT,
+  created_at   BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())*1000
+);
+
+-- STORIES table
+CREATE TABLE stories (
+  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  user_id    TEXT NOT NULL,
+  text       TEXT NOT NULL,
+  seen_by    TEXT[] DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '24 hours'
+);
+
+-- Row Level Security (recommended)
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can read all" ON users FOR SELECT USING (true);
+CREATE POLICY "Only service role can write" ON users FOR ALL USING (auth.role() = 'service_role');
+</pre>
+      <button onclick="copySQL()" class="mt-3 px-4 py-2 rounded-xl text-xs font-medium" style="background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2)">SQL'i Kopyala</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none flex flex-col items-end"></div>
+
+<!-- Scripts -->
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+
+<script>
+  DB.init();
+
+  // Check URL key param
+  const urlKey = new URLSearchParams(location.search).get('key');
+  if (urlKey === CONFIG.ADMIN_KEY) unlockAdmin();
+
+  function checkAdminKey() {
+    const key = document.getElementById('admin-key-input').value;
+    if (key === CONFIG.ADMIN_KEY) {
+      unlockAdmin();
+    } else {
+      const err = document.getElementById('admin-auth-err');
+      err.textContent = 'Yanlış admin anahtarı.'; err.classList.remove('hidden');
+      setTimeout(() => err.classList.add('hidden'), 3000);
+    }
+  }
+
+  function unlockAdmin() {
+    document.getElementById('admin-auth').style.display = 'none';
+    document.getElementById('admin-panel').classList.remove('hidden');
+    loadUsers();
+  }
+
+  async function loadUsers() {
+    const users = await DB.getAllUsers();
+    document.getElementById('user-count-badge').textContent = users.length + ' kullanıcı';
+    const table = document.getElementById('users-table');
+    table.innerHTML = '';
+    users.forEach(u => {
+      const color = UI.avatarColor(u.username);
+      const row = document.createElement('div');
+      row.className = 'flex items-center gap-4 p-4 rounded-xl border';
+      row.style.cssText = 'background:#06080F;border-color:#1E2D45';
+      row.innerHTML = `
+        <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden" style="background:${color}22;color:${color}">
+          ${u.avatar_url ? `<img src="${u.avatar_url}" class="w-full h-full object-cover">` : UI.initials(u.display_name||u.username)}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <span class="font-semibold text-sm" style="font-family:Syne,sans-serif;color:#DDE8F8">${u.display_name||u.username}</span>
+            ${u.is_admin ? '<span class="text-xs px-1.5 py-0.5 rounded font-mono" style="background:#FFD70022;color:#FFD700;border:1px solid #FFD70044">ADMİN</span>' : ''}
+          </div>
+          <div class="text-xs font-mono" style="color:#7A8FA8">@${u.username} ${u.email ? `· ${u.email}` : ''}</div>
+          <div class="text-xs mt-0.5" style="color:#7A8FA8">${u.bio||''}</div>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <button onclick="resetPassword('${u.username}')" class="text-xs px-3 py-1.5 rounded-lg" style="background:#131D30;color:#FFA535;border:1px solid rgba(255,165,53,.3)">Şifre Sıfırla</button>
+          <button onclick="deleteUser('${u.username}')" class="text-xs px-3 py-1.5 rounded-lg" style="background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.3)">Sil</button>
+        </div>`;
+      table.appendChild(row);
+    });
+    if (!users.length) table.innerHTML = '<div class="text-center py-8 text-sm" style="color:#7A8FA8">Kullanıcı bulunamadı</div>';
+  }
+
+  async function addUser() {
+    const username = document.getElementById('new-username').value.trim().toLowerCase();
+    const displayName = document.getElementById('new-displayname').value.trim();
+    const password = document.getElementById('new-password').value;
+    const role = document.getElementById('new-role').value;
+    const email = document.getElementById('new-email').value.trim();
+    const bio = document.getElementById('new-bio').value.trim();
+    const err = document.getElementById('add-err');
+
+    if (!username || !displayName || !password) { showErr('Kullanıcı adı, görünen ad ve şifre zorunlu.'); return; }
+    if (password.length < 6) { showErr('Şifre en az 6 karakter olmalı.'); return; }
+    if (!/^[a-z0-9_.-]+$/.test(username)) { showErr('Kullanıcı adı sadece harf, rakam, _ - . içerebilir.'); return; }
+
+    const existing = await DB.getUser(username);
+    if (existing) { showErr('Bu kullanıcı adı zaten alınmış.'); return; }
+
+    const hash = await Auth.hashForAdmin(password);
+    await DB.createUser({
+      username, password_hash: hash, display_name: displayName,
+      bio, email, is_admin: role === 'admin',
+      badges: role === 'admin' ? ['admin', 'verified', 'early'] : ['verified'],
+      banner_color: '#0A1628', status: '', status_emoji: '', avatar_url: null,
+    });
+
+    // Clear fields
+    ['new-username','new-displayname','new-password','new-email','new-bio'].forEach(id => { document.getElementById(id).value = ''; });
+    document.getElementById('new-role').value = 'user';
+
+    await loadUsers();
+    UI.toast(`@${username} eklendi ✓`, 'success');
+  }
+
+  async function deleteUser(username) {
+    if (!confirm(`@${username} kullanıcısını sil?`)) return;
+    await DB.deleteUser(username);
+    await loadUsers();
+    UI.toast(`@${username} silindi`, 'info');
+  }
+
+  async function resetPassword(username) {
+    const newPass = prompt(`@${username} için yeni şifre:`);
+    if (!newPass || newPass.length < 6) { UI.toast('Şifre en az 6 karakter olmalı', 'error'); return; }
+    const hash = await Auth.hashForAdmin(newPass);
+    await DB.updateUser(username, { password_hash: hash });
+    UI.toast(`@${username} şifresi güncellendi ✓`, 'success');
+  }
+
+  function toggleField(id) {
+    const el = document.getElementById(id);
+    el.type = el.type === 'password' ? 'text' : 'password';
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('add-err');
+    el.textContent = msg; el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 4000);
+  }
+
+  function copySQL() {
+    const sql = document.querySelector('pre').textContent;
+    navigator.clipboard.writeText(sql).then(() => UI.toast('SQL kopyalandı ✓', 'success'));
+  }
+</script>
+</body>
+</html>

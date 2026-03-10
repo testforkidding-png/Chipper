@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#00FFB3">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CIPHER">
+  <title>CIPHER — Giriş</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: {
+        colors: { c: { bg:'#06080F', surf:'#0C1220', elev:'#131D30', border:'#1E2D45', accent:'#00FFB3', text:'#DDE8F8', muted:'#7A8FA8', danger:'#FF3D6B', warn:'#FFA535' } },
+        fontFamily: { display: ['Syne','sans-serif'], body: ['DM Sans','sans-serif'], mono: ['JetBrains Mono','monospace'] },
+      }}
+    }
+  </script>
+</head>
+<body class="grid-bg flex items-center justify-center min-h-screen" style="overflow:auto">
+
+<!-- Orbs -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none">
+  <div class="absolute w-96 h-96 rounded-full opacity-10 blur-3xl" style="background:#00FFB3;top:-5%;left:-5%;animation:pulseDot 6s infinite"></div>
+  <div class="absolute w-64 h-64 rounded-full opacity-8 blur-3xl" style="background:#0066FF;bottom:10%;right:5%;animation:pulseDot 8s infinite 2s"></div>
+</div>
+
+<div class="relative w-full max-w-md px-5 py-10">
+  <!-- Logo -->
+  <div class="text-center mb-10">
+    <div class="inline-flex items-center gap-3 mb-3">
+      <div class="w-11 h-11 rounded-xl flex items-center justify-center glow-sm animate-lock-spin" style="background:linear-gradient(135deg,#00FFB3,#00C48A)">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#06080F" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <span class="text-4xl font-black tracking-tight" style="font-family:Syne,sans-serif;color:#DDE8F8">CIPHER</span>
+    </div>
+    <p class="text-sm" style="color:#7A8FA8;font-family:'JetBrains Mono',monospace">ÖZEL · ŞİFRELİ · GÜVENLİ</p>
+  </div>
+
+  <!-- Card -->
+  <div class="rounded-2xl border glow-accent p-8 animate-slide-up" style="background:#0C1220;border-color:#1E2D45">
+    <h2 class="text-xl font-bold mb-6" style="font-family:Syne,sans-serif;color:#DDE8F8">Güvenli Giriş</h2>
+
+    <div class="space-y-4">
+      <div>
+        <label class="block text-xs mb-1.5 font-semibold" style="font-family:'JetBrains Mono',monospace;color:#7A8FA8">KULLANICI ADI</label>
+        <input id="username" type="text" placeholder="kullanici_adi" autocomplete="username"
+          class="w-full px-4 py-3 rounded-xl text-sm border transition-all"
+          style="background:#06080F;border-color:#1E2D45;color:#DDE8F8"
+          onkeydown="if(event.key==='Enter')document.getElementById('password').focus()">
+      </div>
+      <div>
+        <label class="block text-xs mb-1.5 font-semibold" style="font-family:'JetBrains Mono',monospace;color:#7A8FA8">ŞİFRE</label>
+        <div class="relative">
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password"
+            class="w-full px-4 py-3 rounded-xl text-sm border transition-all pr-12"
+            style="background:#06080F;border-color:#1E2D45;color:#DDE8F8"
+            onkeydown="if(event.key==='Enter')doLogin()">
+          <button onclick="togglePwd()" class="absolute right-3 top-1/2 -translate-y-1/2" style="color:#7A8FA8" tabindex="-1">
+            <svg id="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div id="login-err" class="hidden text-xs px-3 py-2 rounded-lg" style="background:rgba(255,61,107,.1);color:#FF3D6B;border:1px solid rgba(255,61,107,.2)"></div>
+
+      <button id="login-btn" onclick="doLogin()"
+        class="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 active:scale-[.98] flex items-center justify-center gap-2"
+        style="background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-family:Syne,sans-serif;font-size:15px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Giriş Yap
+      </button>
+    </div>
+
+    <!-- Security info -->
+    <div class="mt-6 pt-5 border-t" style="border-color:#1E2D45">
+      <div class="flex items-center justify-center gap-5">
+        <div class="flex items-center gap-1.5 text-xs" style="color:#7A8FA8">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          AES-256-GCM
+        </div>
+        <div class="flex items-center gap-1.5 text-xs" style="color:#7A8FA8">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Kendi Kendini İmha
+        </div>
+        <div class="flex items-center gap-1.5 text-xs" style="color:#7A8FA8">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Sıfır Kayıt
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Demo hint -->
+  <p class="text-center text-xs mt-4" style="color:#7A8FA8">
+    Demo: <button onclick="fill('admin','admin123')" class="hover:underline" style="color:#00FFB3">admin</button> ·
+    <button onclick="fill('alice','alice123')" class="hover:underline" style="color:#00FFB3">alice</button> ·
+    <button onclick="fill('marcus','marcus123')" class="hover:underline" style="color:#00FFB3">marcus</button>
+  </p>
+</div>
+
+<!-- iOS install modal -->
+<div id="ios-install-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.9)">
+  <div class="w-full max-w-sm mx-4 rounded-2xl border p-6 animate-slide-up" style="background:#0C1220;border-color:#1E2D45">
+    <div class="text-center mb-5">
+      <div class="text-4xl mb-3">📱</div>
+      <div class="font-bold text-lg mb-1" style="font-family:Syne,sans-serif;color:#DDE8F8">iPhone/iPad'e Kur</div>
+      <div class="text-sm" style="color:#7A8FA8">Safari ile ana ekrana ekleyin</div>
+    </div>
+    <ol class="space-y-3 text-sm mb-5" style="color:#DDE8F8">
+      <li class="flex items-center gap-2"><span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background:#00FFB3;color:#062B1F">1</span>Alt çubuktaki <strong>Paylaş</strong> butonuna dokunun</li>
+      <li class="flex items-center gap-2"><span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background:#00FFB3;color:#062B1F">2</span><strong>"Ana Ekrana Ekle"</strong> seçin</li>
+      <li class="flex items-center gap-2"><span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold" style="background:#00FFB3;color:#062B1F">3</span><strong>"Ekle"</strong> butonuna dokunun</li>
+    </ol>
+    <button onclick="UI.closeModal('ios-install-modal')" class="w-full py-2.5 rounded-xl text-sm" style="background:#131D30;color:#7A8FA8;border:1px solid #1E2D45">Tamam</button>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2 pointer-events-none flex flex-col items-end"></div>
+
+<!-- Scripts -->
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/pwa.js"></script>
+
+<script>
+  DB.init();
+  PWA.init();
+
+  // If already logged in, redirect
+  if (Auth.getSession()) window.location.href = 'app.html';
+
+  async function doLogin() {
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('login-err');
+    const u   = document.getElementById('username').value.trim();
+    const p   = document.getElementById('password').value;
+    if (!u || !p) { showErr('Kullanıcı adı ve şifre girin.'); return; }
+    btn.innerHTML = '<span class="animate-spin inline-block w-4 h-4 border-2 rounded-full" style="border-color:#062B1F transparent transparent transparent"></span>';
+    btn.disabled = true;
+    try {
+      await Auth.login(u, p);
+      window.location.href = 'app.html';
+    } catch (e) {
+      showErr(e.message);
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Giriş Yap`;
+      btn.disabled = false;
+    }
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('login-err');
+    el.textContent = msg; el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 4000);
+  }
+
+  function togglePwd() {
+    const inp = document.getElementById('password');
+    inp.type = inp.type === 'password' ? 'text' : 'password';
+  }
+
+  function fill(u, p) {
+    document.getElementById('username').value = u;
+    document.getElementById('password').value = p;
+  }
+</script>
+</body>
+</html>
