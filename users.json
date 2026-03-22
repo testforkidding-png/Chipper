@@ -1,6 +1,6 @@
 {
-  "_comment": "Bu dosyayı düzenleyerek kullanıcı ekleyip silebilirsiniz. Şifreler düz metin olarak saklanır ve uygulama içinde hash'lenir.",
-  "_admin_note": "Admin paneli: /admin.html?key=cipher-admin-2024",
+  "_readme": "Kullanıcı eklemek/silmek için bu dosyayı düzenleyin. Admin paneli: /admin.html",
+  "_password_note": "Şifreler burada düz metin - uygulama otomatik hash'ler. Sunucuya yükledikten sonra güvenli yere taşıyın.",
   "users": [
     {
       "username": "admin",
