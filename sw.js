@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cipher-v1.0.0';
+const CACHE_NAME = 'cipher-v2.0.0';
 const STATIC_ASSETS = [
   '/index.html',
   '/app.html',
