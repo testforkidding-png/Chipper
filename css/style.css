@@ -116,7 +116,7 @@ input:focus,textarea:focus{border-color:var(--accent)!important}
 @media(max-width:767px){[data-tip]::after{display:none}}
 
 /* ── GIF picker ────────────────────────────────────────────── */
-#gif-picker{position:absolute;bottom:100%;left:0;right:0;
+#gif-picker{display:none;position:absolute;bottom:100%;left:0;right:0;
   background:var(--surf);border:1px solid var(--border);
   border-radius:20px 20px 0 0;max-height:320px;overflow:hidden;
   display:flex;flex-direction:column;
@@ -128,7 +128,7 @@ input:focus,textarea:focus{border-color:var(--accent)!important}
 .gif-item:hover img{transform:scale(1.05)}
 
 /* ── Sticker picker ────────────────────────────────────────── */
-#sticker-picker{position:absolute;bottom:100%;left:0;right:0;
+#sticker-picker{display:none;position:absolute;bottom:100%;left:0;right:0;
   background:var(--surf);border:1px solid var(--border);
   border-radius:20px 20px 0 0;max-height:340px;overflow:hidden;
   display:flex;flex-direction:column;
