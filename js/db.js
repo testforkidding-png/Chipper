@@ -27,7 +27,8 @@ const DB = (() => {
 
   // ── User management ──────────────────────────────────────────────
   async function ensureUsers() {
-    // Try users.json first
+    const deleted = JSON.parse(localStorage.getItem(NS+'deleted_users') || '[]');
+
     try {
       const r = await fetch('users.json?t=' + Date.now());
       if (r.ok) {
@@ -35,12 +36,12 @@ const DB = (() => {
         if (Array.isArray(data.users) && data.users.length) {
           const stored = _get('users') || {};
           for (const u of data.users) {
+            if (deleted.includes(u.username)) continue; // Silinmişse atla
             const hash = await quickHash(u.password);
             const prev = stored[u.username] || {};
             stored[u.username] = {
               ...u,
               password_hash: hash,
-              // Preserve profile customizations from localStorage
               avatar_url:   prev.avatar_url   ?? null,
               banner_color: prev.banner_color || u.banner_color,
               bio:          prev.bio          || u.bio,
@@ -51,18 +52,20 @@ const DB = (() => {
             };
           }
           localStorage.setItem(NS+'users', JSON.stringify(stored));
-          console.log('[CIPHER] users.json yüklendi:', data.users.length, 'kullanıcı');
           return;
         }
       }
     } catch(e) {
       console.warn('[CIPHER] users.json yüklenemedi:', e.message);
     }
-    // Fallback: seed hardcoded users if none exist
-    if (!_get('users') || Object.keys(_get('users')||{}).length === 0) {
-      console.log('[CIPHER] Fallback kullanıcılar yükleniyor…');
+
+    // Fallback: sadece hiç aktif kullanıcı yoksa
+    const existing = _get('users') || {};
+    const hasActive = Object.keys(existing).some(u => !deleted.includes(u));
+    if (!hasActive) {
       const stored = {};
       for (const u of FALLBACK_USERS) {
+        if (deleted.includes(u.username)) continue;
         const hash = await quickHash(u.password);
         stored[u.username] = { ...u, password_hash: hash, created_at: Date.now() - 30*86400000 };
       }
@@ -78,7 +81,11 @@ const DB = (() => {
     async getAllUsers()      { return Object.values(_get('users')||{}); },
     async createUser(d)     { const us=_get('users')||{}; us[d.username]={...d,created_at:Date.now()}; _set('users',us); return us[d.username]; },
     async updateUser(u,d)   { const us=_get('users')||{}; if(!us[u])return null; us[u]={...us[u],...d,updated_at:Date.now()}; _set('users',us); return us[u]; },
-    async deleteUser(u)     { const us=_get('users')||{}; delete us[u]; _set('users',us); },
+    async deleteUser(u)     {
+      const us=_get('users')||{}; delete us[u]; _set('users',us);
+      const del=JSON.parse(localStorage.getItem(NS+'deleted_users')||'[]');
+      if(!del.includes(u)){del.push(u);localStorage.setItem(NS+'deleted_users',JSON.stringify(del));}
+    },
 
     async getConversations(uid) { return Object.values(_get('convs')||{}).filter(c=>c.participants?.includes(uid)); },
     async getConversation(id)   { return (_get('convs')||{})[id]||null; },
