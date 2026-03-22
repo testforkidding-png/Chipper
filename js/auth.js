@@ -1,37 +1,73 @@
+/**
+ * CIPHER — Authentication
+ */
 const Auth = (() => {
-  const KEY = 'cipher2_session';
+  const SK = 'cipher_session';
+  let _encKey = null;
 
-  function save(username) {
-    sessionStorage.setItem(KEY, JSON.stringify({ username, expires: Date.now() + CONFIG.SESSION_TIMEOUT_HOURS * 3600000 }));
+  async function hashPassword(pass) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass+'_cipher_salt'));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-  function clear() { sessionStorage.removeItem(KEY); }
-  function getSession() {
+
+  async function deriveEncKey(pass, uid) {
+    const km = await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+    _encKey = await crypto.subtle.deriveKey(
+      {name:'PBKDF2',salt:new TextEncoder().encode('cipher_'+uid),iterations:100000,hash:'SHA-256'},
+      km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']
+    );
+  }
+
+  async function encryptMsg(text) {
+    if(!_encKey) return text;
     try {
-      const s = JSON.parse(sessionStorage.getItem(KEY));
-      if (!s || s.expires < Date.now()) { clear(); return null; }
-      return s;
-    } catch { return null; }
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv},_encKey,new TextEncoder().encode(text));
+      const buf = new Uint8Array(12+ct.byteLength);
+      buf.set(iv); buf.set(new Uint8Array(ct),12);
+      return btoa(String.fromCharCode(...buf));
+    } catch { return text; }
   }
+
+  async function decryptMsg(data) {
+    if(!_encKey) return data;
+    try {
+      const buf = Uint8Array.from(atob(data),c=>c.charCodeAt(0));
+      const pt = await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},_encKey,buf.slice(12));
+      return new TextDecoder().decode(pt);
+    } catch { return data; }
+  }
+
+  function saveSession(user) {
+    sessionStorage.setItem(SK, JSON.stringify({username:user.username, expires:Date.now()+CONFIG.SESSION_TIMEOUT_HOURS*3600000}));
+  }
+  function getSession() {
+    try { const s=JSON.parse(sessionStorage.getItem(SK)); if(!s||s.expires<Date.now()){clearSession();return null;} return s; } catch { return null; }
+  }
+  function clearSession() { sessionStorage.removeItem(SK); _encKey=null; }
 
   async function login(username, password) {
-    const ok = await DB.verifyPassword(username.trim().toLowerCase(), password);
-    if (!ok) throw new Error('Kullanıcı adı veya şifre yanlış.');
-    save(username.trim().toLowerCase());
-    return await DB.getUser(username.trim().toLowerCase());
+    const user = await DB.getUser(username.toLowerCase().trim());
+    if(!user) throw new Error('Kullanıcı bulunamadı.');
+    const hash = await hashPassword(password);
+    if(user.password_hash !== hash) throw new Error('Şifre yanlış.');
+    await deriveEncKey(password, user.username);
+    saveSession(user);
+    return user;
   }
 
-  function logout() { clear(); window.location.href = 'index.html'; }
+  function logout() { clearSession(); window.location.href='index.html'; }
 
   async function currentUser() {
     const s = getSession();
-    if (!s) return null;
+    if(!s) return null;
     return await DB.getUser(s.username);
   }
 
   function requireAuth() {
-    if (!getSession()) { window.location.href = 'index.html'; return false; }
+    if(!getSession()) { window.location.href='index.html'; return false; }
     return true;
   }
 
-  return { login, logout, currentUser, requireAuth, getSession };
+  return { login, logout, currentUser, requireAuth, encryptMsg, decryptMsg, hashPassword, getSession };
 })();
