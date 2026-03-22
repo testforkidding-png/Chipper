@@ -217,8 +217,8 @@ const Messages = (() => {
     _gifOpen = !_gifOpen; _stickerOpen = false;
     const gp = document.getElementById('gif-picker');
     const sp = document.getElementById('sticker-picker');
-    gp?.classList.toggle('hidden', !_gifOpen);
-    sp?.classList.add('hidden');
+    if (gp) gp.style.display = _gifOpen ? 'flex' : 'none';
+    if (sp) sp.style.display = 'none';
     if (_gifOpen && !_gifResults.length) searchGifs('');
   }
 
@@ -269,8 +269,8 @@ const Messages = (() => {
     _stickerOpen = !_stickerOpen; _gifOpen = false;
     const sp = document.getElementById('sticker-picker');
     const gp = document.getElementById('gif-picker');
-    sp?.classList.toggle('hidden', !_stickerOpen);
-    gp?.classList.add('hidden');
+    if (sp) sp.style.display = _stickerOpen ? 'flex' : 'none';
+    if (gp) gp.style.display = 'none';
     if (_stickerOpen) {
       if (!_activePack) _activePack = Object.keys(CONFIG.STICKER_PACKS)[0];
       renderStickerPack(_activePack);
@@ -297,8 +297,10 @@ const Messages = (() => {
 
   function closeAllPickers() {
     _gifOpen = false; _stickerOpen = false;
-    document.getElementById('gif-picker')?.classList.add('hidden');
-    document.getElementById('sticker-picker')?.classList.add('hidden');
+    const gp = document.getElementById('gif-picker');
+    const sp = document.getElementById('sticker-picker');
+    if (gp) gp.style.display = 'none';
+    if (sp) sp.style.display = 'none';
   }
 
   // ── Voice recording ────────────────────────────────────────────
@@ -506,5 +508,9 @@ const Messages = (() => {
     _toggleReaction, _ctxMenu, _setReply, _copy, _openEdit, _recall, _delete,
     autoResize,
     hasFiles: () => _files.length > 0,
+    get _gifOpen() { return _gifOpen; },
+    set _gifOpen(v) { _gifOpen = v; },
+    get _stickerOpen() { return _stickerOpen; },
+    set _stickerOpen(v) { _stickerOpen = v; },
   };
 })();
