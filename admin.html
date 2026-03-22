@@ -301,17 +301,17 @@ CREATE TABLE stories (
     const existing = await DB.getUser(username);
     if (existing){showErr('Bu kullanıcı adı zaten kullanılıyor.');return;}
 
-    const hash = await DB.hashPwd(password);
+    const hash = await DB.hashPassword(password);
     // Save to localStorage overrides
-    const overrides = JSON.parse(localStorage.getItem('cipher2_user_overrides')||'{}');
-    overrides[username] = {
+    const stored = JSON.parse(localStorage.getItem('cipher_users')||'{}');
+    stored[username] = {
       username, password_hash:hash, display_name:displayName, bio, email,
       is_admin:role==='admin',
       badges:role==='admin'?['admin','verified','early']:['verified'],
       banner_color:'#0A1628', status:'', status_emoji:'', avatar_url:null, created_at:Date.now()
     };
-    localStorage.setItem('cipher2_user_overrides', JSON.stringify(overrides));
-    DB.invalidateUsersCache();
+    localStorage.setItem('cipher_users', JSON.stringify(stored));
+    
 
     // Clear fields
     ['new-username','new-displayname','new-password','new-email','new-bio'].forEach(id=>document.getElementById(id).value='');
@@ -323,10 +323,10 @@ CREATE TABLE stories (
 
   async function deleteUser(username) {
     if (!confirm(`@${username} kullanıcısını sil?`)) return;
-    const overrides = JSON.parse(localStorage.getItem('cipher2_user_overrides')||'{}');
-    delete overrides[username];
-    localStorage.setItem('cipher2_user_overrides', JSON.stringify(overrides));
-    DB.invalidateUsersCache();
+    const stored = JSON.parse(localStorage.getItem('cipher_users')||'{}');
+    delete stored[username];
+    localStorage.setItem('cipher_users', JSON.stringify(stored));
+    
     await loadUsers(); await updateJsonPreview();
     UI.toast(`@${username} silindi`, 'info');
   }
@@ -334,11 +334,11 @@ CREATE TABLE stories (
   async function resetPassword(username) {
     const p = prompt(`@${username} için yeni şifre (min. 6 karakter):`);
     if (!p || p.length < 6) { UI.toast('Şifre en az 6 karakter', 'error'); return; }
-    const hash = await DB.hashPwd(p);
-    const overrides = JSON.parse(localStorage.getItem('cipher2_user_overrides')||'{}');
-    overrides[username] = { ...(overrides[username]||{}), password_hash:hash };
-    localStorage.setItem('cipher2_user_overrides', JSON.stringify(overrides));
-    DB.invalidateUsersCache();
+    const hash = await DB.hashPassword(p);
+    const stored = JSON.parse(localStorage.getItem('cipher_users')||'{}');
+    if(stored[username]) stored[username].password_hash = hash;
+    localStorage.setItem('cipher_users', JSON.stringify(stored));
+    
     UI.toast(`@${username} şifresi güncellendi ✓`, 'success');
   }
 
