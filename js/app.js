@@ -305,8 +305,22 @@ function openGroupCreate() {
   const gc = document.getElementById('group-contacts');
   if (!gc) return;
   gc.innerHTML = '';
-  Object.values(_allUsers)
-    .filter(u => u.username !== window._currentUser.username)
+
+  // Sadece daha önce DM kurulmuş kişiler
+  const chattedUsernames = _convs
+    .filter(c => c.type === 'direct')
+    .map(c => c.participants.find(p => p !== window._currentUser.username))
+    .filter(Boolean);
+
+  if (!chattedUsernames.length) {
+    gc.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:#7A8FA8">Önce biriyle mesajlaşın.</div>';
+    UI.openModal('group-modal');
+    return;
+  }
+
+  chattedUsernames
+    .map(un => _allUsers[un])
+    .filter(Boolean)
     .sort((a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username, 'tr'))
     .forEach(u => {
       const c = UI.avatarColor(u.username);
@@ -516,12 +530,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Close pickers on outside click
   document.addEventListener('click', e => {
-    if (!e.target.closest('#gif-picker') && !e.target.closest('[onclick*="toggleGif"]') &&
-        !e.target.closest('[onclick*="Messages.toggleGif"]'))
-      document.getElementById('gif-picker')?.classList.add('hidden');
-    if (!e.target.closest('#sticker-picker') && !e.target.closest('[onclick*="toggleSticker"]') &&
-        !e.target.closest('[onclick*="Messages.toggleSticker"]'))
-      document.getElementById('sticker-picker')?.classList.add('hidden');
+    if (!e.target.closest('#gif-picker') && !e.target.closest('[onclick*="toggleGif"]') && !e.target.closest('[onclick*="Messages.toggleGif"]')) {
+      const gp = document.getElementById('gif-picker');
+      if (gp) gp.style.display = 'none';
+      Messages._gifOpen = false;
+    }
+    if (!e.target.closest('#sticker-picker') && !e.target.closest('[onclick*="toggleSticker"]') && !e.target.closest('[onclick*="Messages.toggleSticker"]')) {
+      const sp = document.getElementById('sticker-picker');
+      if (sp) sp.style.display = 'none';
+      Messages._stickerOpen = false;
+    }
     if (!e.target.closest('#reaction-picker') && !e.target.closest('.reaction-pill'))
       UI.hideReactionPicker();
     if (!e.target.closest('#profile-card') && !e.target.closest('[onclick*="showProfile"]'))
