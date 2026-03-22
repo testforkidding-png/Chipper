@@ -1,223 +1,201 @@
 /**
- * CIPHER DB — localStorage + BroadcastChannel real-time sync
- * İki sekme açılırsa gerçek zamanlı mesajlaşma çalışır.
+ * CIPHER — DB Layer v2.1
+ * users.json → localStorage with hardcoded fallback
+ * BroadcastChannel for real cross-tab sync
  */
 const DB = (() => {
-  const NS = 'cipher2_';
-  const g = k => { try { return JSON.parse(localStorage.getItem(NS+k)); } catch { return null; } };
-  const s = (k,v) => { localStorage.setItem(NS+k, JSON.stringify(v)); BC.post(k); };
-  const d = k => { localStorage.removeItem(NS+k); };
+  const NS = 'cipher_';
+  const _get = k => { try { return JSON.parse(localStorage.getItem(NS+k)); } catch { return null; } };
+  const _set = (k, v) => { localStorage.setItem(NS+k, JSON.stringify(v)); _bc?.postMessage({key:k}); };
 
-  // BroadcastChannel for cross-tab real-time
-  const BC = {
-    _ch: null,
-    _cbs: [],
-    init() {
-      if (!('BroadcastChannel' in window)) return;
-      this._ch = new BroadcastChannel('cipher_sync');
-      this._ch.onmessage = e => this._cbs.forEach(cb => cb(e.data));
-    },
-    post(key) { this._ch?.postMessage({ key, ts: Date.now() }); },
-    on(cb) { this._cbs.push(cb); },
-  };
-  BC.init();
+  // ── BroadcastChannel (cross-tab sync) ───────────────────────────
+  let _bc = null;
+  try { _bc = new BroadcastChannel('cipher_sync'); } catch {}
 
-  // ── User management (from users.json + localStorage overrides) ──
-  let _usersCache = null;
+  // ── Password hashing ─────────────────────────────────────────────
+  async function quickHash(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str + '_cipher_salt'));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
 
-  async function loadUsersFromJSON() {
+  // ── Fallback users (used when users.json can't be fetched) ───────
+  const FALLBACK_USERS = [
+    { username:'admin',  password:'admin123',  display_name:'Admin',       bio:'Sistem yöneticisi ⚡',                 is_admin:true,  badges:['admin','verified','early'], banner_color:'#0A1628', status:'Sistemi yönetiyorum', status_emoji:'⚡', avatar_url:null },
+    { username:'alice',  password:'alice123',  display_name:'Alice Chen',  bio:'Tasarımcı & şifreli iletişim meraklısı 🎨', is_admin:false, badges:['verified','early'],          banner_color:'#1A0A28', status:'Tasarım yapıyorum',   status_emoji:'🎨', avatar_url:null },
+    { username:'marcus', password:'marcus123', display_name:'Marcus Webb', bio:'Backend developer. Privacy matters. 🔒', is_admin:false, badges:['secure'],                   banner_color:'#0A2818', status:'Kod yazıyorum',        status_emoji:'💻', avatar_url:null },
+  ];
+
+  // ── User management ──────────────────────────────────────────────
+  async function ensureUsers() {
+    // Try users.json first
     try {
-      const r = await fetch(CONFIG.USERS_JSON_PATH + '?t=' + Date.now());
-      const data = await r.json();
-      const map = {};
-      for (const u of (data.users || [])) {
-        // Hash password if not already hashed
-        const hash = await hashPwd(u.password);
-        map[u.username] = { ...u, password_hash: hash, created_at: u.created_at || Date.now() - 30*86400000 };
-        delete map[u.username].password; // don't keep plaintext in memory
+      const r = await fetch('users.json?t=' + Date.now());
+      if (r.ok) {
+        const data = await r.json();
+        if (Array.isArray(data.users) && data.users.length) {
+          const stored = _get('users') || {};
+          for (const u of data.users) {
+            const hash = await quickHash(u.password);
+            const prev = stored[u.username] || {};
+            stored[u.username] = {
+              ...u,
+              password_hash: hash,
+              // Preserve profile customizations from localStorage
+              avatar_url:   prev.avatar_url   ?? null,
+              banner_color: prev.banner_color || u.banner_color,
+              bio:          prev.bio          || u.bio,
+              status:       prev.status       || u.status,
+              status_emoji: prev.status_emoji || u.status_emoji,
+              display_name: prev.display_name || u.display_name,
+              created_at:   prev.created_at   || (Date.now() - 30*86400000),
+            };
+          }
+          localStorage.setItem(NS+'users', JSON.stringify(stored));
+          console.log('[CIPHER] users.json yüklendi:', data.users.length, 'kullanıcı');
+          return;
+        }
       }
-      return map;
-    } catch (e) {
-      console.warn('users.json yüklenemedi, localStorage kullanılıyor:', e);
-      return g('users') || {};
+    } catch(e) {
+      console.warn('[CIPHER] users.json yüklenemedi:', e.message);
+    }
+    // Fallback: seed hardcoded users if none exist
+    if (!_get('users') || Object.keys(_get('users')||{}).length === 0) {
+      console.log('[CIPHER] Fallback kullanıcılar yükleniyor…');
+      const stored = {};
+      for (const u of FALLBACK_USERS) {
+        const hash = await quickHash(u.password);
+        stored[u.username] = { ...u, password_hash: hash, created_at: Date.now() - 30*86400000 };
+      }
+      localStorage.setItem(NS+'users', JSON.stringify(stored));
     }
   }
 
-  async function hashPwd(pass) {
-    if (!pass) return '';
-    // Simple deterministic hash (SHA-256 sim)
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass + '_cph'));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  }
-
-  async function getUsers() {
-    if (_usersCache) return _usersCache;
-    // Merge users.json with any localStorage overrides (avatar_url, bio edits etc.)
-    const base = await loadUsersFromJSON();
-    const overrides = g('user_overrides') || {};
-    _usersCache = {};
-    for (const [k,v] of Object.entries(base)) {
-      _usersCache[k] = { ...v, ...(overrides[k] || {}) };
-    }
-    return _usersCache;
-  }
-
-  function invalidateUsersCache() { _usersCache = null; }
-
-  async function getUser(username) {
-    const users = await getUsers();
-    return users[username] || null;
-  }
-
-  async function getAllUsers() {
-    return Object.values(await getUsers());
-  }
-
-  async function verifyPassword(username, plainPass) {
-    const user = await getUser(username);
-    if (!user) return false;
-    const hash = await hashPwd(plainPass);
-    return user.password_hash === hash;
-  }
-
-  async function updateUserOverride(username, data) {
-    const overrides = g('user_overrides') || {};
-    overrides[username] = { ...(overrides[username]||{}), ...data };
-    s('user_overrides', overrides);
-    invalidateUsersCache();
-    return await getUser(username);
-  }
-
-  // ── Conversations ───────────────────────────────────────────────
-  function getConvs() { return g('convs') || {}; }
-  function setConvs(v) { s('convs', v); }
-
-  async function getUserConversations(userId) {
-    const convs = getConvs();
-    return Object.values(convs).filter(c => c.participants?.includes(userId));
-  }
-
-  async function getConversation(convId) {
-    return getConvs()[convId] || null;
-  }
-
-  async function createConversation(data) {
-    const convs = getConvs();
-    convs[data.id] = { ...data, created_at: Date.now() };
-    setConvs(convs);
-    return convs[data.id];
-  }
-
-  async function updateConversation(convId, data) {
-    const convs = getConvs();
-    if (!convs[convId]) return null;
-    convs[convId] = { ...convs[convId], ...data };
-    setConvs(convs);
-    return convs[convId];
-  }
-
-  // ── Messages ────────────────────────────────────────────────────
-  function getMsgs(convId) { return g('msgs_'+convId) || []; }
-  function setMsgs(convId, v) { s('msgs_'+convId, v); }
-
-  async function getMessages(convId) {
-    return getMsgs(convId);
-  }
-
-  async function createMessage(data) {
-    const msgs = getMsgs(data.conv_id);
-    const msg = { ...data, id: data.id || 'msg_'+Date.now()+'_'+Math.random().toString(36).substr(2,6), created_at: data.created_at || Date.now() };
-    msgs.push(msg);
-    setMsgs(data.conv_id, msgs);
-    return msg;
-  }
-
-  async function updateMessage(convId, msgId, data) {
-    const msgs = getMsgs(convId);
-    const i = msgs.findIndex(m => m.id === msgId);
-    if (i < 0) return null;
-    msgs[i] = { ...msgs[i], ...data, updated_at: Date.now() };
-    setMsgs(convId, msgs);
-    return msgs[i];
-  }
-
-  async function deleteMessage(convId, msgId) {
-    setMsgs(convId, getMsgs(convId).filter(m => m.id !== msgId));
-  }
-
-  // ── Stories ─────────────────────────────────────────────────────
-  function getStories() {
-    const all = g('stories') || {};
-    const now = Date.now();
-    return Object.values(all).filter(s => s.expires_at > now);
-  }
-
-  async function createStory(data) {
-    const stories = g('stories') || {};
-    const id = 'story_'+Date.now();
-    stories[id] = { ...data, id, created_at: Date.now(), expires_at: Date.now() + 24*3600000 };
-    s('stories', stories);
-    return stories[id];
-  }
-
-  // ── Seed demo conversations (not users — those come from users.json) ─
-  function seedConvs() {
-    if (g('convs_seeded')) return;
+  // ── Seed demo conversations ──────────────────────────────────────
+  function seedConversations() {
+    if (_get('convs_seeded')) return;
     const now = Date.now();
     const convs = {
-      'admin_alice': { id:'admin_alice', type:'direct', participants:['admin','alice'], last_msg:'Merhaba!', last_time:now-3600000, unread_for:{admin:1} },
-      'admin_marcus': { id:'admin_marcus', type:'direct', participants:['admin','marcus'], last_msg:'Nasılsın?', last_time:now-7200000, unread_for:{} },
-      'alice_marcus': { id:'alice_marcus', type:'direct', participants:['alice','marcus'], last_msg:'👋 Selam!', last_time:now-1800000, unread_for:{alice:1} },
-      'group_cipher': { id:'group_cipher', type:'group', name:'CIPHER Team 🔐', participants:['admin','alice','marcus'], avatar:'CT', banner_color:'#0A2818', last_msg:'Herkese merhaba!', last_time:now-900000, unread_for:{}, admin:'admin' },
+      'admin_alice': { id:'admin_alice', type:'direct', participants:['admin','alice'], last_msg:'CIPHER kurulumu tamamlandı 🎉', last_time:now-3600000, unread_for:{admin:1} },
+      'admin_marcus': { id:'admin_marcus', type:'direct', participants:['admin','marcus'], last_msg:'Sistem hazır.', last_time:now-7200000, unread_for:{} },
+      'alice_marcus': { id:'alice_marcus', type:'direct', participants:['alice','marcus'], last_msg:'Nasılsın?', last_time:now-5400000, unread_for:{alice:1} },
+      'group_team': { id:'group_team', type:'group', name:'CIPHER Team 🔐', participants:['admin','alice','marcus'], avatar:'CT', banner_color:'#0A2818', last_msg:'Gruba hoş geldiniz!', last_time:now-1800000, unread_for:{admin:2}, admin:'admin' },
     };
-    setConvs(convs);
+    _set('convs', convs);
 
-    setMsgs('admin_alice', [
-      { id:'m1', conv_id:'admin_alice', from:'alice', text:'Merhaba! CIPHER çalışıyor 🎉', type:'text', created_at:now-7200000, status:'read' },
-      { id:'m2', conv_id:'admin_alice', from:'admin', text:'Harika! Uçtan uca şifreleme aktif 🔒', type:'text', created_at:now-7100000, status:'read' },
-      { id:'m3', conv_id:'admin_alice', from:'alice', text:'', type:'gif', gif_url:'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif', gif_title:'Excited', created_at:now-3700000, status:'read', reactions:{'🔥':['admin']} },
-      { id:'m4', conv_id:'admin_alice', from:'admin', text:'Merhaba!', type:'text', created_at:now-3600000, status:'sent' },
+    _set('msgs_admin_alice', [
+      { id:'m1', conv_id:'admin_alice', from:'alice', text:'Merhaba! CIPHER kurulumu tamamlandı 🎉', type:'text', created_at:now-7200000, status:'read' },
+      { id:'m2', conv_id:'admin_alice', from:'admin', text:'Harika! Uçtan uca şifreleme aktif. 🔒', type:'text', created_at:now-7100000, status:'read' },
+      { id:'m3', conv_id:'admin_alice', from:'alice', text:'GIF ve sticker özellikleri çalışıyor mu? 😄', type:'text', created_at:now-3700000, reactions:{'👍':['admin']}, status:'read' },
+      { id:'m4', conv_id:'admin_alice', from:'admin', text:'Evet! GIF butonuna bas ve GIPHY\'den seç 🎬', type:'text', created_at:now-3600000, status:'sent' },
     ]);
-
-    setMsgs('admin_marcus', [
-      { id:'m1', conv_id:'admin_marcus', from:'marcus', text:'Hey! Her şey hazır.', type:'text', created_at:now-10000000, status:'read' },
-      { id:'m2', conv_id:'admin_marcus', from:'admin', text:'Nasılsın?', type:'text', created_at:now-7200000, status:'sent' },
+    _set('msgs_admin_marcus', [
+      { id:'m1', conv_id:'admin_marcus', from:'marcus', text:'CIPHER çok güzel bir platform. 🔐', type:'text', created_at:now-10000000, status:'read' },
+      { id:'m2', conv_id:'admin_marcus', from:'admin', text:'Teşekkürler! Şifreli mesajlaşma her an hazır.', type:'text', created_at:now-7200000, status:'read' },
+      { id:'m3', conv_id:'admin_marcus', from:'marcus', text:'Sistem hazır.', type:'text', created_at:now-7200000, status:'read' },
     ]);
-
-    setMsgs('alice_marcus', [
-      { id:'m1', conv_id:'alice_marcus', from:'marcus', text:'Selam Alice! 🤙', type:'text', created_at:now-5000000, status:'read' },
-      { id:'m2', conv_id:'alice_marcus', from:'alice', text:'', type:'sticker', sticker:'🎨', created_at:now-4900000, status:'read' },
-      { id:'m3', conv_id:'alice_marcus', from:'marcus', text:'👋 Selam!', type:'text', created_at:now-1800000, status:'sent' },
+    _set('msgs_alice_marcus', [
+      { id:'m1', conv_id:'alice_marcus', from:'marcus', text:'Selam Alice! CIPHER\'ı denedin mi?', type:'text', created_at:now-6000000, status:'read' },
+      { id:'m2', conv_id:'alice_marcus', from:'alice', text:'', type:'sticker', sticker:'🎨', created_at:now-5900000, status:'read' },
+      { id:'m3', conv_id:'alice_marcus', from:'marcus', text:'Nasılsın?', type:'text', created_at:now-5400000, status:'read' },
     ]);
-
-    setMsgs('group_cipher', [
-      { id:'m1', conv_id:'group_cipher', from:'admin', text:'CIPHER Team grubuna hoş geldiniz! 🔐', type:'text', created_at:now-86400000, status:'read' },
-      { id:'m2', conv_id:'group_cipher', from:'alice', text:'Merhaba herkese! 👋', type:'text', created_at:now-85000000, reactions:{'❤️':['admin','marcus']}, status:'read' },
-      { id:'m3', conv_id:'group_cipher', from:'marcus', text:'Herkese merhaba!', type:'text', created_at:now-900000, status:'read' },
+    _set('msgs_group_team', [
+      { id:'m1', conv_id:'group_team', from:'admin', text:'CIPHER Team grubuna hoş geldiniz! 🔐', type:'text', created_at:now-86400000, status:'read' },
+      { id:'m2', conv_id:'group_team', from:'alice', text:'Merhaba herkese! 👋', type:'text', created_at:now-85000000, reactions:{'❤️':['admin','marcus']}, status:'read' },
+      { id:'m3', conv_id:'group_team', from:'marcus', text:'Gruba hoş geldiniz!', type:'text', created_at:now-1800000, status:'read' },
     ]);
-
-    s('convs_seeded', true);
+    _set('convs_seeded', true);
   }
 
-  // ── On storage event (cross-tab real-time) ───────────────────────
-  BC.on(data => {
-    window._onStorageSync?.(data.key);
-  });
+  // ── Local Implementation ─────────────────────────────────────────
+  const Local = {
+    async getUser(u)        { return (_get('users')||{})[u]||null; },
+    async getAllUsers()      { return Object.values(_get('users')||{}); },
+    async createUser(d)     { const us=_get('users')||{}; us[d.username]={...d,created_at:Date.now()}; _set('users',us); return us[d.username]; },
+    async updateUser(u,d)   { const us=_get('users')||{}; if(!us[u])return null; us[u]={...us[u],...d,updated_at:Date.now()}; _set('users',us); return us[u]; },
+    async deleteUser(u)     { const us=_get('users')||{}; delete us[u]; _set('users',us); },
 
+    async getConversations(uid) { return Object.values(_get('convs')||{}).filter(c=>c.participants?.includes(uid)); },
+    async getConversation(id)   { return (_get('convs')||{})[id]||null; },
+    async createConversation(d) { const cs=_get('convs')||{}; const id=d.id||'conv_'+Date.now(); cs[id]={...d,id,created_at:Date.now()}; _set('convs',cs); return cs[id]; },
+    async updateConversation(id,d) { const cs=_get('convs')||{}; if(!cs[id])return null; cs[id]={...cs[id],...d}; _set('convs',cs); return cs[id]; },
+
+    async getMessages(cid,lim=200) { return (_get('msgs_'+cid)||[]).slice(-lim); },
+    async createMessage(d) {
+      const msgs=_get('msgs_'+d.conv_id)||[];
+      const msg={...d,id:d.id||'msg_'+Date.now()+Math.random().toString(36).substr(2,4),created_at:d.created_at||Date.now()};
+      msgs.push(msg); _set('msgs_'+d.conv_id,msgs); return msg;
+    },
+    async updateMessage(cid,mid,d) {
+      const msgs=_get('msgs_'+cid)||[];
+      const i=msgs.findIndex(m=>m.id===mid); if(i<0)return null;
+      msgs[i]={...msgs[i],...d,updated_at:Date.now()}; _set('msgs_'+cid,msgs); return msgs[i];
+    },
+    async deleteMessage(cid,mid) { _set('msgs_'+cid,(_get('msgs_'+cid)||[]).filter(m=>m.id!==mid)); },
+
+    async getStories() { const now=Date.now(); return Object.values(_get('stories')||{}).filter(s=>s.expires_at>now); },
+    async createStory(d) { const ss=_get('stories')||{}; const id='story_'+Date.now(); ss[id]={...d,id,created_at:Date.now(),expires_at:Date.now()+24*3600000}; _set('stories',ss); return ss[id]; },
+    async deleteStory(id) { const ss=_get('stories')||{}; delete ss[id]; _set('stories',ss); },
+  };
+
+  // ── Supabase ─────────────────────────────────────────────────────
+  let _sb=null;
+  const sb=()=>{ if(_sb)return _sb; if(!window.supabase)throw new Error('Supabase not loaded'); _sb=window.supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY); return _sb; };
+  const Supa = {
+    async getUser(u)            { const{data}=await sb().from('users').select('*').eq('username',u).single(); return data; },
+    async getAllUsers()          { const{data}=await sb().from('users').select('*').order('created_at'); return data||[]; },
+    async createUser(d)         { const{data,error}=await sb().from('users').insert(d).select().single(); if(error)throw error; return data; },
+    async updateUser(u,d)       { const{data}=await sb().from('users').update(d).eq('username',u).select().single(); return data; },
+    async deleteUser(u)         { await sb().from('users').delete().eq('username',u); },
+    async getConversations(uid) { const{data}=await sb().from('conversations').select('*').contains('participants',[uid]).order('last_time',{ascending:false}); return data||[]; },
+    async getConversation(id)   { const{data}=await sb().from('conversations').select('*').eq('id',id).single(); return data; },
+    async createConversation(d) { const{data,error}=await sb().from('conversations').insert(d).select().single(); if(error)throw error; return data; },
+    async updateConversation(id,d) { const{data}=await sb().from('conversations').update(d).eq('id',id).select().single(); return data; },
+    async getMessages(cid,lim=200) { const{data}=await sb().from('messages').select('*').eq('conv_id',cid).order('created_at').limit(lim); return data||[]; },
+    async createMessage(d)      { const{data,error}=await sb().from('messages').insert(d).select().single(); if(error)throw error; return data; },
+    async updateMessage(cid,mid,d) { const{data}=await sb().from('messages').update(d).eq('id',mid).select().single(); return data; },
+    async deleteMessage(cid,mid)   { await sb().from('messages').delete().eq('id',mid); },
+    async getStories()             { const{data}=await sb().from('stories').select('*').gt('expires_at',new Date().toISOString()); return data||[]; },
+    async createStory(d)           { const exp=new Date(Date.now()+86400000).toISOString(); const{data,error}=await sb().from('stories').insert({...d,expires_at:exp}).select().single(); if(error)throw error; return data; },
+    async deleteStory(id)          { await sb().from('stories').delete().eq('id',id); },
+    subscribeMessages(cid,cb) { return sb().channel('msgs_'+cid).on('postgres_changes',{event:'*',schema:'public',table:'messages',filter:`conv_id=eq.${cid}`},cb).subscribe(); },
+    unsubscribe(ch) { if(ch)sb().removeChannel(ch); }
+  };
+
+  const impl = () => CONFIG.USE_SUPABASE ? Supa : Local;
+
+  // ── Cross-tab event listener ─────────────────────────────────────
+  if (_bc) {
+    _bc.onmessage = e => window._onStorageSync?.(e.data?.key);
+  }
   window.addEventListener('storage', e => {
-    if (e.key?.startsWith(NS)) {
-      const k = e.key.slice(NS.length);
-      window._onStorageSync?.(k);
-    }
+    if (e.key?.startsWith(NS)) window._onStorageSync?.(e.key.slice(NS.length));
   });
 
   return {
-    init() { seedConvs(); },
-    hashPwd,
-    getUser, getAllUsers, verifyPassword, updateUserOverride, invalidateUsersCache,
-    getUserConversations, getConversation, createConversation, updateConversation,
-    getMessages, createMessage, updateMessage, deleteMessage,
-    getStories, createStory,
-    onSync(cb) { BC.on(cb); },
+    async init() {
+      if (!CONFIG.USE_SUPABASE) {
+        await ensureUsers();
+        seedConversations();
+      }
+    },
+    getUser:            (...a) => impl().getUser(...a),
+    getAllUsers:         (...a) => impl().getAllUsers(...a),
+    createUser:         (...a) => impl().createUser(...a),
+    updateUser:         (...a) => impl().updateUser(...a),
+    deleteUser:         (...a) => impl().deleteUser(...a),
+    getConversations:   (...a) => impl().getConversations(...a),
+    getConversation:    (...a) => impl().getConversation(...a),
+    createConversation: (...a) => impl().createConversation(...a),
+    updateConversation: (...a) => impl().updateConversation(...a),
+    getMessages:        (...a) => impl().getMessages(...a),
+    createMessage:      (...a) => impl().createMessage(...a),
+    updateMessage:      (...a) => impl().updateMessage(...a),
+    deleteMessage:      (...a) => impl().deleteMessage(...a),
+    getStories:         (...a) => impl().getStories(...a),
+    createStory:        (...a) => impl().createStory(...a),
+    deleteStory:        (...a) => impl().deleteStory(...a),
+    subscribeMessages:  CONFIG.USE_SUPABASE ? (...a) => Supa.subscribeMessages(...a) : () => null,
+    unsubscribe:        CONFIG.USE_SUPABASE ? (...a) => Supa.unsubscribe(...a)        : () => null,
+    hashPassword: quickHash,
   };
 })();
