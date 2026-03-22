@@ -25,6 +25,11 @@ async function bootApp() {
   setupScreenshotDetection();
   buildStickerTabs();
 
+  // Request notification permission
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+
   // Mesaj gönderim / değişiklik sonrası bu sekmeyi güncelle
   window._onNewMessage = async () => {
     await loadConversations();
@@ -36,6 +41,23 @@ async function bootApp() {
     if (!key) return;
     if (key === 'convs') await loadConversations();
     if (key.startsWith('msgs_')) {
+      const convId = key.slice(5);
+      // Notify if not the active conv or window hidden
+      if (convId !== window._currentConvId || document.hidden) {
+        const msgs = await DB.getMessages(convId);
+        const last = msgs[msgs.length - 1];
+        if (last && last.from !== window._currentUser.username) {
+          addNotif(last.text || (last.type === 'gif' ? '🎬 GIF' : last.sticker || '📎'), last.from, convId);
+          // Unread badge
+          const convs = await DB.getConversations(window._currentUser.username);
+          const conv = convs.find(c => c.id === convId);
+          if (conv) {
+            const unread = (conv.unread_for?.[window._currentUser.username] || 0) + 1;
+            conv.unread_for = { ...(conv.unread_for || {}), [window._currentUser.username]: unread };
+            await DB.updateConversation(convId, { unread_for: conv.unread_for });
+          }
+        }
+      }
       await loadConversations();
       if (key === 'msgs_' + window._currentConvId) await renderMessages();
     }
@@ -174,6 +196,10 @@ async function openConv(convId) {
 
   avEl.onclick = other ? () => UI.showProfileCard(other, avEl) : null;
   avEl.style.cursor = other ? 'pointer' : 'default';
+
+  // Engelle/bildir butonu sadece DM'de göster
+  const brBtn = document.getElementById('block-report-btn');
+  if (brBtn) brBtn.style.display = (conv.type === 'direct') ? 'flex' : 'none';
 
   // Chat view
   document.getElementById('empty-state').style.display = 'none';
@@ -528,6 +554,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   await DB.init();
   await bootApp();
 
+  Messages.initEvents();
+
   // Close pickers on outside click
   document.addEventListener('click', e => {
     if (!e.target.closest('#gif-picker') && !e.target.closest('[onclick*="toggleGif"]') && !e.target.closest('[onclick*="Messages.toggleGif"]')) {
@@ -548,3 +576,172 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('ctx-menu')?.classList.add('hidden');
   });
 });
+
+// ── Block / Report ────────────────────────────────────────────────
+function openBlockReport() {
+  const conv = _convs.find(c => c.id === window._currentConvId);
+  if (!conv || conv.type !== 'direct') return;
+  const otherU = conv.participants.find(p => p !== window._currentUser.username);
+  const u = _allUsers[otherU];
+  if (!u) return;
+  window._brTarget = u.username;
+
+  const blocked = getBlockedList();
+  const isBlocked = blocked.includes(u.username);
+  const color = UI.avatarColor(u.username);
+  const av = u.avatar_url
+    ? `<img src="${u.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`
+    : `<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>`;
+  document.getElementById('br-user-info').innerHTML = `${av}<div><div style="font-size:13px;font-weight:600;color:#DDE8F8">${u.display_name || u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div>`;
+
+  const blockBtn = document.getElementById('br-block-btn');
+  if (isBlocked) {
+    blockBtn.innerHTML = `<span style="font-size:18px">✅</span><div><div style="font-size:13px;font-weight:600">Engeli Kaldır</div><div style="font-size:11px;opacity:.7">Mesaj alabilirsin</div></div>`;
+  } else {
+    blockBtn.innerHTML = `<span style="font-size:18px">🚫</span><div><div style="font-size:13px;font-weight:600">Engelle</div><div style="font-size:11px;opacity:.7">Bu kullanıcıdan mesaj alamazsın</div></div>`;
+  }
+  UI.openModal('block-report-modal');
+}
+
+function getBlockedList() {
+  try { return JSON.parse(localStorage.getItem('cipher_blocked_' + window._currentUser.username) || '[]'); } catch { return []; }
+}
+function saveBlockedList(list) {
+  localStorage.setItem('cipher_blocked_' + window._currentUser.username, JSON.stringify(list));
+}
+
+function blockUser() {
+  const target = window._brTarget; if (!target) return;
+  const blocked = getBlockedList();
+  const idx = blocked.indexOf(target);
+  if (idx >= 0) {
+    blocked.splice(idx, 1);
+    saveBlockedList(blocked);
+    UI.toast(`@${target} engeli kaldırıldı`, 'info');
+  } else {
+    blocked.push(target);
+    saveBlockedList(blocked);
+    UI.toast(`@${target} engellendi 🚫`, 'warn');
+  }
+  UI.closeModal('block-report-modal');
+}
+
+function reportUser() {
+  const target = window._brTarget; if (!target) return;
+  // Log to admin reports
+  const reports = JSON.parse(localStorage.getItem('cipher_admin_reports') || '[]');
+  reports.push({ type: 'user', target, from: window._currentUser.username, time: Date.now(), note: 'Kullanıcı şikayeti' });
+  localStorage.setItem('cipher_admin_reports', JSON.stringify(reports));
+  UI.closeModal('block-report-modal');
+  UI.toast('Şikayet iletildi. Teşekkürler 🚨', 'success');
+}
+
+// ── Report form ───────────────────────────────────────────────────
+function openReportModal() { UI.openModal('report-modal'); }
+function submitReport() {
+  const type = document.getElementById('report-type').value;
+  const text = document.getElementById('report-text').value.trim();
+  if (!text) { UI.toast('Açıklama girin', 'error'); return; }
+  const reports = JSON.parse(localStorage.getItem('cipher_admin_reports') || '[]');
+  reports.push({ type, from: window._currentUser.username, text, time: Date.now() });
+  localStorage.setItem('cipher_admin_reports', JSON.stringify(reports));
+  document.getElementById('report-text').value = '';
+  UI.closeModal('report-modal');
+  UI.toast('Sorun bildirildi ✓', 'success');
+}
+
+// ── Lock account ──────────────────────────────────────────────────
+function openLockAccount() { document.getElementById('lock-pwd').value = ''; document.getElementById('lock-err').style.display = 'none'; UI.openModal('lock-modal'); }
+async function confirmLock() {
+  const pwd = document.getElementById('lock-pwd').value;
+  if (!pwd) return;
+  const hash = await DB.hashPassword(pwd);
+  const cu = window._currentUser;
+  if (hash !== cu.password_hash) {
+    const e = document.getElementById('lock-err'); e.textContent = 'Şifre yanlış.'; e.style.display = '';
+    return;
+  }
+  UI.closeModal('lock-modal');
+  Auth.logout();
+  UI.toast('Hesap kilitlendi', 'info');
+}
+
+// ── Delete account ────────────────────────────────────────────────
+function openDeleteAccount() {
+  document.getElementById('delete-confirm').value = '';
+  document.getElementById('delete-pwd').value = '';
+  document.getElementById('del-err').style.display = 'none';
+  UI.openModal('delete-account-modal');
+}
+async function confirmDeleteAccount() {
+  const confirm = document.getElementById('delete-confirm').value.trim();
+  const pwd = document.getElementById('delete-pwd').value;
+  const errEl = document.getElementById('del-err');
+  const showErr = msg => { errEl.textContent = msg; errEl.style.display = ''; };
+
+  if (confirm !== 'SİL') { showErr('"SİL" yazmanız gerekiyor.'); return; }
+  if (!pwd) { showErr('Şifre girin.'); return; }
+
+  const hash = await DB.hashPassword(pwd);
+  const cu = window._currentUser;
+  if (hash !== cu.password_hash) { showErr('Şifre yanlış.'); return; }
+
+  await DB.deleteUser(cu.username);
+  UI.closeModal('delete-account-modal');
+  UI.toast('Hesap silindi. Güle güle 👋', 'info');
+  setTimeout(() => Auth.logout(), 1500);
+}
+
+// ── Notifications ─────────────────────────────────────────────────
+let _notifs = [];
+function addNotif(msg, from, convId) {
+  _notifs.unshift({ msg, from, convId, time: Date.now(), read: false });
+  if (_notifs.length > 50) _notifs = _notifs.slice(0, 50);
+  updateNotifBadge();
+  // Browser notification
+  if (Notification.permission === 'granted' && document.hidden) {
+    const u = _allUsers[from];
+    new Notification(u?.display_name || from, { body: msg, icon: 'icons/icon-192.png' });
+  }
+}
+
+function updateNotifBadge() {
+  const unread = _notifs.filter(n => !n.read).length;
+  let badge = document.getElementById('notif-badge');
+  if (!badge) {
+    const btn = document.getElementById('notif-btn');
+    if (!btn) return;
+    badge = document.createElement('span');
+    badge.id = 'notif-badge';
+    badge.style.cssText = 'position:absolute;top:-2px;right:-2px;width:14px;height:14px;border-radius:50%;background:#FF3D6B;color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;font-family:\'JetBrains Mono\',monospace;border:2px solid #06080F';
+    btn.style.position = 'relative';
+    btn.appendChild(badge);
+  }
+  badge.textContent = unread > 9 ? '9+' : unread;
+  badge.style.display = unread > 0 ? 'flex' : 'none';
+}
+
+function openNotifs() {
+  _notifs.forEach(n => n.read = true);
+  updateNotifBadge();
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+  if (!_notifs.length) { list.innerHTML = '<div style="text-align:center;padding:24px;color:#7A8FA8;font-size:13px">Henüz bildirim yok</div>'; }
+  else {
+    list.innerHTML = _notifs.map(n => {
+      const u = _allUsers[n.from] || { username: n.from, display_name: n.from };
+      const c = UI.avatarColor(u.username);
+      return `<div onclick="UI.closeModal('notif-modal');openConv('${n.convId}')" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;cursor:pointer;background:#06080F;border:1px solid #1E2D45;transition:background .15s" onmouseenter="this.style.background='#0C1220'" onmouseleave="this.style.background='#06080F'">
+        <div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#DDE8F8">${u.display_name || u.username}</div><div style="font-size:11px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.msg}</div></div>
+        <span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;flex-shrink:0">${UI.fmtTime(n.time)}</span>
+      </div>`;
+    }).join('');
+  }
+  UI.openModal('notif-modal');
+}
+
+function clearAllNotifs() { _notifs = []; updateNotifBadge(); UI.closeModal('notif-modal'); }
+
+// Inject notification on incoming message
+const _origStorageSync = null;
