@@ -70,41 +70,7 @@ const DB = (() => {
     }
   }
 
-  // ── Seed demo conversations ──────────────────────────────────────
-  function seedConversations() {
-    if (_get('convs_seeded')) return;
-    const now = Date.now();
-    const convs = {
-      'admin_alice': { id:'admin_alice', type:'direct', participants:['admin','alice'], last_msg:'CIPHER kurulumu tamamlandı 🎉', last_time:now-3600000, unread_for:{admin:1} },
-      'admin_marcus': { id:'admin_marcus', type:'direct', participants:['admin','marcus'], last_msg:'Sistem hazır.', last_time:now-7200000, unread_for:{} },
-      'alice_marcus': { id:'alice_marcus', type:'direct', participants:['alice','marcus'], last_msg:'Nasılsın?', last_time:now-5400000, unread_for:{alice:1} },
-      'group_team': { id:'group_team', type:'group', name:'CIPHER Team 🔐', participants:['admin','alice','marcus'], avatar:'CT', banner_color:'#0A2818', last_msg:'Gruba hoş geldiniz!', last_time:now-1800000, unread_for:{admin:2}, admin:'admin' },
-    };
-    _set('convs', convs);
-
-    _set('msgs_admin_alice', [
-      { id:'m1', conv_id:'admin_alice', from:'alice', text:'Merhaba! CIPHER kurulumu tamamlandı 🎉', type:'text', created_at:now-7200000, status:'read' },
-      { id:'m2', conv_id:'admin_alice', from:'admin', text:'Harika! Uçtan uca şifreleme aktif. 🔒', type:'text', created_at:now-7100000, status:'read' },
-      { id:'m3', conv_id:'admin_alice', from:'alice', text:'GIF ve sticker özellikleri çalışıyor mu? 😄', type:'text', created_at:now-3700000, reactions:{'👍':['admin']}, status:'read' },
-      { id:'m4', conv_id:'admin_alice', from:'admin', text:'Evet! GIF butonuna bas ve GIPHY\'den seç 🎬', type:'text', created_at:now-3600000, status:'sent' },
-    ]);
-    _set('msgs_admin_marcus', [
-      { id:'m1', conv_id:'admin_marcus', from:'marcus', text:'CIPHER çok güzel bir platform. 🔐', type:'text', created_at:now-10000000, status:'read' },
-      { id:'m2', conv_id:'admin_marcus', from:'admin', text:'Teşekkürler! Şifreli mesajlaşma her an hazır.', type:'text', created_at:now-7200000, status:'read' },
-      { id:'m3', conv_id:'admin_marcus', from:'marcus', text:'Sistem hazır.', type:'text', created_at:now-7200000, status:'read' },
-    ]);
-    _set('msgs_alice_marcus', [
-      { id:'m1', conv_id:'alice_marcus', from:'marcus', text:'Selam Alice! CIPHER\'ı denedin mi?', type:'text', created_at:now-6000000, status:'read' },
-      { id:'m2', conv_id:'alice_marcus', from:'alice', text:'', type:'sticker', sticker:'🎨', created_at:now-5900000, status:'read' },
-      { id:'m3', conv_id:'alice_marcus', from:'marcus', text:'Nasılsın?', type:'text', created_at:now-5400000, status:'read' },
-    ]);
-    _set('msgs_group_team', [
-      { id:'m1', conv_id:'group_team', from:'admin', text:'CIPHER Team grubuna hoş geldiniz! 🔐', type:'text', created_at:now-86400000, status:'read' },
-      { id:'m2', conv_id:'group_team', from:'alice', text:'Merhaba herkese! 👋', type:'text', created_at:now-85000000, reactions:{'❤️':['admin','marcus']}, status:'read' },
-      { id:'m3', conv_id:'group_team', from:'marcus', text:'Gruba hoş geldiniz!', type:'text', created_at:now-1800000, status:'read' },
-    ]);
-    _set('convs_seeded', true);
-  }
+  // Seed kaldırıldı — demo konuşmalar artık oluşturulmuyor
 
   // ── Local Implementation ─────────────────────────────────────────
   const Local = {
@@ -175,7 +141,6 @@ const DB = (() => {
     async init() {
       if (!CONFIG.USE_SUPABASE) {
         await ensureUsers();
-        seedConversations();
       }
     },
     getUser:            (...a) => impl().getUser(...a),
