@@ -1,45 +1,4 @@
 {
-  "_readme": "Kullanıcı eklemek/silmek için bu dosyayı düzenleyin. Admin paneli: /admin.html",
-  "_password_note": "Şifreler burada düz metin - uygulama otomatik hash'ler. Sunucuya yükledikten sonra güvenli yere taşıyın.",
-  "users": [
-    {
-      "username": "admin",
-      "password": "admin123",
-      "display_name": "Admin",
-      "bio": "Sistem yöneticisi ⚡",
-      "email": "admin@cipher.app",
-      "is_admin": true,
-      "badges": ["admin", "verified", "early"],
-      "banner_color": "#0A1628",
-      "status": "Sistemi yönetiyorum",
-      "status_emoji": "⚡",
-      "avatar_url": null
-    },
-    {
-      "username": "alice",
-      "password": "alice123",
-      "display_name": "Alice Chen",
-      "bio": "Tasarımcı & şifreli iletişim meraklısı 🎨",
-      "email": "alice@cipher.app",
-      "is_admin": false,
-      "badges": ["verified", "early"],
-      "banner_color": "#1A0A28",
-      "status": "Tasarım yapıyorum",
-      "status_emoji": "🎨",
-      "avatar_url": null
-    },
-    {
-      "username": "marcus",
-      "password": "marcus123",
-      "display_name": "Marcus Webb",
-      "bio": "Backend developer. Privacy matters. 🔒",
-      "email": "marcus@cipher.app",
-      "is_admin": false,
-      "badges": ["secure"],
-      "banner_color": "#0A2818",
-      "status": "Kod yazıyorum",
-      "status_emoji": "💻",
-      "avatar_url": null
-    }
-  ]
+  "_comment": "Kullanıcıları buraya ekleyin. Şifreler uygulama içinde hash'lenir.",
+  "users": []
 }
