@@ -382,9 +382,11 @@ CREATE TABLE stories (
     if (!p || p.length < 6) { UI.toast('Şifre en az 6 karakter', 'error'); return; }
     const hash = await DB.hashPassword(p);
     const stored = JSON.parse(localStorage.getItem('cipher_users')||'{}');
-    if(stored[username]) stored[username].password_hash = hash;
+    if (stored[username]) {
+      stored[username].password_hash = hash;
+      delete stored[username].password_hash_broken;
+    }
     localStorage.setItem('cipher_users', JSON.stringify(stored));
-    
     UI.toast(`@${username} şifresi güncellendi ✓`, 'success');
   }
 
