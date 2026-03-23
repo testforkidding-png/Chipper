@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#00FFB3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,220 +14,136 @@
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
-      --accent:#00FFB3;--accent-d:#00C48A;--bg:#06080F;
-      --surf:#0C1220;--border:#1E2D45;--text:#DDE8F8;
-      --muted:#7A8FA8;--danger:#FF3D6B
+      --accent:#00FFB3;--accent-d:#00C48A;
+      --bg:#06080F;--surf:#0C1220;--border:#1E2D45;
+      --text:#DDE8F8;--muted:#7A8FA8;--danger:#FF3D6B
     }
-
-    /* ── MOBILE-FIRST: overflow visible so keyboard doesn't clip ── */
+    /* CRITICAL: No overflow:hidden on html/body — breaks mobile keyboard */
     html { height:100%; }
     body {
       min-height:100%;
       background:var(--bg);
       color:var(--text);
       font-family:'DM Sans',sans-serif;
-      /* NO overflow:hidden — keyboard must be able to scroll */
       overflow-y:auto;
       -webkit-overflow-scrolling:touch;
     }
-
-    /* grid background */
+    /* Grid bg */
     body::before {
-      content:'';
-      position:fixed;inset:0;
-      background-image:
-        linear-gradient(rgba(0,255,179,.03)1px,transparent 1px),
-        linear-gradient(90deg,rgba(0,255,179,.03)1px,transparent 1px);
+      content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+      background-image:linear-gradient(rgba(0,255,179,.03)1px,transparent 1px),linear-gradient(90deg,rgba(0,255,179,.03)1px,transparent 1px);
       background-size:40px 40px;
-      pointer-events:none;
-      z-index:0;
     }
-
-    /* ambient orbs — fixed so they don't affect layout */
-    .orb {
-      position:fixed;border-radius:50%;filter:blur(80px);
-      pointer-events:none;z-index:0;
-      animation:pulse 6s infinite;
-    }
+    /* Orbs — fixed so they don't break scrolling */
+    .orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;animation:pulse 6s infinite}
     @keyframes pulse{0%,100%{opacity:.12}50%{opacity:.2}}
-
-    /* outer wrapper — scrollable on mobile */
-    .page-wrap {
+    /* Main wrapper */
+    .wrap{
       position:relative;z-index:1;
       min-height:100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:20px 16px;
-      /* extra bottom padding so button visible above keyboard */
-      padding-bottom:env(safe-area-inset-bottom, 20px);
+      display:flex;align-items:center;justify-content:center;
+      padding:24px 16px;
+      padding-top:env(safe-area-inset-top, 24px);
+      padding-bottom:max(24px, env(safe-area-inset-bottom));
     }
-
-    /* card */
-    .card {
-      background:var(--surf);
-      border:1px solid var(--border);
-      border-radius:24px;
-      padding:36px 28px;
-      width:100%;
-      max-width:400px;
-      box-shadow:0 32px 80px rgba(0,0,0,.6),0 0 80px rgba(0,255,179,.04);
+    .card{
+      background:var(--surf);border:1px solid var(--border);
+      border-radius:24px;padding:36px 28px;
+      width:100%;max-width:400px;
+      box-shadow:0 32px 80px rgba(0,0,0,.6);
     }
-
-    /* logo */
-    .logo-icon {
-      width:52px;height:52px;border-radius:16px;
+    .logo-icon{
+      width:52px;height:52px;border-radius:16px;flex-shrink:0;
       background:linear-gradient(135deg,var(--accent),var(--accent-d));
       display:flex;align-items:center;justify-content:center;
-      animation:lockIn .6s cubic-bezier(.34,1.56,.64,1);
-      flex-shrink:0;
+      animation:lockIn .5s cubic-bezier(.34,1.56,.64,1);
     }
-    @keyframes lockIn{from{transform:rotate(-15deg)scale(.7);opacity:0}to{transform:rotate(0)scale(1);opacity:1}}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
-    .fade-up{animation:fadeUp .4s ease-out forwards}
-    .fade-up-1{animation-delay:.05s;opacity:0}
-    .fade-up-2{animation-delay:.1s;opacity:0}
-
-    /* labels */
-    .lbl {
-      display:block;font-size:10px;font-weight:600;
-      color:var(--muted);font-family:'JetBrains Mono',monospace;
-      margin-bottom:6px;letter-spacing:.08em;
+    @keyframes lockIn{from{transform:rotate(-12deg)scale(.7);opacity:0}to{transform:none;opacity:1}}
+    .lbl{display:block;font-size:11px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:7px;letter-spacing:.06em}
+    .inp-wrap{position:relative}
+    .inp{
+      width:100%;padding:14px 16px;border:1.5px solid var(--border);
+      border-radius:14px;background:#050810;color:var(--text);
+      /* 16px minimum prevents iOS auto-zoom */
+      font-size:16px;font-family:'DM Sans',sans-serif;
+      transition:border-color .2s;outline:none;
+      -webkit-appearance:none;appearance:none;
     }
-
-    /* inputs */
-    .inp-wrap { position:relative; }
-    .inp {
-      width:100%;
-      padding:14px 16px;
-      border:1.5px solid var(--border);
-      border-radius:14px;
-      background:#06080F;
-      color:var(--text);
-      font-size:16px; /* 16px prevents iOS zoom */
-      font-family:'DM Sans',sans-serif;
-      transition:border-color .2s,box-shadow .2s;
-      outline:none;
-      -webkit-appearance:none;
-      appearance:none;
-    }
-    .inp:focus {
-      border-color:var(--accent)!important;
-      box-shadow:0 0 0 3px rgba(0,255,179,.1);
-    }
-    .inp-icon {
-      position:absolute;left:14px;top:50%;
-      transform:translateY(-50%);
-      pointer-events:none;opacity:.5;
-    }
-    .inp.has-icon { padding-left:42px; }
-    .inp-toggle {
-      position:absolute;right:12px;top:50%;
-      transform:translateY(-50%);
-      background:none;border:none;cursor:pointer;
-      color:var(--muted);padding:6px;opacity:.7;
-      transition:opacity .2s;
+    .inp:focus{border-color:var(--accent)!important;}
+    .inp-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.45;color:var(--muted)}
+    .has-icon{padding-left:42px}
+    .eye-btn{
+      position:absolute;right:4px;top:50%;transform:translateY(-50%);
+      background:none;border:none;cursor:pointer;padding:10px;
+      color:var(--muted);opacity:.7;
       -webkit-tap-highlight-color:transparent;
     }
-    .inp-toggle:hover { opacity:1; }
-
-    /* button */
-    .btn-primary {
-      width:100%;padding:15px;border:none;
-      border-radius:14px;
-      background:linear-gradient(135deg,var(--accent),var(--accent-d));
-      color:#062B1F;font-size:16px;font-weight:700;
-      font-family:'Syne',sans-serif;cursor:pointer;
-      transition:all .2s;
+    .btn{
+      width:100%;border:none;border-radius:14px;cursor:pointer;font-family:'Syne',sans-serif;
+      font-weight:700;font-size:16px;
       display:flex;align-items:center;justify-content:center;gap:8px;
+      min-height:52px;padding:14px;
+      background:linear-gradient(135deg,var(--accent),var(--accent-d));
+      color:#062B1F;transition:transform .1s,opacity .2s;
       -webkit-tap-highlight-color:transparent;
       touch-action:manipulation;
-      /* minimum 48px touch target */
-      min-height:52px;
     }
-    .btn-primary:active { transform:scale(.97); }
-    .btn-primary:disabled { opacity:.6;cursor:not-allowed;transform:none; }
-
-    /* error */
-    .err-box {
-      background:rgba(255,61,107,.08);
-      border:1px solid rgba(255,61,107,.25);
-      border-radius:10px;padding:10px 14px;
-      font-size:13px;color:var(--danger);
+    .btn:active{transform:scale(.97)}
+    .btn:disabled{opacity:.6;pointer-events:none}
+    .err{
+      display:none;background:rgba(255,61,107,.09);
+      border:1px solid rgba(255,61,107,.3);border-radius:10px;
+      padding:10px 14px;font-size:13px;color:var(--danger);line-height:1.4;
     }
-
-    /* security row */
-    .sec-item {
-      display:flex;align-items:center;gap:6px;
-      font-size:11px;font-family:'JetBrains Mono',monospace;
-      color:var(--muted);
-    }
-    .sec-dot {
-      width:5px;height:5px;border-radius:50%;
-      background:var(--accent);flex-shrink:0;
-    }
-
-    /* spinner */
-    .spin {
+    .sec-row{display:flex;align-items:center;gap:5px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted)}
+    .dot{width:5px;height:5px;border-radius:50%;background:var(--accent)}
+    .spin{
       display:inline-block;width:18px;height:18px;
-      border:2.5px solid rgba(6,43,31,.4);
-      border-top-color:#062B1F;border-radius:50%;
-      animation:spinA .7s linear infinite;
+      border:2.5px solid rgba(6,43,31,.4);border-top-color:#062B1F;
+      border-radius:50%;animation:sp .6s linear infinite;
     }
-    @keyframes spinA{to{transform:rotate(360deg)}}
-
-    /* mobile tweaks */
-    @media(max-width:480px) {
-      .card {
-        padding:28px 20px;
-        /* full-width on small phones */
-        border-radius:20px;
-      }
-      .page-wrap {
-        align-items:flex-start;
-        padding-top:40px;
-      }
+    @keyframes sp{to{transform:rotate(360deg)}}
+    /* Small screens */
+    @media(max-width:400px){
+      .card{padding:28px 18px;border-radius:20px}
+      .wrap{align-items:flex-start;padding-top:32px}
     }
   </style>
 </head>
 <body>
+<div class="orb" style="width:480px;height:480px;background:#00FFB3;top:-18%;left:-14%"></div>
+<div class="orb" style="width:340px;height:340px;background:#0066FF;bottom:-8%;right:-10%;animation-delay:3s"></div>
 
-<!-- Ambient orbs (fixed, don't affect layout) -->
-<div class="orb" style="width:500px;height:500px;background:#00FFB3;top:-15%;left:-15%;animation-delay:0s"></div>
-<div class="orb" style="width:350px;height:350px;background:#0066FF;bottom:-5%;right:-10%;animation-delay:3s"></div>
-
-<div class="page-wrap">
+<div class="wrap">
   <div class="card">
+
     <!-- Logo -->
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px" class="fade-up">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px">
       <div class="logo-icon">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5">
           <rect x="3" y="11" width="18" height="11" rx="2"/>
           <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
       </div>
       <div>
-        <div style="font-size:28px;font-weight:800;font-family:Syne,sans-serif;letter-spacing:-.02em;color:var(--text)">CIPHER</div>
-        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);letter-spacing:.12em">ÖZEL · ŞİFRELİ · GÜVENLİ</div>
+        <div style="font-size:26px;font-weight:800;font-family:Syne,sans-serif;letter-spacing:-.02em">CIPHER</div>
+        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);letter-spacing:.1em">ÖZEL · ŞİFRELİ · GÜVENLİ</div>
       </div>
     </div>
 
-    <div style="margin-bottom:22px" class="fade-up fade-up-1">
-      <div style="font-size:18px;font-weight:700;font-family:Syne,sans-serif;color:var(--text);margin-bottom:4px">Hoş Geldiniz</div>
+    <div style="margin-bottom:22px">
+      <div style="font-size:17px;font-weight:700;font-family:Syne,sans-serif;margin-bottom:3px">Hoş Geldiniz</div>
       <div style="font-size:13px;color:var(--muted)">Hesabınızla giriş yapın</div>
     </div>
 
-    <!-- Form -->
-    <div style="display:flex;flex-direction:column;gap:14px" class="fade-up fade-up-2">
+    <div style="display:flex;flex-direction:column;gap:14px">
 
       <!-- Username -->
       <div>
         <label class="lbl" for="u">KULLANICI ADI</label>
         <div class="inp-wrap">
           <span class="inp-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-            </svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
           </span>
           <input id="u" type="text" class="inp has-icon"
             placeholder="kullanici_adi"
@@ -235,6 +151,7 @@
             autocapitalize="none"
             autocorrect="off"
             spellcheck="false"
+            inputmode="text"
             enterkeyhint="next"
             onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('p').focus()}">
         </div>
@@ -245,17 +162,15 @@
         <label class="lbl" for="p">ŞİFRE</label>
         <div class="inp-wrap">
           <span class="inp-icon">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-            </svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           </span>
           <input id="p" type="password" class="inp has-icon"
             placeholder="••••••••"
             autocomplete="current-password"
             enterkeyhint="go"
             onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin()}">
-          <button class="inp-toggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="Şifreyi göster">
-            <svg id="eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <button class="eye-btn" onclick="togglePwd()" type="button" tabindex="-1">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
             </svg>
           </button>
@@ -263,10 +178,10 @@
       </div>
 
       <!-- Error -->
-      <div id="err" style="display:none" class="err-box"></div>
+      <div id="err" class="err"></div>
 
       <!-- Submit -->
-      <button id="login-btn" onclick="doLogin()" class="btn-primary" type="button" style="margin-top:6px">
+      <button id="btn" onclick="doLogin()" class="btn" type="button">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
@@ -274,12 +189,13 @@
       </button>
     </div>
 
-    <!-- Security bar -->
-    <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:18px;flex-wrap:wrap">
-      <div class="sec-item"><div class="sec-dot"></div>AES-256-GCM</div>
-      <div class="sec-item"><div class="sec-dot"></div>PBKDF2</div>
-      <div class="sec-item"><div class="sec-dot"></div>Sıfır Kayıt</div>
+    <!-- Security -->
+    <div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:16px;flex-wrap:wrap">
+      <div class="sec-row"><div class="dot"></div>AES-256</div>
+      <div class="sec-row"><div class="dot"></div>PBKDF2</div>
+      <div class="sec-row"><div class="dot"></div>Sıfır Kayıt</div>
     </div>
+
   </div>
 </div>
 
@@ -287,51 +203,68 @@
 <script src="js/db.js"></script>
 <script src="js/auth.js"></script>
 <script>
-  (async () => {
+(async () => {
+  try {
     await DB.init();
-    if (Auth.getSession()) { window.location.href = 'app.html'; return; }
-    // Autofocus only on desktop (mobile keyboard shouldn't auto-open)
-    if (window.innerWidth > 768) document.getElementById('u').focus();
-  })();
+    if (Auth.getSession()) {
+      window.location.href = 'app.html';
+      return;
+    }
+  } catch(e) {
+    console.error('Init error:', e);
+  }
+  // Focus only on desktop
+  if (window.innerWidth > 768) document.getElementById('u').focus();
+})();
 
-  async function doLogin() {
-    const btn = document.getElementById('login-btn');
-    const u = document.getElementById('u').value.trim();
-    const p = document.getElementById('p').value;
-    if (!u || !p) { showErr('Kullanıcı adı ve şifre girin.'); return; }
+async function doLogin() {
+  const btn = document.getElementById('btn');
+  const u = document.getElementById('u').value.trim();
+  const p = document.getElementById('p').value;
 
+  if (!u || !p) { showErr('Kullanıcı adı ve şifre girin.'); return; }
+
+  setLoading(true);
+  hideErr();
+
+  try {
+    await Auth.login(u, p);
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Yönlendiriliyor…`;
+    // Use replace so back button doesn't return to login
+    setTimeout(() => window.location.replace('app.html'), 300);
+  } catch(e) {
+    showErr(e.message || 'Giriş başarısız.');
+    setLoading(false);
+    document.getElementById('p').value = '';
+    document.getElementById('p').focus();
+  }
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('btn');
+  if (on) {
     btn.innerHTML = '<div class="spin"></div>';
     btn.disabled = true;
-    hideErr();
-
-    try {
-      await Auth.login(u, p);
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Yönlendiriliyor…`;
-      setTimeout(() => window.location.href = 'app.html', 300);
-    } catch (e) {
-      showErr(e.message);
-      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Güvenli Giriş`;
-      btn.disabled = false;
-      document.getElementById('p').value = '';
-      document.getElementById('p').focus();
-    }
+  } else {
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Güvenli Giriş`;
+    btn.disabled = false;
   }
+}
 
-  function showErr(msg) {
-    const e = document.getElementById('err');
-    e.textContent = msg;
-    e.style.display = '';
-    // Scroll to button on mobile so it's visible
-    document.getElementById('login-btn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
+function showErr(msg) {
+  const e = document.getElementById('err');
+  e.textContent = msg;
+  e.style.display = 'block';
+  e.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
 
-  function hideErr() { document.getElementById('err').style.display = 'none'; }
+function hideErr() { document.getElementById('err').style.display = 'none'; }
 
-  function togglePwd() {
-    const i = document.getElementById('p');
-    i.type = i.type === 'password' ? 'text' : 'password';
-    i.focus();
-  }
+function togglePwd() {
+  const i = document.getElementById('p');
+  i.type = i.type === 'password' ? 'text' : 'password';
+  i.focus();
+}
 </script>
 </body>
 </html>
