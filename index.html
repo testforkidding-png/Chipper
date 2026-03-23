@@ -293,17 +293,17 @@
     // Autofocus only on desktop (mobile keyboard shouldn't auto-open)
     if (window.innerWidth > 768) document.getElementById('u').focus();
   })();
+async function doLogin() {
+    const uInput = document.getElementById('u').value;
+    const pInput = document.getElementById('p').value;
+    
+    // Kullanıcı adını küçültüp temizlemezsen telefonda ASLA girmez.
+    const u = uInput.trim().toLowerCase(); 
+    const p = pInput;
 
-  async function doLogin() {
-    const btn = document.getElementById('login-btn');
-    const u = document.getElementById('u').value.trim();
-    const p = document.getElementById('p').value;
     if (!u || !p) { showErr('Kullanıcı adı ve şifre girin.'); return; }
-
-    btn.innerHTML = '<div class="spin"></div>';
-    btn.disabled = true;
-    hideErr();
-
+    // ... geri kalan Auth.login(u, p) kodun ...
+}
     try {
       await Auth.login(u, p);
       btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Yönlendiriliyor…`;
