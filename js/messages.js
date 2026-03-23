@@ -216,8 +216,8 @@ const Messages = (() => {
     _gifOpen = !_gifOpen; _stickerOpen = false;
     const gp = document.getElementById('gif-picker');
     const sp = document.getElementById('sticker-picker');
-    if (gp) gp.style.display = _gifOpen ? 'flex' : 'none';
-    if (sp) sp.style.display = 'none';
+    if (gp) gp.classList.toggle('open', _gifOpen);
+    if (sp) sp.classList.remove('open');
     if (_gifOpen && !_gifResults.length) searchGifs('');
   }
 
@@ -264,8 +264,8 @@ const Messages = (() => {
     _stickerOpen = !_stickerOpen; _gifOpen = false;
     const sp = document.getElementById('sticker-picker');
     const gp = document.getElementById('gif-picker');
-    if (sp) sp.style.display = _stickerOpen ? 'flex' : 'none';
-    if (gp) gp.style.display = 'none';
+    if (sp) sp.classList.toggle('open', _stickerOpen);
+    if (gp) gp.classList.remove('open');
     if (_stickerOpen) {
       if (!_activePack) _activePack = Object.keys(CONFIG.STICKER_PACKS)[0];
       renderStickerPack(_activePack);
@@ -289,10 +289,8 @@ const Messages = (() => {
 
   function closeAllPickers() {
     _gifOpen = false; _stickerOpen = false;
-    const gp = document.getElementById('gif-picker');
-    const sp = document.getElementById('sticker-picker');
-    if (gp) gp.style.display = 'none';
-    if (sp) sp.style.display = 'none';
+    document.getElementById('gif-picker')?.classList.remove('open');
+    document.getElementById('sticker-picker')?.classList.remove('open');
   }
 
   // ── Voice ─────────────────────────────────────────────────────
@@ -384,6 +382,7 @@ const Messages = (() => {
     const items = [
       { icon: '↩', label: 'Yanıtla', action: `Messages._setReply('${msgId}')` },
       { icon: '📋', label: 'Kopyala', action: `Messages._copy('${msgId}')` },
+      { icon: '↪', label: 'İlet', action: `openForwardModal('${msgId}')` },
       { icon: '😊', label: 'Reaksiyon', action: `UI.showReactionPicker(${e.clientX},${e.clientY},em=>Messages._toggleReaction('${msgId}',em))` },
     ];
     if (isMine) {
