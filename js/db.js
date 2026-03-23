@@ -1,63 +1,98 @@
+/**
+ * CIPHER — DB Layer v3.1 (Temizlenmiş & Dinamik)
+ */
 const DB = (() => {
   const NS = 'cipher_';
+  
   const _get = k => { try { return JSON.parse(localStorage.getItem(NS+k)); } catch { return null; } };
-  const _set = (k, v) => { localStorage.setItem(NS+k, JSON.stringify(v)); _bc?.postMessage({key:k}); };
+  const _set = (k, v) => { localStorage.setItem(NS+k, JSON.stringify(v)); if(_bc) _bc.postMessage({key:k}); };
 
   let _bc = null;
   try { _bc = new BroadcastChannel('cipher_sync'); } catch {}
 
+  // Şifreleme (Eşleşme garantisi için standart SHA-256)
   async function quickHash(str) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str + '_cipher_salt'));
+    if(!str) return "";
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str.toString().trim()));
     return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
   }
-
-  const FALLBACK_USERS = [
-    { username:'admin',  password:'admin123',  display_name:'Admin',       avatar_url:'https://ui-avatars.com/api/?name=Admin&background=00FFB3&color=062B1F' },
-    { username:'alice',  password:'alice123',  display_name:'Alice Chen',  avatar_url:'https://ui-avatars.com/api/?name=Alice+Chen&background=0066FF&color=fff' },
-    { username:'marcus', password:'marcus123', display_name:'Marcus Webb', avatar_url:'https://ui-avatars.com/api/?name=Marcus+Webb&background=FF3D6B&color=fff' }
-  ];
 
   async function ensureUsers() {
     let stored = _get('users') || {};
     const deleted = JSON.parse(localStorage.getItem(NS+'deleted_users') || '[]');
 
-    // 1. Önce Fallback kullanıcılarını yükle (Garantici yöntem)
-    for (const u of FALLBACK_USERS) {
-      if (!stored[u.username] && !deleted.includes(u.username)) {
-        stored[u.username] = { ...u, password_hash: await quickHash(u.password), created_at: Date.now() };
-      }
-    }
-
-    // 2. Sonra users.json'dan çekmeye çalış (Eğer varsa üstüne yazar)
     try {
+      // Sadece senin users.json dosyanı baz alır
       const r = await fetch('users.json?t=' + Date.now());
       if (r.ok) {
         const data = await r.json();
-        if (data.users) {
+        if (data.users && Array.isArray(data.users)) {
           for (const u of data.users) {
-            if (deleted.includes(u.username)) continue;
-            stored[u.username] = {
-              ...u,
+            const uname = u.username.toLowerCase().trim();
+            if (deleted.includes(uname)) continue;
+            
+            // Mevcut kullanıcıyı güncelle veya yeni ekle
+            stored[uname] = { 
+              ...u, 
+              username: uname, 
               password_hash: await quickHash(u.password),
-              // Eğer eski veride resim varsa onu koru, yoksa json'dakini al
-              avatar_url: stored[u.username]?.avatar_url || u.avatar_url || null 
+              // Profil resmini koru (JSON'da yoksa null bırakma, varsayılan avatar üret)
+              avatar_url: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.display_name || uname)}&background=00FFB3&color=062B1F`
             };
           }
+          _set('users', stored);
         }
       }
-    } catch(e) { console.warn("Kullanıcı listesi güncellenemedi, yerel liste aktif."); }
-
-    _set('users', stored);
+    } catch(e) { 
+      console.warn("[CIPHER] users.json okunamadı. Mevcut yerel kullanıcılarla devam ediliyor."); 
+    }
   }
+
+  // --- Fonksiyonlar ---
+  const Local = {
+    async getUser(u) { 
+      const us = _get('users') || {}; 
+      return us[u.toString().toLowerCase().trim()] || null; 
+    },
+    async getAllUsers() { return Object.values(_get('users')||{}); },
+    async createUser(d) { 
+      const us=_get('users')||{}; 
+      const uname = d.username.toLowerCase().trim();
+      us[uname]={...d, username: uname, created_at:Date.now()}; 
+      _set('users',us); 
+      return us[uname]; 
+    },
+    async updateUser(u,d) { 
+      const us=_get('users')||{}; 
+      const uname = u.toLowerCase().trim();
+      if(!us[uname]) return null; 
+      us[uname]={...us[uname],...d}; 
+      _set('users',us); 
+      return us[uname]; 
+    },
+    async getConversations(uid) { return Object.values(_get('convs')||{}).filter(c=>c.participants?.includes(uid)); },
+    async createConversation(d) { 
+      const cs=_get('convs')||{}; 
+      const id=d.id||'conv_'+Date.now(); 
+      cs[id]={...d, id, created_at:Date.now()}; 
+      _set('convs',cs); 
+      return cs[id]; 
+    },
+    async getMessages(cid,lim=200) { return (_get('msgs_'+cid)||[]).slice(-lim); },
+    async createMessage(d) {
+      const msgs=_get('msgs_'+d.conv_id)||[];
+      const msg={...d, id:'msg_'+Date.now()+Math.random().toString(36).substr(2,4), created_at:Date.now()};
+      msgs.push(msg); 
+      _set('msgs_'+d.conv_id, msgs); 
+      return msg;
+    }
+  };
 
   return {
     init: async () => { await ensureUsers(); },
-    getUser: async (u) => { 
-        const users = _get('users') || {};
-        // Hem küçük harf hem temizlenmiş kontrol
-        return users[u.toString().toLowerCase().trim()] || null; 
-    },
-    hashPassword: quickHash,
-    // Diğer metodlarını (createConversation vs) buraya eklemeyi unutma
-  };
-})();
+    getUser: (...a) => Local.getUser(...a),
+    getAllUsers: (...a) => Local.getAllUsers(...a),
+    createUser: (...a) => Local.createUser(...a),
+    updateUser: (...a) => Local.updateUser(...a),
+    getConversations: (...a) => Local.getConversations(...a),
+    createConversation: (...a) => Local.createConversation(...a
