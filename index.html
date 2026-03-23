@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#00FFB3">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,49 +13,198 @@
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--accent:#00FFB3;--accent-d:#00C48A;--bg:#06080F;--surf:#0C1220;--border:#1E2D45;--text:#DDE8F8;--muted:#7A8FA8;--danger:#FF3D6B}
-    html,body{height:100%;overflow:hidden}
-    body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center}
-    input{outline:none;font-family:'DM Sans',sans-serif}
-    input:focus{border-color:var(--accent)!important;box-shadow:0 0 0 3px rgba(0,255,179,.1)}
-    .grid-bg{background-image:linear-gradient(rgba(0,255,179,.03)1px,transparent 1px),linear-gradient(90deg,rgba(0,255,179,.03)1px,transparent 1px);background-size:40px 40px}
-    .card{background:var(--surf);border:1px solid var(--border);border-radius:24px;padding:40px 36px;width:100%;max-width:400px;box-shadow:0 32px 80px rgba(0,0,0,.6),0 0 80px rgba(0,255,179,.04)}
-    .logo-icon{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent-d));display:flex;align-items:center;justify-content:center;animation:lockIn .6s cubic-bezier(.34,1.56,.64,1)}
-    @keyframes lockIn{from{transform:rotate(-15deg) scale(.7);opacity:0}to{transform:rotate(0) scale(1);opacity:1}}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+    :root{
+      --accent:#00FFB3;--accent-d:#00C48A;--bg:#06080F;
+      --surf:#0C1220;--border:#1E2D45;--text:#DDE8F8;
+      --muted:#7A8FA8;--danger:#FF3D6B
+    }
+
+    /* ── MOBILE-FIRST: overflow visible so keyboard doesn't clip ── */
+    html { height:100%; }
+    body {
+      min-height:100%;
+      background:var(--bg);
+      color:var(--text);
+      font-family:'DM Sans',sans-serif;
+      /* NO overflow:hidden — keyboard must be able to scroll */
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    /* grid background */
+    body::before {
+      content:'';
+      position:fixed;inset:0;
+      background-image:
+        linear-gradient(rgba(0,255,179,.03)1px,transparent 1px),
+        linear-gradient(90deg,rgba(0,255,179,.03)1px,transparent 1px);
+      background-size:40px 40px;
+      pointer-events:none;
+      z-index:0;
+    }
+
+    /* ambient orbs — fixed so they don't affect layout */
+    .orb {
+      position:fixed;border-radius:50%;filter:blur(80px);
+      pointer-events:none;z-index:0;
+      animation:pulse 6s infinite;
+    }
+    @keyframes pulse{0%,100%{opacity:.12}50%{opacity:.2}}
+
+    /* outer wrapper — scrollable on mobile */
+    .page-wrap {
+      position:relative;z-index:1;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px 16px;
+      /* extra bottom padding so button visible above keyboard */
+      padding-bottom:env(safe-area-inset-bottom, 20px);
+    }
+
+    /* card */
+    .card {
+      background:var(--surf);
+      border:1px solid var(--border);
+      border-radius:24px;
+      padding:36px 28px;
+      width:100%;
+      max-width:400px;
+      box-shadow:0 32px 80px rgba(0,0,0,.6),0 0 80px rgba(0,255,179,.04);
+    }
+
+    /* logo */
+    .logo-icon {
+      width:52px;height:52px;border-radius:16px;
+      background:linear-gradient(135deg,var(--accent),var(--accent-d));
+      display:flex;align-items:center;justify-content:center;
+      animation:lockIn .6s cubic-bezier(.34,1.56,.64,1);
+      flex-shrink:0;
+    }
+    @keyframes lockIn{from{transform:rotate(-15deg)scale(.7);opacity:0}to{transform:rotate(0)scale(1);opacity:1}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
     .fade-up{animation:fadeUp .4s ease-out forwards}
     .fade-up-1{animation-delay:.05s;opacity:0}
     .fade-up-2{animation-delay:.1s;opacity:0}
-    .lbl{display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.08em}
-    .inp-wrap{position:relative}
-    .inp{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:14px;background:#06080F;color:var(--text);font-size:14px;transition:border-color .2s,box-shadow .2s}
-    .inp-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.5}
-    .inp.has-icon{padding-left:42px}
-    .inp-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;opacity:.7;transition:opacity .2s}
-    .inp-toggle:hover{opacity:1}
-    .btn-primary{width:100%;padding:14px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent-d));color:#062B1F;font-size:15px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
-    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,255,179,.3)}
-    .btn-primary:active{transform:scale(.97)}
-    .btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
-    .err-box{background:rgba(255,61,107,.08);border:1px solid rgba(255,61,107,.25);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--danger)}
-    .sec-item{display:flex;align-items:center;gap:6px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted)}
-    .sec-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);flex-shrink:0}
-    .orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;animation:pulse 6s infinite}
-    @keyframes pulse{0%,100%{opacity:.12}50%{opacity:.2}}
-    .spin{display:inline-block;width:18px;height:18px;border:2.5px solid rgba(6,43,31,.4);border-top-color:#062B1F;border-radius:50%;animation:spinA .7s linear infinite}
+
+    /* labels */
+    .lbl {
+      display:block;font-size:10px;font-weight:600;
+      color:var(--muted);font-family:'JetBrains Mono',monospace;
+      margin-bottom:6px;letter-spacing:.08em;
+    }
+
+    /* inputs */
+    .inp-wrap { position:relative; }
+    .inp {
+      width:100%;
+      padding:14px 16px;
+      border:1.5px solid var(--border);
+      border-radius:14px;
+      background:#06080F;
+      color:var(--text);
+      font-size:16px; /* 16px prevents iOS zoom */
+      font-family:'DM Sans',sans-serif;
+      transition:border-color .2s,box-shadow .2s;
+      outline:none;
+      -webkit-appearance:none;
+      appearance:none;
+    }
+    .inp:focus {
+      border-color:var(--accent)!important;
+      box-shadow:0 0 0 3px rgba(0,255,179,.1);
+    }
+    .inp-icon {
+      position:absolute;left:14px;top:50%;
+      transform:translateY(-50%);
+      pointer-events:none;opacity:.5;
+    }
+    .inp.has-icon { padding-left:42px; }
+    .inp-toggle {
+      position:absolute;right:12px;top:50%;
+      transform:translateY(-50%);
+      background:none;border:none;cursor:pointer;
+      color:var(--muted);padding:6px;opacity:.7;
+      transition:opacity .2s;
+      -webkit-tap-highlight-color:transparent;
+    }
+    .inp-toggle:hover { opacity:1; }
+
+    /* button */
+    .btn-primary {
+      width:100%;padding:15px;border:none;
+      border-radius:14px;
+      background:linear-gradient(135deg,var(--accent),var(--accent-d));
+      color:#062B1F;font-size:16px;font-weight:700;
+      font-family:'Syne',sans-serif;cursor:pointer;
+      transition:all .2s;
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      -webkit-tap-highlight-color:transparent;
+      touch-action:manipulation;
+      /* minimum 48px touch target */
+      min-height:52px;
+    }
+    .btn-primary:active { transform:scale(.97); }
+    .btn-primary:disabled { opacity:.6;cursor:not-allowed;transform:none; }
+
+    /* error */
+    .err-box {
+      background:rgba(255,61,107,.08);
+      border:1px solid rgba(255,61,107,.25);
+      border-radius:10px;padding:10px 14px;
+      font-size:13px;color:var(--danger);
+    }
+
+    /* security row */
+    .sec-item {
+      display:flex;align-items:center;gap:6px;
+      font-size:11px;font-family:'JetBrains Mono',monospace;
+      color:var(--muted);
+    }
+    .sec-dot {
+      width:5px;height:5px;border-radius:50%;
+      background:var(--accent);flex-shrink:0;
+    }
+
+    /* spinner */
+    .spin {
+      display:inline-block;width:18px;height:18px;
+      border:2.5px solid rgba(6,43,31,.4);
+      border-top-color:#062B1F;border-radius:50%;
+      animation:spinA .7s linear infinite;
+    }
     @keyframes spinA{to{transform:rotate(360deg)}}
-    @media(max-width:480px){body{align-items:flex-end}.card{border-radius:28px 28px 0 0;padding:36px 24px calc(36px + env(safe-area-inset-bottom))}}
+
+    /* mobile tweaks */
+    @media(max-width:480px) {
+      .card {
+        padding:28px 20px;
+        /* full-width on small phones */
+        border-radius:20px;
+      }
+      .page-wrap {
+        align-items:flex-start;
+        padding-top:40px;
+      }
+    }
   </style>
 </head>
-<body class="grid-bg">
-<div class="orb" style="width:500px;height:500px;background:#00FFB3;top:-20%;left:-15%;animation-delay:0s"></div>
-<div class="orb" style="width:350px;height:350px;background:#0066FF;bottom:-10%;right:-10%;animation-delay:3s"></div>
+<body>
 
-<div style="width:100%;padding:20px;display:flex;justify-content:center;align-items:center;min-height:100dvh">
+<!-- Ambient orbs (fixed, don't affect layout) -->
+<div class="orb" style="width:500px;height:500px;background:#00FFB3;top:-15%;left:-15%;animation-delay:0s"></div>
+<div class="orb" style="width:350px;height:350px;background:#0066FF;bottom:-5%;right:-10%;animation-delay:3s"></div>
+
+<div class="page-wrap">
   <div class="card">
-    <div style="display:flex;align-items:center;gap:14px;margin-bottom:32px" class="fade-up">
+    <!-- Logo -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:28px" class="fade-up">
       <div class="logo-icon">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
       </div>
       <div>
         <div style="font-size:28px;font-weight:800;font-family:Syne,sans-serif;letter-spacing:-.02em;color:var(--text)">CIPHER</div>
@@ -63,37 +212,70 @@
       </div>
     </div>
 
-    <div style="margin-bottom:24px" class="fade-up fade-up-1">
+    <div style="margin-bottom:22px" class="fade-up fade-up-1">
       <div style="font-size:18px;font-weight:700;font-family:Syne,sans-serif;color:var(--text);margin-bottom:4px">Hoş Geldiniz</div>
       <div style="font-size:13px;color:var(--muted)">Hesabınızla giriş yapın</div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:16px" class="fade-up fade-up-2">
+    <!-- Form -->
+    <div style="display:flex;flex-direction:column;gap:14px" class="fade-up fade-up-2">
+
+      <!-- Username -->
       <div>
-        <label class="lbl">KULLANICI ADI</label>
+        <label class="lbl" for="u">KULLANICI ADI</label>
         <div class="inp-wrap">
-          <span class="inp-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
-          <input id="u" type="text" class="inp has-icon" placeholder="kullanici_adi" autocomplete="username" autocapitalize="off" spellcheck="false" onkeydown="if(event.key==='Enter')document.getElementById('p').focus()">
+          <span class="inp-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+          </span>
+          <input id="u" type="text" class="inp has-icon"
+            placeholder="kullanici_adi"
+            autocomplete="username"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            enterkeyhint="next"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('p').focus()}">
         </div>
       </div>
+
+      <!-- Password -->
       <div>
-        <label class="lbl">ŞİFRE</label>
+        <label class="lbl" for="p">ŞİFRE</label>
         <div class="inp-wrap">
-          <span class="inp-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
-          <input id="p" type="password" class="inp has-icon" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
-          <button class="inp-toggle" onclick="togglePwd()" tabindex="-1">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span class="inp-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
+          <input id="p" type="password" class="inp has-icon"
+            placeholder="••••••••"
+            autocomplete="current-password"
+            enterkeyhint="go"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin()}">
+          <button class="inp-toggle" onclick="togglePwd()" type="button" tabindex="-1" aria-label="Şifreyi göster">
+            <svg id="eye" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+            </svg>
           </button>
         </div>
       </div>
+
+      <!-- Error -->
       <div id="err" style="display:none" class="err-box"></div>
-      <button id="login-btn" onclick="doLogin()" class="btn-primary" style="margin-top:4px">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+
+      <!-- Submit -->
+      <button id="login-btn" onclick="doLogin()" class="btn-primary" type="button" style="margin-top:6px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
         Güvenli Giriş
       </button>
     </div>
 
-    <div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:20px;flex-wrap:wrap">
+    <!-- Security bar -->
+    <div style="margin-top:24px;padding-top:18px;border-top:1px solid var(--border);display:flex;justify-content:center;gap:18px;flex-wrap:wrap">
       <div class="sec-item"><div class="sec-dot"></div>AES-256-GCM</div>
       <div class="sec-item"><div class="sec-dot"></div>PBKDF2</div>
       <div class="sec-item"><div class="sec-dot"></div>Sıfır Kayıt</div>
@@ -108,7 +290,8 @@
   (async () => {
     await DB.init();
     if (Auth.getSession()) { window.location.href = 'app.html'; return; }
-    document.getElementById('u').focus();
+    // Autofocus only on desktop (mobile keyboard shouldn't auto-open)
+    if (window.innerWidth > 768) document.getElementById('u').focus();
   })();
 
   async function doLogin() {
@@ -116,24 +299,39 @@
     const u = document.getElementById('u').value.trim();
     const p = document.getElementById('p').value;
     if (!u || !p) { showErr('Kullanıcı adı ve şifre girin.'); return; }
+
     btn.innerHTML = '<div class="spin"></div>';
     btn.disabled = true;
     hideErr();
+
     try {
       await Auth.login(u, p);
-      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Yönlendiriliyor…';
-      setTimeout(() => window.location.href = 'app.html', 250);
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Yönlendiriliyor…`;
+      setTimeout(() => window.location.href = 'app.html', 300);
     } catch (e) {
       showErr(e.message);
-      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Güvenli Giriş';
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Güvenli Giriş`;
       btn.disabled = false;
       document.getElementById('p').value = '';
       document.getElementById('p').focus();
     }
   }
-  function showErr(msg) { const e = document.getElementById('err'); e.textContent = msg; e.style.display = ''; }
+
+  function showErr(msg) {
+    const e = document.getElementById('err');
+    e.textContent = msg;
+    e.style.display = '';
+    // Scroll to button on mobile so it's visible
+    document.getElementById('login-btn').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
   function hideErr() { document.getElementById('err').style.display = 'none'; }
-  function togglePwd() { const i = document.getElementById('p'); i.type = i.type === 'password' ? 'text' : 'password'; }
+
+  function togglePwd() {
+    const i = document.getElementById('p');
+    i.type = i.type === 'password' ? 'text' : 'password';
+    i.focus();
+  }
 </script>
 </body>
 </html>
