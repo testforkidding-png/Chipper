@@ -119,7 +119,7 @@ input:focus,textarea:focus{border-color:var(--accent)!important}
 #gif-picker{display:none;position:absolute;bottom:100%;left:0;right:0;
   background:var(--surf);border:1px solid var(--border);
   border-radius:20px 20px 0 0;max-height:320px;overflow:hidden;
-  display:flex;flex-direction:column;
+  flex-direction:column;
   box-shadow:0 -20px 60px rgba(0,0,0,.5);z-index:40}
 .gif-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;overflow-y:auto;padding:8px}
 @media(max-width:767px){.gif-grid{grid-template-columns:repeat(2,1fr)}}
@@ -131,7 +131,7 @@ input:focus,textarea:focus{border-color:var(--accent)!important}
 #sticker-picker{display:none;position:absolute;bottom:100%;left:0;right:0;
   background:var(--surf);border:1px solid var(--border);
   border-radius:20px 20px 0 0;max-height:340px;overflow:hidden;
-  display:flex;flex-direction:column;
+  flex-direction:column;
   box-shadow:0 -20px 60px rgba(0,0,0,.5);z-index:40}
 .sticker-pack-tabs{display:flex;overflow-x:auto;gap:2px;padding:8px 8px 0;scrollbar-width:none}
 .sticker-pack-tab{flex-shrink:0;padding:6px 12px;border-radius:10px;font-size:11px;cursor:pointer;transition:all .15s;font-family:var(--font-mono);color:var(--muted);white-space:nowrap;border:none;background:transparent}
@@ -185,3 +185,6 @@ html.low-data img:not(.avatar-img){display:none!important}
 
 .shimmer{background:linear-gradient(90deg,var(--elev)25%,var(--border)50%,var(--elev)75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
 @keyframes shimmer{from{background-position:-200% 0}to{background-position:200% 0}}
+
+/* Picker open state */
+#gif-picker.open, #sticker-picker.open { display:flex; }
