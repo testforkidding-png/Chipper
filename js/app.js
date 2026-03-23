@@ -18,6 +18,7 @@ async function bootApp() {
   users.forEach(u => { _allUsers[u.username] = u; });
 
   renderMyAvatar();
+  await ensureBotConversation();
   await loadConversations();
   await renderStories();
   loadSettings();
@@ -559,13 +560,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Close pickers on outside click
   document.addEventListener('click', e => {
     if (!e.target.closest('#gif-picker') && !e.target.closest('[onclick*="toggleGif"]') && !e.target.closest('[onclick*="Messages.toggleGif"]')) {
-      const gp = document.getElementById('gif-picker');
-      if (gp) gp.style.display = 'none';
+      document.getElementById('gif-picker')?.classList.remove('open');
       Messages._gifOpen = false;
     }
     if (!e.target.closest('#sticker-picker') && !e.target.closest('[onclick*="toggleSticker"]') && !e.target.closest('[onclick*="Messages.toggleSticker"]')) {
-      const sp = document.getElementById('sticker-picker');
-      if (sp) sp.style.display = 'none';
+      document.getElementById('sticker-picker')?.classList.remove('open');
       Messages._stickerOpen = false;
     }
     if (!e.target.closest('#reaction-picker') && !e.target.closest('.reaction-pill'))
@@ -577,7 +576,83 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 });
 
-// ── Block / Report ────────────────────────────────────────────────
+// ── Mesaj İletme ──────────────────────────────────────────────────
+function openForwardModal(msgId) {
+  window._forwardMsgId = msgId;
+  // Sohbet seçim listesi oluştur
+  let html = '<div style="display:flex;flex-direction:column;gap:4px;padding:8px">';
+  const sorted = [..._convs].sort((a,b) => (b.last_time||0)-(a.last_time||0));
+  for (const conv of sorted) {
+    if (conv.id === window._currentConvId) continue;
+    const name = getConvName(conv);
+    const color = getConvColor(conv);
+    const other = conv.type === 'direct' ? _allUsers[conv.participants.find(p=>p!==window._currentUser.username)] : null;
+    const av = other?.avatar_url
+      ? `<img src="${other.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+      : `<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(name)}</div>`;
+    html += `<div onclick="forwardTo('${conv.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">${av}<span style="font-size:13px;color:#DDE8F8">${name}</span></div>`;
+  }
+  html += '</div>';
+
+  let modal = document.getElementById('forward-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'forward-modal';
+    modal.className = 'fixed inset-0 z-50 hidden items-center justify-center';
+    modal.style.background = 'rgba(6,8,15,.92)';
+    document.body.appendChild(modal);
+  }
+  modal.innerHTML = `<div style="width:100%;max-width:320px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">↪ Mesajı İlet</span>
+      <button onclick="UI.closeModal('forward-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+    </div>
+    <div style="overflow-y:auto">${html}</div>
+  </div>`;
+  UI.openModal('forward-modal');
+}
+
+async function forwardTo(convId) {
+  UI.closeModal('forward-modal');
+  const msgId = window._forwardMsgId; if (!msgId) return;
+  const msgs = await DB.getMessages(window._currentConvId);
+  const orig = msgs.find(m => m.id === msgId); if (!orig) return;
+  const cu = window._currentUser; const now = Date.now();
+  const fwdText = orig.text ? `↪ İletildi:\n${orig.text}` : '↪ İletildi';
+  await DB.createMessage({ conv_id: convId, from: cu.username, type: 'text', text: fwdText, status: 'sent', created_at: now });
+  await DB.updateConversation(convId, { last_msg: fwdText.slice(0,40), last_time: now });
+  await loadConversations();
+  UI.toast('Mesaj iletildi ↪', 'success');
+}
+
+// ── Uygulama Paylaşma ─────────────────────────────────────────────
+function shareApp() {
+  const url = window.location.origin + window.location.pathname.replace('app.html','');
+  const text = 'CIPHER — Uçtan uca şifreli, gizli mesajlaşma uygulaması. Hemen dene:';
+  if (navigator.share) {
+    navigator.share({ title: 'CIPHER Messenger', text, url }).catch(()=>{});
+  } else {
+    navigator.clipboard.writeText(url);
+    UI.toast('Uygulama linki kopyalandı 🔗', 'success');
+  }
+}
+
+// ── Bot sohbeti oluştur (ilk girişte) ─────────────────────────────
+async function ensureBotConversation() {
+  const BOT = 'cipher_bot';
+  const bot = await DB.getUser(BOT);
+  if (!bot) return; // Bot yoksa (admin mesaj atmadıysa) gösterme
+  const ids = [BOT, window._currentUser.username].sort();
+  const convId = ids.join('_');
+  const existing = await DB.getConversation(convId);
+  if (existing) return; // Zaten var
+  // Bot konuşması oluştur + hoş geldin mesajı
+  const now = Date.now();
+  const welcome = `👋 Merhaba ${window._currentUser.display_name || window._currentUser.username}! Ben CIPHER Bot. Sistem bildirimleri ve duyuruları buradan iletiyorum. Güvenli mesajlaşmalar! 🔐`;
+  await DB.createConversation({ id: convId, type: 'direct', participants: ids, last_msg: welcome, last_time: now, unread_for: { [window._currentUser.username]: 1 } });
+  await DB.createMessage({ conv_id: convId, from: BOT, type: 'text', text: welcome, status: 'sent', created_at: now });
+}
+
 function openBlockReport() {
   const conv = _convs.find(c => c.id === window._currentConvId);
   if (!conv || conv.type !== 'direct') return;
