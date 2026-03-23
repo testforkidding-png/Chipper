@@ -1,98 +1,184 @@
 /**
- * CIPHER — DB Layer v3.1 (Temizlenmiş & Dinamik)
+ * CIPHER — DB Layer v3
+ * - crypto.subtle fallback for HTTP contexts
+ * - No hardcoded demo users
+ * - BroadcastChannel + storage event cross-tab sync
  */
 const DB = (() => {
   const NS = 'cipher_';
-  
   const _get = k => { try { return JSON.parse(localStorage.getItem(NS+k)); } catch { return null; } };
-  const _set = (k, v) => { localStorage.setItem(NS+k, JSON.stringify(v)); if(_bc) _bc.postMessage({key:k}); };
+  const _set = (k, v) => { localStorage.setItem(NS+k, JSON.stringify(v)); try { _bc?.postMessage({key:k}); } catch {} };
 
+  // ── BroadcastChannel ─────────────────────────────────────────────
   let _bc = null;
   try { _bc = new BroadcastChannel('cipher_sync'); } catch {}
 
-  // Şifreleme (Eşleşme garantisi için standart SHA-256)
-  async function quickHash(str) {
-    if(!str) return "";
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str.toString().trim()));
-    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  // ── Hash (crypto.subtle OR pure-JS fallback for HTTP) ────────────
+  // Pure-JS SHA-256 fallback (works on HTTP / file://)
+  function _sha256Pure(str) {
+    const msg = str + '_cipher_salt';
+    // FNV-1a extended to 64 chars — sufficient for password matching (not cryptographic)
+    // Use simple but consistent hash for HTTP contexts
+    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (let i = 0; i < msg.length; i++) {
+      const c = msg.charCodeAt(i);
+      h1 = Math.imul(h1 ^ c, 2654435761);
+      h2 = Math.imul(h2 ^ c, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+    // Stretch to 64 chars using seed variations for consistent length
+    const base = (4294967296 + h1).toString(16).padStart(8,'0') + (4294967296 + h2).toString(16).padStart(8,'0');
+    // Repeat/derive more chars
+    let result = '';
+    for (let i = 0; i < 4; i++) {
+      let hx = 0x811c9dc5;
+      for (let j = 0; j < base.length; j++) hx ^= (base.charCodeAt(j) + i * 31);
+      hx = (Math.imul(hx, 0x01000193) >>> 0);
+      result += (4294967296 + hx).toString(16).padStart(8,'0');
+    }
+    return result.slice(0, 64);
   }
 
+  async function quickHash(str) {
+    // Try crypto.subtle first (HTTPS / localhost)
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      try {
+        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str + '_cipher_salt'));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+      } catch {}
+    }
+    // Fallback for HTTP
+    return _sha256Pure(str);
+  }
+
+  // ── User management ──────────────────────────────────────────────
   async function ensureUsers() {
-    let stored = _get('users') || {};
     const deleted = JSON.parse(localStorage.getItem(NS+'deleted_users') || '[]');
 
+    // Try users.json
     try {
-      // Sadece senin users.json dosyanı baz alır
       const r = await fetch('users.json?t=' + Date.now());
       if (r.ok) {
         const data = await r.json();
-        if (data.users && Array.isArray(data.users)) {
+        if (Array.isArray(data.users) && data.users.length) {
+          const stored = _get('users') || {};
           for (const u of data.users) {
-            const uname = u.username.toLowerCase().trim();
-            if (deleted.includes(uname)) continue;
-            
-            // Mevcut kullanıcıyı güncelle veya yeni ekle
-            stored[uname] = { 
-              ...u, 
-              username: uname, 
-              password_hash: await quickHash(u.password),
-              // Profil resmini koru (JSON'da yoksa null bırakma, varsayılan avatar üret)
-              avatar_url: u.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.display_name || uname)}&background=00FFB3&color=062B1F`
+            if (deleted.includes(u.username)) continue;
+            const hash = await quickHash(u.password);
+            const prev = stored[u.username] || {};
+            stored[u.username] = {
+              ...u, password_hash: hash,
+              avatar_url:   prev.avatar_url   ?? null,
+              banner_color: prev.banner_color || u.banner_color || '#0A1628',
+              bio:          prev.bio          != null ? prev.bio : (u.bio || ''),
+              status:       prev.status       != null ? prev.status : (u.status || ''),
+              status_emoji: prev.status_emoji != null ? prev.status_emoji : (u.status_emoji || ''),
+              display_name: prev.display_name || u.display_name,
+              created_at:   prev.created_at   || (Date.now() - 30*86400000),
             };
           }
-          _set('users', stored);
+          localStorage.setItem(NS+'users', JSON.stringify(stored));
+          return;
         }
       }
-    } catch(e) { 
-      console.warn("[CIPHER] users.json okunamadı. Mevcut yerel kullanıcılarla devam ediliyor."); 
+    } catch(e) {
+      console.warn('[CIPHER] users.json yüklenemedi:', e.message);
+    }
+
+    // No fallback users — admin creates users via admin panel
+    // Only seed if absolutely no users exist and none were ever deleted
+    const existing = _get('users') || {};
+    const hasAny = Object.keys(existing).some(u => !deleted.includes(u));
+    if (!hasAny && deleted.length === 0) {
+      console.log('[CIPHER] İlk kurulum — admin panelinden kullanıcı ekleyin.');
     }
   }
 
-  // --- Fonksiyonlar ---
+  // ── Local ────────────────────────────────────────────────────────
   const Local = {
-    async getUser(u) { 
-      const us = _get('users') || {}; 
-      return us[u.toString().toLowerCase().trim()] || null; 
-    },
-    async getAllUsers() { return Object.values(_get('users')||{}); },
-    async createUser(d) { 
-      const us=_get('users')||{}; 
-      const uname = d.username.toLowerCase().trim();
-      us[uname]={...d, username: uname, created_at:Date.now()}; 
-      _set('users',us); 
-      return us[uname]; 
-    },
-    async updateUser(u,d) { 
-      const us=_get('users')||{}; 
-      const uname = u.toLowerCase().trim();
-      if(!us[uname]) return null; 
-      us[uname]={...us[uname],...d}; 
-      _set('users',us); 
-      return us[uname]; 
+    async getUser(u)        { return (_get('users')||{})[u]||null; },
+    async getAllUsers()      { return Object.values(_get('users')||{}); },
+    async createUser(d)     { const us=_get('users')||{}; us[d.username]={...d,created_at:Date.now()}; _set('users',us); return us[d.username]; },
+    async updateUser(u,d)   { const us=_get('users')||{}; if(!us[u])return null; us[u]={...us[u],...d,updated_at:Date.now()}; _set('users',us); return us[u]; },
+    async deleteUser(u)     {
+      const us=_get('users')||{}; delete us[u]; _set('users',us);
+      const del=JSON.parse(localStorage.getItem(NS+'deleted_users')||'[]');
+      if(!del.includes(u)){del.push(u);localStorage.setItem(NS+'deleted_users',JSON.stringify(del));}
     },
     async getConversations(uid) { return Object.values(_get('convs')||{}).filter(c=>c.participants?.includes(uid)); },
-    async createConversation(d) { 
-      const cs=_get('convs')||{}; 
-      const id=d.id||'conv_'+Date.now(); 
-      cs[id]={...d, id, created_at:Date.now()}; 
-      _set('convs',cs); 
-      return cs[id]; 
-    },
+    async getConversation(id)   { return (_get('convs')||{})[id]||null; },
+    async createConversation(d) { const cs=_get('convs')||{}; const id=d.id||'conv_'+Date.now(); cs[id]={...d,id,created_at:Date.now()}; _set('convs',cs); return cs[id]; },
+    async updateConversation(id,d) { const cs=_get('convs')||{}; if(!cs[id])return null; cs[id]={...cs[id],...d}; _set('convs',cs); return cs[id]; },
     async getMessages(cid,lim=200) { return (_get('msgs_'+cid)||[]).slice(-lim); },
     async createMessage(d) {
       const msgs=_get('msgs_'+d.conv_id)||[];
-      const msg={...d, id:'msg_'+Date.now()+Math.random().toString(36).substr(2,4), created_at:Date.now()};
-      msgs.push(msg); 
-      _set('msgs_'+d.conv_id, msgs); 
-      return msg;
-    }
+      const msg={...d,id:d.id||'msg_'+Date.now()+Math.random().toString(36).substr(2,4),created_at:d.created_at||Date.now()};
+      msgs.push(msg); _set('msgs_'+d.conv_id,msgs); return msg;
+    },
+    async updateMessage(cid,mid,d) {
+      const msgs=_get('msgs_'+cid)||[];
+      const i=msgs.findIndex(m=>m.id===mid); if(i<0)return null;
+      msgs[i]={...msgs[i],...d,updated_at:Date.now()}; _set('msgs_'+cid,msgs); return msgs[i];
+    },
+    async deleteMessage(cid,mid) { _set('msgs_'+cid,(_get('msgs_'+cid)||[]).filter(m=>m.id!==mid)); },
+    async getStories() { const now=Date.now(); return Object.values(_get('stories')||{}).filter(s=>s.expires_at>now); },
+    async createStory(d) { const ss=_get('stories')||{}; const id='story_'+Date.now(); ss[id]={...d,id,created_at:Date.now(),expires_at:Date.now()+24*3600000}; _set('stories',ss); return ss[id]; },
+    async deleteStory(id) { const ss=_get('stories')||{}; delete ss[id]; _set('stories',ss); },
   };
 
+  // ── Supabase ─────────────────────────────────────────────────────
+  let _sb=null;
+  const sb=()=>{ if(_sb)return _sb; if(!window.supabase)throw new Error('Supabase not loaded'); _sb=window.supabase.createClient(CONFIG.SUPABASE_URL,CONFIG.SUPABASE_ANON_KEY); return _sb; };
+  const Supa = {
+    async getUser(u)            { const{data}=await sb().from('users').select('*').eq('username',u).single(); return data; },
+    async getAllUsers()          { const{data}=await sb().from('users').select('*').order('created_at'); return data||[]; },
+    async createUser(d)         { const{data,error}=await sb().from('users').insert(d).select().single(); if(error)throw error; return data; },
+    async updateUser(u,d)       { const{data}=await sb().from('users').update(d).eq('username',u).select().single(); return data; },
+    async deleteUser(u)         { await sb().from('users').delete().eq('username',u); },
+    async getConversations(uid) { const{data}=await sb().from('conversations').select('*').contains('participants',[uid]).order('last_time',{ascending:false}); return data||[]; },
+    async getConversation(id)   { const{data}=await sb().from('conversations').select('*').eq('id',id).single(); return data; },
+    async createConversation(d) { const{data,error}=await sb().from('conversations').insert(d).select().single(); if(error)throw error; return data; },
+    async updateConversation(id,d) { const{data}=await sb().from('conversations').update(d).eq('id',id).select().single(); return data; },
+    async getMessages(cid,lim=200) { const{data}=await sb().from('messages').select('*').eq('conv_id',cid).order('created_at').limit(lim); return data||[]; },
+    async createMessage(d)      { const{data,error}=await sb().from('messages').insert(d).select().single(); if(error)throw error; return data; },
+    async updateMessage(cid,mid,d) { const{data}=await sb().from('messages').update(d).eq('id',mid).select().single(); return data; },
+    async deleteMessage(cid,mid)   { await sb().from('messages').delete().eq('id',mid); },
+    async getStories()             { const{data}=await sb().from('stories').select('*').gt('expires_at',new Date().toISOString()); return data||[]; },
+    async createStory(d)           { const exp=new Date(Date.now()+86400000).toISOString(); const{data,error}=await sb().from('stories').insert({...d,expires_at:exp}).select().single(); if(error)throw error; return data; },
+    async deleteStory(id)          { await sb().from('stories').delete().eq('id',id); },
+    subscribeMessages(cid,cb) { return sb().channel('msgs_'+cid).on('postgres_changes',{event:'*',schema:'public',table:'messages',filter:`conv_id=eq.${cid}`},cb).subscribe(); },
+    unsubscribe(ch) { if(ch)sb().removeChannel(ch); }
+  };
+
+  const impl = () => CONFIG.USE_SUPABASE ? Supa : Local;
+
+  // ── Cross-tab sync ───────────────────────────────────────────────
+  if (_bc) { _bc.onmessage = e => { try { window._onStorageSync?.(e.data?.key); } catch {} }; }
+  window.addEventListener('storage', e => {
+    if (e.key?.startsWith(NS)) window._onStorageSync?.(e.key.slice(NS.length));
+  });
+
   return {
-    init: async () => { await ensureUsers(); },
-    getUser: (...a) => Local.getUser(...a),
-    getAllUsers: (...a) => Local.getAllUsers(...a),
-    createUser: (...a) => Local.createUser(...a),
-    updateUser: (...a) => Local.updateUser(...a),
-    getConversations: (...a) => Local.getConversations(...a),
-    createConversation: (...a) => Local.createConversation(...a
+    async init() { if (!CONFIG.USE_SUPABASE) { await ensureUsers(); } },
+    getUser:            (...a) => impl().getUser(...a),
+    getAllUsers:         (...a) => impl().getAllUsers(...a),
+    createUser:         (...a) => impl().createUser(...a),
+    updateUser:         (...a) => impl().updateUser(...a),
+    deleteUser:         (...a) => impl().deleteUser(...a),
+    getConversations:   (...a) => impl().getConversations(...a),
+    getConversation:    (...a) => impl().getConversation(...a),
+    createConversation: (...a) => impl().createConversation(...a),
+    updateConversation: (...a) => impl().updateConversation(...a),
+    getMessages:        (...a) => impl().getMessages(...a),
+    createMessage:      (...a) => impl().createMessage(...a),
+    updateMessage:      (...a) => impl().updateMessage(...a),
+    deleteMessage:      (...a) => impl().deleteMessage(...a),
+    getStories:         (...a) => impl().getStories(...a),
+    createStory:        (...a) => impl().createStory(...a),
+    deleteStory:        (...a) => impl().deleteStory(...a),
+    subscribeMessages:  CONFIG.USE_SUPABASE ? (...a) => Supa.subscribeMessages(...a) : () => null,
+    unsubscribe:        CONFIG.USE_SUPABASE ? (...a) => Supa.unsubscribe(...a)        : () => null,
+    hashPassword: quickHash,
+  };
+})();
