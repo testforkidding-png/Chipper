@@ -1,53 +1,54 @@
 /**
- * CIPHER — Auth v2
- * - localStorage instead of sessionStorage (mobile Safari fix)
- * - crypto.subtle fallback for HTTP
- * - Encryption optional (degrades gracefully on HTTP)
+ * CIPHER Auth v3
+ * - Same pure-JS SHA-256 as db.js (guaranteed identical output on all platforms)
+ * - localStorage session (sessionStorage breaks on iOS Safari)
+ * - Encryption gracefully disabled on HTTP
  */
 const Auth = (() => {
   const SK = 'cipher_session_v2';
   let _encKey = null;
 
-  // ── Hash (same fallback as db.js) ────────────────────────────────
-  function _sha256Pure(str) {
-    const msg = str + '_cipher_salt';
-    let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
-    for (let i = 0; i < msg.length; i++) {
-      const c = msg.charCodeAt(i);
-      h1 = Math.imul(h1 ^ c, 2654435761);
-      h2 = Math.imul(h2 ^ c, 1597334677);
+  // ── Identical SHA-256 as db.js ────────────────────────────────────
+  function _sha256(str) {
+    const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+    const H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    const bytes=new TextEncoder().encode(str);
+    const len=bytes.length,bitLen=len*8;
+    const extra=(len+1+8)%64,padLen=extra<=56?55-(len+1)%64:119-(len+1)%64;
+    const padded=new Uint8Array(len+1+padLen+1+8);
+    padded.set(bytes);padded[len]=0x80;
+    const dv=new DataView(padded.buffer);
+    dv.setUint32(padded.length-4,bitLen&0xffffffff,false);
+    dv.setUint32(padded.length-8,Math.floor(bitLen/0x100000000),false);
+    const r=(n,b)=>(n>>>b)|(n<<(32-b));
+    for(let i=0;i<padded.length;i+=64){
+      const W=new Uint32Array(64);
+      for(let t=0;t<16;t++)W[t]=dv.getUint32(i+t*4,false);
+      for(let t=16;t<64;t++)W[t]=((r(W[t-2],17)^r(W[t-2],19)^(W[t-2]>>>10))+W[t-7]+(r(W[t-15],7)^r(W[t-15],18)^(W[t-15]>>>3))+W[t-16])|0;
+      let[a,b,c,d,e,f,g,h]=H;
+      for(let t=0;t<64;t++){
+        const T1=(h+(r(e,6)^r(e,11)^r(e,25))+((e&f)^(~e&g))+K[t]+W[t])|0;
+        const T2=((r(a,2)^r(a,13)^r(a,22))+((a&b)^(a&c)^(b&c)))|0;
+        h=g;g=f;f=e;e=(d+T1)|0;d=c;c=b;b=a;a=(T1+T2)|0;
+      }
+      H[0]=(H[0]+a)|0;H[1]=(H[1]+b)|0;H[2]=(H[2]+c)|0;H[3]=(H[3]+d)|0;
+      H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;
     }
-    h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
-    h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
-    const base = (4294967296+h1).toString(16).padStart(8,'0') + (4294967296+h2).toString(16).padStart(8,'0');
-    let result = '';
-    for (let i = 0; i < 4; i++) {
-      let hx = 0x811c9dc5;
-      for (let j = 0; j < base.length; j++) hx ^= (base.charCodeAt(j) + i * 31);
-      hx = (Math.imul(hx, 0x01000193) >>> 0);
-      result += (4294967296+hx).toString(16).padStart(8,'0');
-    }
-    return result.slice(0, 64);
+    return H.map(n=>(n>>>0).toString(16).padStart(8,'0')).join('');
   }
 
-  async function hashPassword(pass) {
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      try {
-        const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pass + '_cipher_salt'));
-        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-      } catch {}
-    }
-    return _sha256Pure(pass);
+  function hashPassword(pass) {
+    return Promise.resolve(_sha256(pass + '_cipher_salt'));
   }
 
-  // ── Encryption (optional, HTTPS only) ────────────────────────────
+  // ── Encryption (HTTPS only, optional) ────────────────────────────
   async function deriveEncKey(pass, uid) {
     if (typeof crypto === 'undefined' || !crypto.subtle) return;
     try {
       const km = await crypto.subtle.importKey('raw', new TextEncoder().encode(pass), 'PBKDF2', false, ['deriveKey']);
       _encKey = await crypto.subtle.deriveKey(
-        { name:'PBKDF2', salt:new TextEncoder().encode('cipher_'+uid), iterations:100000, hash:'SHA-256' },
-        km, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']
+        {name:'PBKDF2',salt:new TextEncoder().encode('cipher_'+uid),iterations:100000,hash:'SHA-256'},
+        km, {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']
       );
     } catch { _encKey = null; }
   }
@@ -57,7 +58,7 @@ const Auth = (() => {
     try {
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const ct = await crypto.subtle.encrypt({name:'AES-GCM',iv}, _encKey, new TextEncoder().encode(text));
-      const buf = new Uint8Array(12 + ct.byteLength);
+      const buf = new Uint8Array(12+ct.byteLength);
       buf.set(iv); buf.set(new Uint8Array(ct), 12);
       return btoa(String.fromCharCode(...buf));
     } catch { return text; }
@@ -72,8 +73,7 @@ const Auth = (() => {
     } catch { return data; }
   }
 
-  // ── Session — use localStorage (not sessionStorage) ──────────────
-  // sessionStorage is wiped on iOS when tab is backgrounded
+  // ── Session in localStorage (NOT sessionStorage) ─────────────────
   function saveSession(user) {
     localStorage.setItem(SK, JSON.stringify({
       username: user.username,
@@ -92,7 +92,6 @@ const Auth = (() => {
 
   function clearSession() {
     localStorage.removeItem(SK);
-    // Also clear old sessionStorage key
     try { sessionStorage.removeItem('cipher_session'); } catch {}
     _encKey = null;
   }
@@ -102,14 +101,15 @@ const Auth = (() => {
     const uname = username.toLowerCase().trim();
     if (!uname || !password) throw new Error('Kullanıcı adı ve şifre girin.');
 
-    const user = await DB.getUser(uname);
-    if (!user) throw new Error('Kullanıcı bulunamadı.');
+    let user = await DB.getUser(uname);
+    if (!user) throw new Error('Kullanıcı bulunamadı. Yöneticiden hesap açılmasını isteyin.');
+
+    // Detect stale hash from old broken implementation
+    if (user.password_hash_broken) throw new Error('Hesap şifresi sıfırlanmalı. Lütfen yöneticiyle iletişime geçin.');
 
     const hash = await hashPassword(password);
     if (user.password_hash !== hash) throw new Error('Şifre yanlış.');
-
-    // Check if locked
-    if (user.locked) throw new Error('Hesap kilitli. Lütfen yöneticiye başvurun.');
+    if (user.locked) throw new Error('Hesap kilitli.');
 
     await deriveEncKey(password, user.username);
     saveSession(user);
@@ -118,7 +118,6 @@ const Auth = (() => {
 
   function logout() {
     clearSession();
-    // Small delay to ensure storage is written before redirect
     setTimeout(() => { window.location.href = 'index.html'; }, 50);
   }
 
@@ -129,10 +128,7 @@ const Auth = (() => {
   }
 
   function requireAuth() {
-    if (!getSession()) {
-      window.location.href = 'index.html';
-      return false;
-    }
+    if (!getSession()) { window.location.href = 'index.html'; return false; }
     return true;
   }
 
