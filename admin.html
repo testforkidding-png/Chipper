@@ -3,147 +3,122 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>CIPHER Admin — Kontrol Paneli</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <title>CIPHER Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="css/style.css">
   <style>
-    html,body{height:auto;overflow:auto;}
-    body{min-height:100vh;background:#06080F;color:#DDE8F8;padding:0;}
-    .field{width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;font-size:13px;outline:none;transition:border-color .2s;font-family:'DM Sans',sans-serif;}
+    body{background:#06080F;color:#DDE8F8;font-family:'DM Sans',sans-serif;padding:0;margin:0;}
+    .section{background:#0C1220;border:1px solid #1E2D45;border-radius:16px;padding:20px;margin-bottom:16px;}
+    .field{width:100%;padding:10px;border-radius:10px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;font-size:13px;outline:none;}
     .field:focus{border-color:#00FFB3;}
-    .btn-green{padding:10px 20px;border-radius:10px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:13px;cursor:pointer;border:none;font-family:Syne,sans-serif;transition:opacity .15s;}
-    .section{background:#0C1220;border:1px solid #1E2D45;border-radius:16px;padding:20px;margin-bottom:20px;}
-    .label{display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:6px;text-transform:uppercase;}
-    .user-card{padding:12px;background:#06080F;border:1px solid #1E2D45;border-radius:12px;margin-bottom:10px;}
-    .hidden { display: none !important; }
+    .btn{padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;transition:0.2s;}
+    .btn-green{background:#00FFB3;color:#062B1F;}
+    .btn-blue{background:#1E2D45;color:#DDE8F8;font-size:11px;}
+    .user-card{background:#06080F;border:1px solid #1E2D45;border-radius:12px;padding:12px;margin-bottom:8px;}
+    .hidden { display: none; }
   </style>
 </head>
-<body class="grid-bg">
+<body>
 
-<div id="admin-auth" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;background:#06080F">
-  <div style="width:100%;max-width:380px;padding:20px">
-    <div style="text-align:center;margin-bottom:24px">
-      <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#FFD700,#FFA500);margin-bottom:12px;font-size:26px">⚡</div>
-      <div style="font-family:Syne,sans-serif;font-size:24px;font-weight:800;color:#DDE8F8">CIPHER Admin</div>
-    </div>
-    <div class="section">
-      <label class="label">ADMİN ANAHTARI</label>
-      <input id="admin-key-input" type="password" class="field" placeholder="Giriş anahtarı..." onkeydown="if(event.key==='Enter')checkAdminKey()">
-      <button onclick="checkAdminKey()" class="btn-green" style="width:100%;margin-top:12px">Giriş Yap</button>
-    </div>
+<div id="auth-gate" class="fixed inset-0 flex items-center justify-center bg-[#06080F] z-50">
+  <div class="w-full max-w-xs p-6 section">
+    <h1 class="text-center font-bold mb-4">ADMİN GİRİŞİ</h1>
+    <input id="admin-pw" type="password" class="field mb-4" placeholder="Anahtar...">
+    <button onclick="login()" class="btn btn-green w-full">Giriş</button>
   </div>
 </div>
 
-<div id="admin-panel" class="hidden">
-  <div style="border-bottom:1px solid #1E2D45;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;background:#0C1220;position:sticky;top:0;z-index:10">
-    <div style="font-family:Syne,sans-serif;font-weight:700;color:#00FFB3">CIPHER Panel</div>
-    <a href="index.html" style="font-size:12px;color:#7A8FA8">← Uygulamaya Dön</a>
+<div id="main-panel" class="hidden p-4 max-w-2xl mx-auto">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-xl font-bold" style="font-family:Syne">CIPHER Admin</h1>
+    <a href="index.html" class="text-xs text-gray-500">← Uygulamaya Dön</a>
   </div>
 
-  <div style="max-width:800px;margin:0 auto;padding:20px">
-    
-    <div class="section">
-      <h2 style="font-family:Syne,sans-serif;margin-bottom:16px">➕ Yeni Kullanıcı</h2>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <input id="new-username" class="field" placeholder="Kullanıcı Adı">
-        <input id="new-password" type="password" class="field" placeholder="Şifre">
-      </div>
-      <button onclick="addUser()" class="btn-green" style="margin-top:14px;width:100%">Kaydet</button>
+  <div class="section">
+    <h2 class="font-bold mb-4">➕ Yeni Kullanıcı Tanımla</h2>
+    <div class="grid grid-cols-2 gap-3">
+      <input id="new-u" class="field" placeholder="Kullanıcı Adı">
+      <input id="new-p" type="password" class="field" placeholder="Şifre">
     </div>
+    <button onclick="addUser()" class="btn btn-green w-full mt-4">Kullanıcıyı Kaydet</button>
+  </div>
 
-    <div class="section">
-      <h2 style="font-family:Syne,sans-serif;margin-bottom:16px">👥 Kullanıcılar & Şifre İşlemleri</h2>
-      <div id="users-table"></div>
-    </div>
-
-    <div class="section">
-      <h2 style="font-family:Syne,sans-serif;margin-bottom:12px">🤖 Toplu Duyuru</h2>
-      <textarea id="bot-msg" class="field" placeholder="Mesaj..." rows="2"></textarea>
-      <button onclick="sendBotMessage()" class="btn-green" style="margin-top:10px;width:100%">Gönder</button>
-    </div>
+  <div class="section">
+    <h2 class="font-bold mb-4">👥 Kullanıcı Yönetimi & Şifre Güncelleme</h2>
+    <div id="user-list"></div>
   </div>
 </div>
 
-<div id="toast-container" style="position:fixed;bottom:20px;right:16px;z-index:200"></div>
+<div id="toast-container" style="position:fixed;bottom:20px;right:20px"></div>
 
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
 <script src="js/ui.js"></script>
 
 <script>
-  function checkAdminKey() {
-    const k = document.getElementById('admin-key-input').value;
-    if (k === '1453' || k === CONFIG.ADMIN_KEY) {
-      document.getElementById('admin-auth').classList.add('hidden');
-      document.getElementById('admin-panel').classList.remove('hidden');
+  function login() {
+    if(document.getElementById('admin-pw').value === '1453' || document.getElementById('admin-pw').value === CONFIG.ADMIN_KEY) {
+      document.getElementById('auth-gate').classList.add('hidden');
+      document.getElementById('main-panel').classList.remove('hidden');
       loadUsers();
-    } else { alert('Hatalı Anahtar!'); }
+    } else { alert('Hatalı!'); }
   }
 
   async function loadUsers() {
     const users = await DB.getAllUsers();
-    const table = document.getElementById('users-table');
-    table.innerHTML = '';
-    
+    const list = document.getElementById('user-list');
+    list.innerHTML = '';
     users.forEach(u => {
       if(u.username === 'cipher_bot') return;
       const div = document.createElement('div');
       div.className = 'user-card';
       div.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="flex justify-between items-center mb-3">
           <div>
-            <div style="font-weight:700">@${u.username}</div>
-            <div style="font-size:11px;color:#7A8FA8">${u.display_name || u.username}</div>
+            <div class="font-bold">@${u.username}</div>
+            <div class="text-[10px] text-gray-500">Kayıt: ${new Date(u.created_at).toLocaleDateString()}</div>
           </div>
-          <button onclick="deleteUser('${u.username}')" style="color:#FF3D6B;font-size:12px">Kullanıcıyı Sil</button>
+          <button onclick="deleteUser('${u.username}')" class="text-red-500 text-xs">Sil</button>
         </div>
-        <div style="display:flex;gap:8px">
-          <input id="pw-${u.username}" type="password" class="field" placeholder="Yeni Şifre" style="height:34px">
-          <button onclick="changePassword('${u.username}')" style="background:#1E2D45;padding:0 12px;border-radius:8px;font-size:11px">Şifreyi Güncelle</button>
+        <div class="flex gap-2">
+          <input id="pw-${u.username}" type="password" class="field h-8 text-xs" placeholder="Yeni Şifre">
+          <button onclick="changePassword('${u.username}')" class="btn btn-blue whitespace-nowrap">Şifreyi Değiştir</button>
         </div>
       `;
-      table.appendChild(div);
+      list.appendChild(div);
     });
   }
 
   async function addUser() {
-    const u = document.getElementById('new-username').value.trim().toLowerCase();
-    const p = document.getElementById('new-password').value;
-    if(!u || !p) return;
+    const u = document.getElementById('new-u').value.trim().toLowerCase();
+    const p = document.getElementById('new-p').value;
+    if(!u || !p) return UI.toast('Eksik alan','error');
+    
     const hash = await DB._sha256(p);
     await DB.createUser({ username: u, password_hash: hash, display_name: u, created_at: Date.now() });
-    UI.toast('Kullanıcı eklendi');
+    UI.toast('Eklendi');
+    document.getElementById('new-u').value=''; document.getElementById('new-p').value='';
     loadUsers();
   }
 
   async function changePassword(username) {
     const newPw = document.getElementById(`pw-${username}`).value;
-    if(!newPw) return UI.toast('Yeni şifre girin', 'error');
+    if(!newPw) return UI.toast('Şifre boş olamaz','error');
     
     const hash = await DB._sha256(newPw);
     const user = await DB.getUser(username);
     user.password_hash = hash;
-    // Eğer eski bozuk hash uyarısı varsa onu da temizle
-    delete user.password_hash_broken; 
+    // Eski sistemden kalma bozukluk varsa temizle
+    if(user.password_hash_broken) delete user.password_hash_broken;
     
     await DB.updateUser(username, user);
-    UI.toast(`@${username} şifresi güncellendi`, 'success');
+    UI.toast('Şifre güncellendi');
     document.getElementById(`pw-${username}`).value = '';
   }
 
-  async function deleteUser(u) { if(confirm('Silinsin mi?')) { await DB.deleteUser(u); loadUsers(); } }
-
-  async function sendBotMessage() {
-    const msg = document.getElementById('bot-msg').value;
-    const users = await DB.getAllUsers();
-    for(const u of users) {
-      if(u.username === 'cipher_bot') continue;
-      await DB.createMessage({ conv_id: ['cipher_bot', u.username].sort().join('_'), from: 'cipher_bot', text: "📢 " + msg, created_at: Date.now() });
-    }
-    UI.toast('Duyuru iletildi');
-  }
+  async function deleteUser(u) { if(confirm('Emin misin?')) { await DB.deleteUser(u); loadUsers(); } }
 </script>
 </body>
 </html>
