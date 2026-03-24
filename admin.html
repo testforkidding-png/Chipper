@@ -2,516 +2,92 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>CIPHER Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <title>CIPHER Admin - Bulut Yönetimi</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="css/style.css">
-  <style>
-    html,body{height:auto;overflow:auto;}
-    body{min-height:100vh;background:#06080F;color:#DDE8F8;padding:0;}
-    .field{width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;font-size:13px;outline:none;transition:border-color .2s;font-family:'DM Sans',sans-serif;}
-    .field:focus{border-color:#00FFB3;}
-    .field::placeholder{color:#3A4A5A;}
-    .btn-green{padding:10px 20px;border-radius:10px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:13px;cursor:pointer;border:none;font-family:Syne,sans-serif;transition:opacity .15s;}
-    .btn-green:hover{opacity:.9;}
-    .section{background:#0C1220;border:1px solid #1E2D45;border-radius:16px;padding:20px;margin-bottom:20px;}
-    .label{display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:6px;}
-    pre{white-space:pre-wrap;word-break:break-all;}
-  </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/db.js"></script>
 </head>
-<body class="grid-bg">
-
-<!-- Auth Gate -->
-<div id="admin-auth" style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:100;background:#06080F">
-  <div style="width:100%;max-width:380px;padding:20px">
-    <div style="text-align:center;margin-bottom:24px">
-      <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#FFD700,#FFA500);margin-bottom:12px;font-size:26px">⚡</div>
-      <div style="font-family:Syne,sans-serif;font-size:24px;font-weight:800;color:#DDE8F8">CIPHER Admin</div>
-      <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-top:4px">YÖNETİCİ PANELİ</div>
-    </div>
-    <div class="section">
-      <label class="label">ADMİN ANAHTARI</label>
-      <input id="admin-key-input" type="password" class="field" placeholder="Admin şifresi…" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')checkAdminKey()">
-      <div id="auth-err" class="hidden" style="color:#FF3D6B;font-size:12px;margin-bottom:8px;padding:8px 12px;background:rgba(255,61,107,.1);border-radius:8px;border:1px solid rgba(255,61,107,.2)"></div>
-      <button onclick="checkAdminKey()" class="btn-green" style="width:100%;padding:12px">Giriş</button>
-      <p style="text-align:center;font-size:11px;color:#7A8FA8;margin-top:10px">URL: <code style="color:#00FFB3">?key=cipher-admin-2024</code></p>
-    </div>
-  </div>
-</div>
-
-<!-- Panel -->
-<div id="admin-panel" class="hidden">
-  <!-- Topbar -->
-  <div style="border-bottom:1px solid #1E2D45;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;background:#0C1220;position:sticky;top:0;z-index:10">
-    <div style="display:flex;align-items:center;gap:10px">
-      <div style="width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#FFD700,#FFA500);display:flex;align-items:center;justify-content:center;font-size:16px">⚡</div>
-      <div>
-        <div style="font-family:Syne,sans-serif;font-weight:700;font-size:15px;color:#DDE8F8">CIPHER Admin</div>
-        <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">Kullanıcı Yönetimi</div>
-      </div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <span id="user-count-badge" style="font-size:11px;padding:3px 10px;border-radius:20px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-family:'JetBrains Mono',monospace">0 kullanıcı</span>
-      <a href="index.html" style="font-size:12px;padding:6px 12px;border-radius:8px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;text-decoration:none">← Uygulama</a>
-    </div>
-  </div>
-
-  <div style="max-width:860px;margin:0 auto;padding:20px">
-
-    <!-- Users.json editor hint -->
-    <div style="background:#0A1A0A;border:1px solid rgba(0,255,179,.2);border-radius:12px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:start;gap:10px">
-      <span style="font-size:20px;flex-shrink:0">📋</span>
-      <div>
-        <div style="color:#00FFB3;font-size:13px;font-weight:600;margin-bottom:4px">users.json ile Yönetim</div>
-        <div style="color:#7A8FA8;font-size:12px;line-height:1.5">Kullanıcıları <code style="color:#00FFB3;background:#0C1220;padding:1px 5px;border-radius:4px">users.json</code> dosyasını düzenleyerek ekleyip silebilirsiniz. Admin panelinden eklenen kullanıcılar localStorage'a kaydedilir — production'da Supabase kullanmanız önerilir.</div>
-      </div>
-    </div>
-
-    <!-- Add User -->
-    <div class="section">
-      <h2 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700;color:#DDE8F8;margin-bottom:16px;display:flex;align-items:center;gap:8px">
-        <span style="font-size:20px">➕</span> Yeni Kullanıcı Ekle
-      </h2>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <label class="label">KULLANICI ADI *</label>
-          <input id="new-username" type="text" class="field" placeholder="user123" autocomplete="off" autocapitalize="none">
-        </div>
-        <div>
-          <label class="label">GÖRÜNEN AD *</label>
-          <input id="new-displayname" type="text" class="field" placeholder="Ad Soyad">
-        </div>
-        <div>
-          <label class="label">ŞİFRE *</label>
-          <div style="position:relative">
-            <input id="new-password" type="password" class="field" placeholder="Min. 6 karakter" style="padding-right:40px" autocomplete="new-password">
-            <button onclick="toggleField('new-password')" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:16px">👁</button>
-          </div>
-        </div>
-        <div>
-          <label class="label">ROL</label>
-          <select id="new-role" class="field">
-            <option value="user">Kullanıcı</option>
-            <option value="admin">Yönetici</option>
-          </select>
-        </div>
-        <div>
-          <label class="label">E-POSTA</label>
-          <input id="new-email" type="email" class="field" placeholder="user@domain.com">
-        </div>
-        <div>
-          <label class="label">BİYOGRAFİ</label>
-          <input id="new-bio" type="text" class="field" placeholder="Kısa biyografi">
-        </div>
-      </div>
-      <div id="add-err" class="hidden" style="color:#FF3D6B;font-size:12px;margin-top:10px;padding:8px 12px;background:rgba(255,61,107,.1);border-radius:8px;border:1px solid rgba(255,61,107,.2)"></div>
-      <div style="margin-top:14px;display:flex;align-items:center;gap:10px">
-        <button onclick="addUser()" class="btn-green">Kullanıcı Ekle</button>
-        <span style="font-size:11px;color:#7A8FA8">* zorunlu alan</span>
-      </div>
-    </div>
-
-    <!-- Users table -->
-    <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700;color:#DDE8F8;display:flex;align-items:center;gap:8px">
-          <span style="font-size:20px">👥</span> Mevcut Kullanıcılar
-        </h2>
-        <button onclick="loadUsers()" style="font-size:11px;padding:6px 12px;border-radius:8px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer;font-family:'JetBrains Mono',monospace">↻ Yenile</button>
-      </div>
-      <div id="users-table" style="display:flex;flex-direction:column;gap:8px"></div>
-    </div>
-
-    <!-- users.json editor -->
-    <div class="section">
-      <h2 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700;color:#DDE8F8;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-        <span>📝</span> users.json İçeriği
-      </h2>
-      <p style="color:#7A8FA8;font-size:12px;margin-bottom:14px">Bu içeriği kopyalayıp <code style="color:#00FFB3">users.json</code> dosyanıza yapıştırabilirsiniz. Şifreler düz metin olarak saklanır, uygulama içinde SHA-256 ile hash'lenir.</p>
-      <div style="position:relative">
-        <pre id="users-json-preview" style="background:#06080F;border:1px solid #1E2D45;border-radius:10px;padding:14px;font-size:11px;color:#00FFB3;font-family:'JetBrains Mono',monospace;max-height:300px;overflow-y:auto;line-height:1.6"></pre>
-        <button onclick="copyUsersJson()" style="position:absolute;top:8px;right:8px;padding:5px 12px;border-radius:6px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:11px;cursor:pointer;font-family:'JetBrains Mono',monospace">Kopyala</button>
-      </div>
-    </div>
-
-    <!-- Supabase SQL -->
-    <div class="section">
-      <h2 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700;color:#DDE8F8;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-        <span>🗄</span> Supabase Kurulum SQL
-      </h2>
-      <p style="color:#7A8FA8;font-size:12px;margin-bottom:14px">config.js'te <code style="color:#00FFB3">USE_SUPABASE: true</code> yapıp aşağıdaki SQL'i Supabase SQL Editor'da çalıştırın.</p>
-      <div style="position:relative">
-        <pre id="sql-block" style="background:#06080F;border:1px solid #1E2D45;border-radius:10px;padding:14px;font-size:11px;color:#00FFB3;font-family:'JetBrains Mono',monospace;max-height:300px;overflow-y:auto;line-height:1.6">CREATE TABLE users (
-  username     TEXT PRIMARY KEY,
-  password_hash TEXT NOT NULL,
-  display_name TEXT,
-  bio          TEXT DEFAULT '',
-  avatar_url   TEXT,
-  banner_color TEXT DEFAULT '#0A1628',
-  status       TEXT DEFAULT '',
-  status_emoji TEXT DEFAULT '',
-  is_admin     BOOLEAN DEFAULT false,
-  badges       TEXT[] DEFAULT '{}',
-  email        TEXT,
-  created_at   BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())*1000
-);
-
-CREATE TABLE conversations (
-  id           TEXT PRIMARY KEY,
-  type         TEXT NOT NULL CHECK (type IN ('direct','group')),
-  name         TEXT,
-  participants TEXT[] NOT NULL,
-  avatar       TEXT,
-  banner_color TEXT DEFAULT '#0A1628',
-  last_msg     TEXT DEFAULT '',
-  last_time    BIGINT DEFAULT 0,
-  unread_for   JSONB DEFAULT '{}',
-  admin        TEXT,
-  created_at   TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE messages (
-  id           TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  conv_id      TEXT NOT NULL,
-  "from"       TEXT NOT NULL,
-  text         TEXT DEFAULT '',
-  type         TEXT DEFAULT 'text',
-  file_data    TEXT,
-  file_name    TEXT,
-  file_type    TEXT,
-  audio_data   TEXT,
-  duration     TEXT,
-  gif_url      TEXT,
-  gif_title    TEXT,
-  sticker      TEXT,
-  reply_to     TEXT,
-  reply_to_text TEXT,
-  reactions    JSONB DEFAULT '{}',
-  status       TEXT DEFAULT 'sent',
-  edited       BOOLEAN DEFAULT false,
-  recalled     BOOLEAN DEFAULT false,
-  destruct_at  BIGINT,
-  created_at   BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())*1000
-);
-
-CREATE TABLE stories (
-  id         TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  user_id    TEXT NOT NULL,
-  text       TEXT NOT NULL,
-  seen_by    TEXT[] DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '24 hours'
-);</pre>
-        <button onclick="copySQL()" style="position:absolute;top:8px;right:8px;padding:5px 12px;border-radius:6px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:11px;cursor:pointer;font-family:'JetBrains Mono',monospace">Kopyala</button>
-      </div>
-    </div>
-
-    <!-- Şikayetler -->
-    <div class="section">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700;color:#DDE8F8;display:flex;align-items:center;gap:8px">
-          <span>🚨</span> Şikayetler & Raporlar
-        </h2>
-        <div style="display:flex;gap:6px">
-          <button onclick="loadReports()" style="font-size:11px;padding:6px 12px;border-radius:8px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer;font-family:'JetBrains Mono',monospace">↻ Yenile</button>
-          <button onclick="clearReports()" style="font-size:11px;padding:6px 12px;border-radius:8px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer;font-family:'JetBrains Mono',monospace">Temizle</button>
-        </div>
-      </div>
-      <div id="reports-list" style="display:flex;flex-direction:column;gap:8px">
-        <div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Yükleniyor…</div>
-      </div>
-    </div>
-
-    <!-- Bot Yönetimi -->
-    <div class="section">
-      <h2 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700;color:#DDE8F8;margin-bottom:8px;display:flex;align-items:center;gap:8px">
-        <span>🤖</span> CIPHER Bot — Toplu Mesaj
-      </h2>
-      <p style="color:#7A8FA8;font-size:12px;margin-bottom:14px">Tüm kullanıcılara CIPHER Bot adına bilgilendirme mesajı gönder.</p>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div>
-          <label class="label">MESAJ TİPİ</label>
-          <select id="bot-type" class="field">
-            <option value="info">ℹ️ Bilgilendirme</option>
-            <option value="warn">⚠️ Uyarı</option>
-            <option value="update">🚀 Güncelleme</option>
-            <option value="security">🔒 Güvenlik</option>
-          </select>
-        </div>
-        <div>
-          <label class="label">MESAJ</label>
-          <textarea id="bot-msg" rows="3" class="field" placeholder="Tüm kullanıcılara gönderilecek mesaj…" style="resize:none;font-family:'DM Sans',sans-serif"></textarea>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button onclick="sendBotMessage()" class="btn-green" style="flex:1">🤖 Tüm Kullanıcılara Gönder</button>
-          <button onclick="previewBotMsg()" style="padding:10px 16px;border-radius:10px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;cursor:pointer;font-size:13px">Önizle</button>
-        </div>
-        <div id="bot-preview" style="display:none;padding:12px;border-radius:10px;background:#06080F;border:1px solid #1E2D45;font-size:13px;color:#DDE8F8"></div>
-        <div id="bot-status" style="display:none;font-size:12px;font-family:'JetBrains Mono',monospace;color:#00FFB3;padding:8px 12px;border-radius:8px;background:rgba(0,255,179,.08);border:1px solid rgba(0,255,179,.2)"></div>
-      </div>
-    </div>
-
-  </div>
-</div>
-
-<div id="toast-container" style="position:fixed;bottom:20px;right:16px;z-index:200;display:flex;flex-direction:column;align-items:flex-end;gap:8px;pointer-events:none"></div>
-
-<script src="js/config.js"></script>
-<script src="js/db.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/ui.js"></script>
-<script>
-  DB.init();
-  const urlKey = new URLSearchParams(location.search).get('key');
-  if (urlKey === CONFIG.ADMIN_KEY) unlockAdmin();
-
-  function checkAdminKey() {
-    const k = document.getElementById('admin-key-input').value;
-    if (k === CONFIG.ADMIN_KEY) { unlockAdmin(); }
-    else { const e=document.getElementById('auth-err'); e.textContent='Yanlış admin anahtarı.'; e.classList.remove('hidden'); setTimeout(()=>e.classList.add('hidden'),3000); }
-  }
-
-  async function unlockAdmin() {
-    document.getElementById('admin-auth').style.display='none';
-    document.getElementById('admin-panel').classList.remove('hidden');
-    await loadUsers();
-    await updateJsonPreview();
-    loadReports();
-  }
-
-  async function loadUsers() {
-    const users = await DB.getAllUsers();
-    document.getElementById('user-count-badge').textContent = users.length + ' kullanıcı';
-    const table = document.getElementById('users-table');
-    table.innerHTML = '';
-    users.forEach(u => {
-      const color = UI.avatarColor(u.username);
-      const div = document.createElement('div');
-      div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:#06080F;border:1px solid #1E2D45';
-      const av = u.avatar_url
-        ? `<img src="${u.avatar_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">`
-        : `<div style="width:40px;height:40px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`;
-      div.innerHTML = `${av}
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
-            <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px;color:#DDE8F8">${u.display_name||u.username}</span>
-            ${u.is_admin?'<span style="font-size:9px;padding:1px 7px;border-radius:20px;background:#FFD70022;color:#FFD700;border:1px solid #FFD70033;font-family:\'JetBrains Mono\',monospace">ADMİN</span>':''}
-          </div>
-          <div style="font-size:11px;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace">@${u.username}${u.email?' · '+u.email:''}</div>
-          ${u.bio?`<div style="font-size:11px;color:#7A8FA8;margin-top:2px">${u.bio}</div>`:''}
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button onclick="resetPassword('${u.username}')" style="font-size:11px;padding:5px 10px;border-radius:7px;background:#131D30;color:#FFA535;border:1px solid rgba(255,165,53,.3);cursor:pointer">Şifre</button>
-          <button onclick="deleteUser('${u.username}')" style="font-size:11px;padding:5px 10px;border-radius:7px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer">Sil</button>
-        </div>`;
-      table.appendChild(div);
-    });
-    if (!users.length) table.innerHTML = '<div style="text-align:center;padding:24px;color:#7A8FA8;font-size:13px">Kullanıcı bulunamadı</div>';
-  }
-
-  async function updateJsonPreview() {
-    const users = await DB.getAllUsers();
-    // Build preview with passwords hidden
-    const preview = {
-      _comment: 'Bu dosyayı düzenleyerek kullanıcı ekleyip silebilirsiniz.',
-      users: users.map(u => ({
-        username: u.username,
-        password: '••••••••  (hash\'lenmiş — değiştirmek için yeni şifre girin)',
-        display_name: u.display_name,
-        bio: u.bio,
-        email: u.email || '',
-        is_admin: u.is_admin,
-        badges: u.badges,
-        banner_color: u.banner_color,
-        status: u.status,
-        status_emoji: u.status_emoji,
-      }))
-    };
-    document.getElementById('users-json-preview').textContent = JSON.stringify(preview, null, 2);
-  }
-
-  async function addUser() {
-    const username = document.getElementById('new-username').value.trim().toLowerCase();
-    const displayName = document.getElementById('new-displayname').value.trim();
-    const password = document.getElementById('new-password').value;
-    const role = document.getElementById('new-role').value;
-    const email = document.getElementById('new-email').value.trim();
-    const bio = document.getElementById('new-bio').value.trim();
-    const errEl = document.getElementById('add-err');
-
-    if (!username||!displayName||!password){showErr('Kullanıcı adı, ad ve şifre zorunlu.');return;}
-    if (password.length<6){showErr('Şifre en az 6 karakter.');return;}
-    if (!/^[a-z0-9_.-]+$/.test(username)){showErr('Kullanıcı adı: harf, rakam, _ - . kullanın.');return;}
-
-    const existing = await DB.getUser(username);
-    if (existing){showErr('Bu kullanıcı adı zaten kullanılıyor.');return;}
-
-    const hash = await DB.hashPassword(password);
-    // Save to localStorage overrides
-    const stored = JSON.parse(localStorage.getItem('cipher_users')||'{}');
-    stored[username] = {
-      username, password_hash:hash, display_name:displayName, bio, email,
-      is_admin:role==='admin',
-      badges:role==='admin'?['admin','verified','early']:['verified'],
-      banner_color:'#0A1628', status:'', status_emoji:'', avatar_url:null, created_at:Date.now()
-    };
-    localStorage.setItem('cipher_users', JSON.stringify(stored));
+<body class="bg-[#06080F] text-[#DDE8F8] p-8">
+  <div id="admin-content" class="max-w-2xl mx-auto">
+    <h1 class="text-2xl font-bold mb-6">Kullanıcı Yönetimi (Supabase)</h1>
     
+    <div class="bg-[#0C1220] p-6 rounded-2xl border border-[#1E2D45] mb-8">
+      <div class="grid gap-4">
+        <input id="u" type="text" placeholder="Kullanıcı Adı" class="bg-[#06080F] border border-[#1E2D45] p-3 rounded-xl outline-none focus:border-[#00FFB3]">
+        <input id="d" type="text" placeholder="Görünen Ad" class="bg-[#06080F] border border-[#1E2D45] p-3 rounded-xl outline-none focus:border-[#00FFB3]">
+        <input id="p" type="password" placeholder="Şifre" class="bg-[#06080F] border border-[#1E2D45] p-3 rounded-xl outline-none focus:border-[#00FFB3]">
+        <button onclick="createUser()" class="bg-[#00FFB3] text-[#06080F] font-bold py-3 rounded-xl hover:opacity-90">Kullanıcıyı Kaydet</button>
+      </div>
+    </div>
 
-    // Clear fields
-    ['new-username','new-displayname','new-password','new-email','new-bio'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('new-role').value='user';
+    <div id="user-list" class="space-y-3">
+      <div class="text-center text-[#7A8FA8]">Yükleniyor...</div>
+    </div>
+  </div>
 
-    await loadUsers(); await updateJsonPreview();
-    UI.toast(`@${username} eklendi ✓`, 'success');
-  }
-
-  async function deleteUser(username) {
-    if (!confirm(`@${username} kullanıcısını sil?`)) return;
-    const stored = JSON.parse(localStorage.getItem('cipher_users')||'{}');
-    delete stored[username];
-    localStorage.setItem('cipher_users', JSON.stringify(stored));
-    
-    await loadUsers(); await updateJsonPreview();
-    UI.toast(`@${username} silindi`, 'info');
-  }
-
-  async function resetPassword(username) {
-    const p = prompt(`@${username} için yeni şifre (min. 6 karakter):`);
-    if (!p || p.length < 6) { UI.toast('Şifre en az 6 karakter', 'error'); return; }
-    const hash = await DB.hashPassword(p);
-    const stored = JSON.parse(localStorage.getItem('cipher_users')||'{}');
-    if (stored[username]) {
-      stored[username].password_hash = hash;
-      delete stored[username].password_hash_broken;
-    }
-    localStorage.setItem('cipher_users', JSON.stringify(stored));
-    UI.toast(`@${username} şifresi güncellendi ✓`, 'success');
-  }
-
-  function toggleField(id) {
-    const el=document.getElementById(id);
-    el.type=el.type==='password'?'text':'password';
-  }
-
-  function showErr(msg) {
-    const e=document.getElementById('add-err'); e.textContent=msg; e.classList.remove('hidden');
-    setTimeout(()=>e.classList.add('hidden'),4000);
-  }
-
-  function copyUsersJson() {
-    navigator.clipboard.writeText(document.getElementById('users-json-preview').textContent)
-      .then(()=>UI.toast('JSON kopyalandı ✓','success'));
-  }
-
-  function copySQL() {
-    navigator.clipboard.writeText(document.getElementById('sql-block').textContent)
-      .then(()=>UI.toast('SQL kopyalandı ✓','success'));
-  }
-
-  // ── Reports ──────────────────────────────────────────────────
-  function loadReports() {
-    const reports = JSON.parse(localStorage.getItem('cipher_admin_reports') || '[]');
-    const list = document.getElementById('reports-list');
-    if (!reports.length) {
-      list.innerHTML = '<div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Henüz şikayet yok 🎉</div>';
-      return;
-    }
-    const typeIcon = { bug:'🐛', abuse:'🚫', spam:'📢', other:'❓', user:'👤' };
-    const typeLabel = { bug:'Bug', abuse:'Kötüye Kullanım', spam:'Spam', other:'Diğer', user:'Kullanıcı Şikayeti' };
-    list.innerHTML = [...reports].reverse().map((r, i) => `
-      <div style="padding:12px;border-radius:12px;background:#06080F;border:1px solid #1E2D45;display:flex;align-items:start;gap:10px">
-        <span style="font-size:22px;flex-shrink:0">${typeIcon[r.type] || '❓'}</span>
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
-            <span style="font-size:12px;font-weight:600;color:#DDE8F8">${typeLabel[r.type] || r.type}</span>
-            <span style="font-size:10px;padding:1px 7px;border-radius:20px;background:#131D30;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${new Date(r.time).toLocaleString('tr-TR')}</span>
-          </div>
-          <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:3px">@${r.from}${r.target ? ' → @'+r.target : ''}</div>
-          ${r.text ? `<div style="font-size:12px;color:#9AB0C8">${r.text}</div>` : ''}
-        </div>
-        <button onclick="deleteReport(${reports.length - 1 - i})" style="font-size:12px;padding:4px 8px;border-radius:6px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer;flex-shrink:0">Sil</button>
-      </div>`).join('');
-  }
-
-  function deleteReport(idx) {
-    const reports = JSON.parse(localStorage.getItem('cipher_admin_reports') || '[]');
-    reports.splice(idx, 1);
-    localStorage.setItem('cipher_admin_reports', JSON.stringify(reports));
-    loadReports();
-    UI.toast('Rapor silindi', 'info');
-  }
-
-  function clearReports() {
-    if (!confirm('Tüm raporları sil?')) return;
-    localStorage.removeItem('cipher_admin_reports');
-    loadReports();
-    UI.toast('Tüm raporlar temizlendi', 'info');
-  }
-
-  // ── Bot ──────────────────────────────────────────────────────
-  const BOT_USERNAME = 'cipher_bot';
-  const BOT_DISPLAY = 'CIPHER Bot 🤖';
-  const BOT_EMOJI = { info:'ℹ️', warn:'⚠️', update:'🚀', security:'🔒' };
-
-  async function ensureBot() {
-    let bot = await DB.getUser(BOT_USERNAME);
-    if (!bot) {
-      const hash = await DB.hashPassword('cipherbot_system');
-      bot = await DB.createUser({
-        username: BOT_USERNAME, password_hash: hash,
-        display_name: BOT_DISPLAY, bio: 'Resmi CIPHER sistem botu',
-        is_admin: false, badges: ['verified'], banner_color: '#0A1628',
-        status: 'Hizmetinizde', status_emoji: '🤖', avatar_url: null
-      });
-    }
-    return bot;
-  }
-
-  function previewBotMsg() {
-    const msg = document.getElementById('bot-msg').value.trim();
-    const type = document.getElementById('bot-type').value;
-    if (!msg) { UI.toast('Mesaj girin', 'error'); return; }
-    const prev = document.getElementById('bot-preview');
-    prev.style.display = 'block';
-    prev.innerHTML = `<div style="display:flex;align-items:start;gap:8px"><span style="font-size:20px">${BOT_EMOJI[type]}</span><div><div style="font-size:11px;font-weight:700;color:#00FFB3;margin-bottom:3px">${BOT_DISPLAY}</div><div>${msg}</div></div></div>`;
-  }
-
-  async function sendBotMessage() {
-    const msg = document.getElementById('bot-msg').value.trim();
-    const type = document.getElementById('bot-type').value;
-    if (!msg) { UI.toast('Mesaj girin', 'error'); return; }
-
-    await ensureBot();
-    const users = await DB.getAllUsers();
-    const targets = users.filter(u => u.username !== BOT_USERNAME);
-    const now = Date.now();
-    const fullMsg = `${BOT_EMOJI[type]} ${msg}`;
-    let sent = 0;
-
-    for (const u of targets) {
-      const ids = [BOT_USERNAME, u.username].sort();
-      const convId = ids.join('_');
-      let conv = await DB.getConversation(convId);
-      if (!conv) {
-        conv = await DB.createConversation({ id: convId, type: 'direct', participants: ids, last_msg: '', last_time: now, unread_for: {} });
+  <script>
+    async function init() {
+      const pass = prompt('Admin Key:');
+      if (pass !== CONFIG.ADMIN_KEY) {
+        alert('Hatalı Key!');
+        window.location.href = 'index.html';
+        return;
       }
-      await DB.createMessage({ conv_id: convId, from: BOT_USERNAME, type: 'text', text: fullMsg, status: 'sent', created_at: now + sent });
-      const unread = { ...(conv.unread_for || {}), [u.username]: (conv.unread_for?.[u.username] || 0) + 1 };
-      await DB.updateConversation(convId, { last_msg: fullMsg, last_time: now + sent, unread_for: unread });
-      sent++;
+      loadUsers();
     }
 
-    document.getElementById('bot-msg').value = '';
-    document.getElementById('bot-preview').style.display = 'none';
-    const status = document.getElementById('bot-status');
-    status.style.display = 'block';
-    status.textContent = `✓ ${sent} kullanıcıya gönderildi`;
-    setTimeout(() => status.style.display = 'none', 4000);
-    UI.toast(`Bot mesajı ${sent} kullanıcıya gönderildi ✓`, 'success');
-  }
-</script>
+    async function loadUsers() {
+      const users = await DB.getAllUsers();
+      const list = document.getElementById('user-list');
+      if (users.length === 0) {
+        list.innerHTML = '<div class="text-center text-[#7A8FA8]">Hiç kullanıcı bulunamadı.</div>';
+        return;
+      }
+      list.innerHTML = users.map(u => `
+        <div class="flex justify-between items-center p-4 bg-[#0C1220] border border-[#1E2D45] rounded-xl">
+          <div>
+            <div class="font-bold">${u.display_name}</div>
+            <div class="text-xs text-[#7A8FA8]">@${u.username}</div>
+          </div>
+          <button onclick="deleteUser('${u.username}')" class="text-[#FF3D6B] text-sm font-bold">SİL</button>
+        </div>
+      `).join('');
+    }
+
+    async function createUser() {
+      const u = document.getElementById('u').value.toLowerCase().trim();
+      const d = document.getElementById('d').value.trim();
+      const p = document.getElementById('p').value;
+
+      if (!u || !p) return alert('Kullanıcı adı ve şifre boş olamaz!');
+
+      try {
+        const hash = await DB._sha256(p);
+        await DB.createUser({
+          username: u,
+          display_name: d || u,
+          password_hash: hash,
+          locked: false,
+          created_at: new Date().toISOString()
+        });
+        alert('Kullanıcı başarıyla eklendi!');
+        document.getElementById('u').value = '';
+        document.getElementById('p').value = '';
+        loadUsers();
+      } catch (e) {
+        alert('Hata: ' + e.message);
+      }
+    }
+
+    async function deleteUser(username) {
+      if (!confirm(username + ' silinecek?')) return;
+      await DB.deleteUser(username);
+      loadUsers();
+    }
+
+    init();
+  </script>
 </body>
 </html>
