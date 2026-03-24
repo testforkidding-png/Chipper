@@ -4,56 +4,86 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>CIPHER Admin — Kontrol Paneli</title>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/config.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/db.js"></script>
-  
   <style>
-    body { background: #06080F; color: #DDE8F8; font-family: 'DM Sans', sans-serif; }
-    .glass-card { background: #0C1220; border: 1px solid #1E2D45; border-radius: 20px; }
-    .input-field { background: #06080F; border: 1px solid #1E2D45; color: #DDE8F8; padding: 12px; border-radius: 12px; outline: none; width: 100%; transition: 0.2s; }
-    .input-field:focus { border-color: #00FFB3; }
-    .btn-primary { background: #00FFB3; color: #062B1F; font-weight: 700; padding: 12px; border-radius: 12px; width: 100%; transition: 0.2s; }
-    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    body { background:#06080F; color:#DDE8F8; font-family:'DM Sans', sans-serif; min-height:100vh; }
+    .glass { background:#0C1220; border:1px solid #1E2D45; border-radius:20px; }
+    .field { width:100%; padding:12px; border-radius:12px; border:1.5px solid #1E2D45; background:#06080F; color:#DDE8F8; outline:none; transition:0.2s; }
+    .field:focus { border-color:#00FFB3; }
+    .btn-green { background:#00FFB3; color:#062B1F; font-weight:700; padding:12px; border-radius:12px; width:100%; transition:0.2s; cursor:pointer; }
+    .btn-green:hover { opacity:0.9; transform:translateY(-1px); }
+    .hidden { display: none; }
   </style>
 </head>
 <body class="p-6">
 
   <div id="admin-auth" class="max-w-md mx-auto mt-20 text-center">
-    <h1 style="font-family: 'Syne';" class="text-3xl mb-6">CIPHER ADMIN</h1>
-    <input id="admin-pass" type="password" placeholder="Admin Şifresi" class="input-field mb-4 text-center">
-    <button onclick="checkAuth()" class="btn-primary">Giriş Yap</button>
-  </div>
-
-  <div id="admin-panel" class="max-w-2xl mx-auto hidden">
-    <header class="flex justify-between items-center mb-8">
-      <h2 style="font-family: 'Syne';" class="text-2xl">Yönetim Paneli</h2>
-      <button onclick="location.reload()" class="text-xs text-[#7A8FA8] hover:text-[#00FFB3]">Sistemi Yenile</button>
-    </header>
-
-    <div class="glass-card p-6 mb-8">
-      <h3 class="font-bold mb-4 text-[#00FFB3]">Yeni Kullanıcı Oluştur</h3>
-      <div class="grid gap-3">
-        <input id="u" type="text" placeholder="Kullanıcı Adı (küçük harf)" class="input-field">
-        <input id="d" type="text" placeholder="Görünen İsim" class="input-field">
-        <input id="p" type="password" placeholder="Şifre" class="input-field">
-        <button onclick="addUser()" class="btn-primary mt-2">Kullanıcıyı Kaydet</button>
-      </div>
-    </div>
-
-    <div class="glass-card p-6">
-      <h3 class="font-bold mb-4">Kayıtlı Kullanıcılar</h3>
-      <div id="user-list" class="space-y-3">
-        <div class="text-center py-4 text-[#7A8FA8]">Yükleniyor...</div>
-      </div>
+    <h1 style="font-family:'Syne';" class="text-4xl mb-8 text-[#00FFB3]">CIPHER ADMIN</h1>
+    <div class="glass p-8">
+      <input id="admin-pass" type="password" placeholder="Admin Şifresi" class="field mb-4 text-center">
+      <button onclick="checkAuth()" class="btn-green">Sisteme Giriş Yap</button>
     </div>
   </div>
+
+  <div id="admin-panel" class="max-w-4xl mx-auto hidden">
+    <div class="flex justify-between items-center mb-10">
+      <h2 style="font-family:'Syne';" class="text-2xl font-bold">KONTROL MERKEZİ</h2>
+      <button onclick="location.reload()" class="text-sm text-[#7A8FA8] border border-[#1E2D45] px-4 py-2 rounded-lg hover:bg-[#1E2D45]">Yenile</button>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-8">
+      
+      <div class="space-y-6">
+        <div class="glass p-6">
+          <h3 class="font-bold text-[#00FFB3] mb-4 flex items-center gap-2">👤 Kullanıcı Ekle</h3>
+          <div class="space-y-3">
+            <input id="u" type="text" placeholder="Kullanıcı Adı (küçük harf)" class="field">
+            <input id="d" type="text" placeholder="Görünen İsim" class="field">
+            <input id="p" type="password" placeholder="Şifre" class="field">
+            <button onclick="addUser()" class="btn-green">Veritabanına Kaydet</button>
+          </div>
+        </div>
+
+        <div class="glass p-6">
+          <h3 class="font-bold mb-4">👥 Kayıtlı Kullanıcılar</h3>
+          <div id="user-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            </div>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div class="glass p-6 border-l-4 border-l-[#00FFB3]">
+          <h3 class="font-bold text-[#00FFB3] mb-4 flex items-center gap-2">🤖 Bot Duyurusu</h3>
+          <p class="text-xs text-[#7A8FA8] mb-4">Tüm kullanıcılara bot üzerinden mesaj gönderin.</p>
+          <div class="space-y-3">
+            <select id="bot-type" class="field">
+              <option value="info">ℹ️ Bilgi (Info)</option>
+              <option value="alert">⚠️ Uyarı (Alert)</option>
+              <option value="gift">🎁 Hediye (Gift)</option>
+              <option value="system">🤖 Sistem (System)</option>
+            </select>
+            <textarea id="bot-msg" placeholder="Mesajınız..." class="field h-24 resize-none"></textarea>
+            <button onclick="sendBotBroadcast()" class="btn-green !bg-[#0E85FF] !text-white">Duyuruyu Gönder</button>
+            <div id="bot-status" class="text-xs text-center mt-2"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast-container" class="fixed bottom-6 right-6 flex flex-col gap-2 z-[999]"></div>
 
   <script>
-    // 1. Şifre Kontrolü (Senin istediğin 1453)
+    const BOT_USERNAME = 'cipher_bot';
+    const BOT_EMOJI = { info: 'ℹ️', alert: '⚠️', gift: '🎁', system: '🤖' };
+
+    // 1. ŞİFRE KONTROLÜ (1453)
     function checkAuth() {
       const input = document.getElementById('admin-pass').value;
       if (input === '1453') {
@@ -61,28 +91,22 @@
         document.getElementById('admin-panel').classList.remove('hidden');
         loadUsers();
       } else {
-        alert('Hatalı şifre!');
+        UI.toast('Hatalı Şifre!', 'error');
       }
     }
 
-    // 2. Kullanıcıları Listele
+    // 2. KULLANICILARI YÜKLE
     async function loadUsers() {
       try {
         const users = await DB.getAllUsers();
         const container = document.getElementById('user-list');
-        
-        if (!users || users.length === 0) {
-          container.innerHTML = '<div class="text-center text-[#7A8FA8]">Kullanıcı yok.</div>';
-          return;
-        }
-
         container.innerHTML = users.map(u => `
-          <div class="flex items-center justify-between p-4 bg-[#06080F] rounded-xl border border-[#1E2D45]">
+          <div class="flex items-center justify-between p-3 bg-[#06080F] rounded-xl border border-[#1E2D45]">
             <div>
               <div class="font-bold text-sm">${u.display_name}</div>
-              <div class="text-xs text-[#7A8FA8]">@${u.username}</div>
+              <div class="text-[10px] text-[#7A8FA8] uppercase tracking-wider">@${u.username}</div>
             </div>
-            <button onclick="deleteUser('${u.username}')" class="text-[#FF3D6B] text-xs font-bold p-2 hover:bg-[#FF3D6B11] rounded-lg">SİL</button>
+            <button onclick="deleteUser('${u.username}')" class="text-[#FF3D6B] hover:bg-[#FF3D6B11] p-2 rounded-lg text-xs font-bold">SİL</button>
           </div>
         `).join('');
       } catch (e) {
@@ -90,47 +114,84 @@
       }
     }
 
-    // 3. Kullanıcı Ekle
+    // 3. KULLANICI EKLE
     async function addUser() {
       const u = document.getElementById('u').value.toLowerCase().trim();
       const d = document.getElementById('d').value.trim();
       const p = document.getElementById('p').value;
 
-      if (!u || !p) return alert('Kullanıcı adı ve şifre boş bırakılamaz!');
+      if (!u || !p) return UI.toast('Eksik alanları doldur!', 'warn');
 
       try {
-        // DB._sha256 db.js dosyanın içindeki fonksiyonu kullanır
         const hash = await DB._sha256(p);
-        
-        const newUser = {
+        await DB.createUser({
           username: u,
           display_name: d || u,
           password_hash: hash,
           locked: false,
           created_at: new Date().toISOString()
-        };
-
-        await DB.createUser(newUser);
-        alert('Kullanıcı Başarıyla Oluşturuldu!');
-        
-        // Formu temizle ve listeyi yenile
+        });
+        UI.toast('Kullanıcı Oluşturuldu', 'success');
         document.getElementById('u').value = '';
         document.getElementById('p').value = '';
         loadUsers();
       } catch (e) {
-        console.error(e);
-        alert('Hata: Kullanıcı zaten var veya veritabanı hatası.');
+        UI.toast('Hata: Kullanıcı mevcut olabilir', 'error');
       }
     }
 
-    // 4. Kullanıcı Sil
+    // 4. KULLANICI SİL
     async function deleteUser(uname) {
       if (!confirm(uname + ' silinsin mi?')) return;
+      await DB.deleteUser(uname);
+      UI.toast('Kullanıcı Silindi', 'info');
+      loadUsers();
+    }
+
+    // 5. BOT DUYURUSU (ESKİ ÖZELLİK - SUPABASE UYUMLU)
+    async function sendBotBroadcast() {
+      const msg = document.getElementById('bot-msg').value;
+      const type = document.getElementById('bot-type').value;
+      const status = document.getElementById('bot-status');
+
+      if (!msg) return UI.toast('Mesaj boş olamaz', 'warn');
+
       try {
-        await DB.deleteUser(uname);
-        loadUsers();
+        status.textContent = "Gönderiliyor...";
+        const users = await DB.getAllUsers();
+        const targets = users.filter(u => u.username !== BOT_USERNAME);
+        const fullMsg = `${BOT_EMOJI[type]} ${msg}`;
+        const now = Date.now();
+
+        for (const u of targets) {
+          const ids = [BOT_USERNAME, u.username].sort();
+          const convId = ids.join('_');
+          
+          // Konuşmayı bul veya oluştur
+          let conv = await DB.getConversation(convId);
+          if (!conv) {
+            conv = await DB.createConversation({ id: convId, type: 'direct', participants: ids, last_msg: '', last_time: now });
+          }
+
+          // Mesajı gönder
+          await DB.createMessage({
+            conv_id: convId,
+            from: BOT_USERNAME,
+            text: fullMsg,
+            type: 'text',
+            created_at: now
+          });
+
+          // Konuşmayı güncelle
+          await DB.updateConversation(convId, { last_msg: fullMsg, last_time: now });
+        }
+
+        UI.toast('Duyuru tüm kullanıcılara iletildi!', 'success');
+        document.getElementById('bot-msg').value = '';
+        status.textContent = "";
       } catch (e) {
-        alert('Silme hatası!');
+        UI.toast('Bot hatası!', 'error');
+        status.textContent = "Hata oluştu.";
       }
     }
   </script>
