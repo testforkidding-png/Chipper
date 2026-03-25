@@ -80,19 +80,50 @@
       </div>
     </div>
 
-    <!-- Stories -->
-    <div style="padding:0 12px 10px;flex-shrink:0">
-      <div id="stories-strip" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch"></div>
+    <!-- Filter pills (üstte) -->
+    <div style="display:flex;gap:4px;padding:6px 12px;flex-shrink:0">
+      <button id="filter-all" onclick="setFilter('all')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:#131D30;color:#DDE8F8;-webkit-tap-highlight-color:transparent">Tümü</button>
+      <button id="filter-unread" onclick="setFilter('unread')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:transparent;color:#7A8FA8;-webkit-tap-highlight-color:transparent">Okunmamış</button>
+      <button id="filter-groups" onclick="setFilter('groups')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:transparent;color:#7A8FA8;-webkit-tap-highlight-color:transparent">Gruplar</button>
     </div>
 
-    <!-- Chat list -->
-    <div id="chat-list" style="flex:1;overflow-y:auto"></div>
+    <!-- TAB: Mesajlar -->
+    <div id="tab-messages" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+      <!-- Stories -->
+      <div style="padding:0 12px 8px;flex-shrink:0">
+        <div id="stories-strip" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch"></div>
+      </div>
+      <!-- Chat list -->
+      <div id="chat-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+    </div>
 
-    <!-- Filter tabs -->
-    <div style="display:flex;border-top:1px solid #1E2D45;padding:8px;gap:4px;flex-shrink:0">
-      <button id="filter-all" onclick="setFilter('all')" style="flex:1;padding:7px;border-radius:10px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:#131D30;color:#DDE8F8">Tümü</button>
-      <button id="filter-unread" onclick="setFilter('unread')" style="flex:1;padding:7px;border-radius:10px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:transparent;color:#7A8FA8">Okunmamış</button>
-      <button id="filter-groups" onclick="setFilter('groups')" style="flex:1;padding:7px;border-radius:10px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:transparent;color:#7A8FA8">Gruplar</button>
+    <!-- TAB: Kişiler -->
+    <div id="tab-contacts" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+      <div style="padding:8px 12px;flex-shrink:0">
+        <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.08em;margin-bottom:4px">TÜM KULLANICILAR</div>
+      </div>
+      <div id="contacts-tab-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+    </div>
+
+    <!-- TAB: Güncelleme -->
+    <div id="tab-updates" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+      <div id="updates-tab-content" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div style="display:flex;border-top:1px solid #1E2D45;background:#0C1220;flex-shrink:0;padding-bottom:max(0px,env(safe-area-inset-bottom))">
+      <button data-tab="messages" class="bottom-tab active" onclick="setTab('messages')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#00FFB3;-webkit-tap-highlight-color:transparent;transition:color .15s">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace">Mesajlar</span>
+      </button>
+      <button data-tab="contacts" class="bottom-tab" onclick="setTab('contacts')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#7A8FA8;-webkit-tap-highlight-color:transparent;transition:color .15s">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace">Kişiler</span>
+      </button>
+      <button data-tab="updates" class="bottom-tab" onclick="setTab('updates')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#7A8FA8;-webkit-tap-highlight-color:transparent;transition:color .15s">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace">Güncellemeler</span>
+      </button>
     </div>
   </div>
 
@@ -570,6 +601,48 @@
     <button onclick="clearAllNotifs()" style="width:100%;margin-top:12px;padding:9px;border-radius:10px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace">Tümünü Temizle</button>
   </div>
 </div>
+
+<!-- User Profile Modal -->
+<div id="user-profile-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
+  <div style="width:100%;max-width:380px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:85dvh;overflow-y:auto;animation:slideUp .25s ease-out">
+    <div style="display:flex;justify-content:flex-end;padding:12px 14px 0;flex-shrink:0">
+      <button onclick="UI.closeModal('user-profile-modal')" style="color:#7A8FA8;background:#131D30;border:none;cursor:pointer;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px">✕</button>
+    </div>
+    <div id="user-profile-content" style="padding:0 20px 20px"></div>
+  </div>
+</div>
+
+<!-- Group Panel Modal -->
+<div id="group-panel-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
+  <div style="width:100%;max-width:380px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:85dvh;overflow-y:auto;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0;position:sticky;top:0;background:#0C1220;z-index:1">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">👥 Grup Bilgisi</span>
+      <button onclick="UI.closeModal('group-panel-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+    </div>
+    <div id="group-panel-content" style="padding:16px"></div>
+  </div>
+</div>
+
+<!-- Add Member Modal -->
+<div id="add-member-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
+  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:70dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out">
+    <input type="hidden" id="add-member-conv-id">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">+ Üye Ekle</span>
+      <button onclick="UI.closeModal('add-member-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+    </div>
+    <div id="add-member-list" style="overflow-y:auto;flex:1;padding:8px"></div>
+    <div style="padding:12px;flex-shrink:0;border-top:1px solid #1E2D45">
+      <button onclick="confirmAddMembers()" style="width:100%;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;border:none;cursor:pointer">Ekle</button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Bottom tab active state */
+.bottom-tab.active { color: #00FFB3 !important; }
+.bottom-tab:active { transform: scale(.92); }
+</style>
 
 <script src="js/config.js"></script>
 <script src="js/db.js"></script>
