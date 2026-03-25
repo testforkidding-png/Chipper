@@ -1,4 +1,4 @@
 {
-  "_comment": "Kullanıcıları buraya ekleyin. Şifreler uygulama içinde hash'lenir.",
+  "_note": "Bu dosya artık kullanılmıyor. Kullanıcılar kayıt olarak veya admin panelinden eklenir.",
   "users": []
 }
