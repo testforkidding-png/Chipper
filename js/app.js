@@ -26,30 +26,33 @@ async function bootApp() {
   setupScreenshotDetection();
   buildStickerTabs();
 
+  // Supabase config check
+  if (window._supabaseNotConfigured || CONFIG.SUPABASE_URL.includes('YOUR_PROJECT')) {
+    UI.toast('⚠️ Supabase ayarlanmamış — tek cihaz modu', 'warn', 8000);
+  }
+
   // Request notification permission
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
   }
 
-  // Mesaj gönderim / değişiklik sonrası bu sekmeyi güncelle
+  // Mesaj gönderim sonrası güncelle
   window._onNewMessage = async () => {
     await loadConversations();
     if (window._currentConvId) await renderMessages();
   };
 
-  // Diğer sekme/kullanıcıdan gelen BroadcastChannel / storage event
+  // localStorage/BroadcastChannel sync (local mode)
   window._onStorageSync = async (key) => {
     if (!key) return;
     if (key === 'convs') await loadConversations();
     if (key.startsWith('msgs_')) {
       const convId = key.slice(5);
-      // Notify if not the active conv or window hidden
       if (convId !== window._currentConvId || document.hidden) {
         const msgs = await DB.getMessages(convId);
         const last = msgs[msgs.length - 1];
         if (last && last.from !== window._currentUser.username) {
           addNotif(last.text || (last.type === 'gif' ? '🎬 GIF' : last.sticker || '📎'), last.from, convId);
-          // Unread badge
           const convs = await DB.getConversations(window._currentUser.username);
           const conv = convs.find(c => c.id === convId);
           if (conv) {
@@ -63,6 +66,13 @@ async function bootApp() {
       if (key === 'msgs_' + window._currentConvId) await renderMessages();
     }
   };
+
+  // Supabase real-time: conversations (yeni sohbet, okundu sayısı)
+  if (CONFIG.USE_SUPABASE && !window._supabaseNotConfigured) {
+    DB.subscribeConversations?.(window._currentUser.username, async () => {
+      await loadConversations();
+    });
+  }
 }
 
 // ── My avatar ─────────────────────────────────────────────────────
@@ -820,3 +830,4 @@ function clearAllNotifs() { _notifs = []; updateNotifBadge(); UI.closeModal('not
 
 // Inject notification on incoming message
 const _origStorageSync = null;
+
