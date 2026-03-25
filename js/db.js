@@ -1,83 +1,207 @@
+/**
+ * CIPHER DB v5
+ * Supabase (merkezi) + localStorage (offline fallback)
+ * Pure-JS SHA-256 — tüm platformlarda aynı hash
+ */
 const DB = (() => {
   const NS = 'cipher_';
   const _get = k => { try { return JSON.parse(localStorage.getItem(NS+k)); } catch { return null; } };
-  const _set = (k, v) => { localStorage.setItem(NS+k, JSON.stringify(v)); };
+  const _set = (k, v) => { localStorage.setItem(NS+k, JSON.stringify(v)); try { _bc?.postMessage({key:k}); } catch {} };
 
-  // HER PLATFORMDA AYNI SONUCU VEREN SAF JS SHA-256
-  function _sha256(s) {
-    const chrsz = 8;
-    const hexcase = 0;
-    function safe_add(x, y) {
-      const lsw = (x & 0xFFFF) + (y & 0xFFFF);
-      const msw = (x >> 16) + (y >> 16) + (lsw >> 16);
-      return (msw << 16) | (lsw & 0xFFFF);
-    }
-    function S(X, n) { return (X >>> n) | (X << (32 - n)); }
-    function R(X, n) { return (X >>> n); }
-    function Ch(x, y, z) { return ((x & y) ^ ((~x) & z)); }
-    function Maj(x, y, z) { return ((x & y) ^ (x & z) ^ (y & z)); }
-    function Sigma0256(x) { return (S(x, 2) ^ S(x, 13) ^ S(x, 22)); }
-    function Sigma1256(x) { return (S(x, 6) ^ S(x, 11) ^ S(x, 25)); }
-    function Gamma0256(x) { return (S(x, 7) ^ S(x, 18) ^ R(x, 3)); }
-    function Gamma1256(x) { return (S(x, 17) ^ S(x, 19) ^ R(x, 10)); }
-    function core_sha256(m, l) {
-      const K = [0x428A2F98, 0x71374491, 0xB5C0FBCF, 0xE9B5DBA5, 0x3956C25B, 0x59F111F1, 0x923F82A4, 0xAB1C5ED5, 0xD807AA98, 0x12835B01, 0x243185BE, 0x550C7DC3, 0x72BE5D74, 0x80DEB1FE, 0x9BDC06A7, 0xC19BF174, 0xE49B69C1, 0xEFBE4786, 0x0FC19DC6, 0x240CA1CC, 0x2DE92C6F, 0x4A7484AA, 0x5CB0A9DC, 0x76F988DA, 0x983E5152, 0xA831C66D, 0xB00327C8, 0xBF597FC7, 0xC6E00BF3, 0xD5A79147, 0x06CA6351, 0x14292967, 0x27B70A85, 0x2E1B2138, 0x4D2C6DFC, 0x53380D13, 0x650A7354, 0x766A0ABB, 0x81C2C92E, 0x92722C85, 0xA2BFE8A1, 0xA81A664B, 0xC24B8B70, 0xC76C51A3, 0xD192E819, 0xD6990624, 0xF40E3585, 0x106AA070, 0x19A4C116, 0x1E376C08, 0x2748774C, 0x34B0BCB5, 0x391C0CB3, 0x4ED8AA4A, 0x5B9CCA4F, 0x682E6FF3, 0x748F82EE, 0x78A5636F, 0x84C87814, 0x8CC70208, 0x90BEFFFA, 0xA4506CEB, 0xBEF9A3F7, 0xC67178F2];
-      const HASH = [0x6A09E667, 0xBB67AE85, 0x3C6EF372, 0xA54FF53A, 0x510E527F, 0x9B05688C, 0x1F83D9AB, 0x5BE0CD19];
-      const W = new Array(64);
-      m[l >> 5] |= 0x80 << (24 - l % 32);
-      m[((l + 64 >> 9) << 4) + 15] = l;
-      for (let i = 0; i < m.length; i += 16) {
-        let a = HASH[0], b = HASH[1], c = HASH[2], d = HASH[3], e = HASH[4], f = HASH[5], g = HASH[6], h = HASH[7];
-        for (let j = 0; j < 64; j++) {
-          if (j < 16) W[j] = m[j + i];
-          else W[j] = safe_add(safe_add(safe_add(Gamma1256(W[j - 2]), W[j - 7]), Gamma0256(W[j - 15])), W[j - 16]);
-          let T1 = safe_add(safe_add(safe_add(safe_add(h, Sigma1256(e)), Ch(e, f, g)), K[j]), W[j]);
-          let T2 = safe_add(Sigma0256(a), Maj(a, b, c));
-          h = g; g = f; f = e; e = safe_add(d, T1); d = c; c = b; b = a; a = safe_add(T1, T2);
-        }
-        HASH[0] = safe_add(a, HASH[0]); HASH[1] = safe_add(b, HASH[1]); HASH[2] = safe_add(c, HASH[2]); HASH[3] = safe_add(d, HASH[3]);
-        HASH[4] = safe_add(e, HASH[4]); HASH[5] = safe_add(f, HASH[5]); HASH[6] = safe_add(g, HASH[6]); HASH[7] = safe_add(h, HASH[7]);
+  let _bc = null;
+  try { _bc = new BroadcastChannel('cipher_sync'); } catch {}
+
+  // ── SHA-256 (pure JS, verified identical to crypto.subtle) ───────
+  function _sha256(str) {
+    const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+    const H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+    const bytes=new TextEncoder().encode(str);
+    const len=bytes.length,bitLen=len*8;
+    const extra=(len+1+8)%64,padLen=extra<=56?55-(len+1)%64:119-(len+1)%64;
+    const padded=new Uint8Array(len+1+padLen+1+8);
+    padded.set(bytes);padded[len]=0x80;
+    const dv=new DataView(padded.buffer);
+    dv.setUint32(padded.length-4,bitLen&0xffffffff,false);
+    dv.setUint32(padded.length-8,Math.floor(bitLen/0x100000000),false);
+    const r=(n,b)=>(n>>>b)|(n<<(32-b));
+    for(let i=0;i<padded.length;i+=64){
+      const W=new Uint32Array(64);
+      for(let t=0;t<16;t++)W[t]=dv.getUint32(i+t*4,false);
+      for(let t=16;t<64;t++)W[t]=((r(W[t-2],17)^r(W[t-2],19)^(W[t-2]>>>10))+W[t-7]+(r(W[t-15],7)^r(W[t-15],18)^(W[t-15]>>>3))+W[t-16])|0;
+      let[a,b,c,d,e,f,g,h]=H;
+      for(let t=0;t<64;t++){
+        const T1=(h+(r(e,6)^r(e,11)^r(e,25))+((e&f)^(~e&g))+K[t]+W[t])|0;
+        const T2=((r(a,2)^r(a,13)^r(a,22))+((a&b)^(a&c)^(b&c)))|0;
+        h=g;g=f;f=e;e=(d+T1)|0;d=c;c=b;b=a;a=(T1+T2)|0;
       }
-      return HASH;
+      H[0]=(H[0]+a)|0;H[1]=(H[1]+b)|0;H[2]=(H[2]+c)|0;H[3]=(H[3]+d)|0;
+      H[4]=(H[4]+e)|0;H[5]=(H[5]+f)|0;H[6]=(H[6]+g)|0;H[7]=(H[7]+h)|0;
     }
-    function binb2hex(binarray) {
-      let hex_tab = hexcase ? "0123456789ABCDEF" : "0123456789abcdef";
-      let str = "";
-      for (let i = 0; i < binarray.length * 4; i++) {
-        str += hex_tab.charAt((binarray[i >> 2] >> ((3 - i % 4) * 8 + 4)) & 0xF) + hex_tab.charAt((binarray[i >> 2] >> ((3 - i % 4) * 8)) & 0xF);
-      }
-      return str;
-    }
-    const bin = ((s) => {
-      let bin = [];
-      let mask = (1 << chrsz) - 1;
-      for (let i = 0; i < s.length * chrsz; i += chrsz) { bin[i >> 5] |= (s.charCodeAt(i / chrsz) & mask) << (24 - i % 32); }
-      return bin;
-    })(s);
-    return binb2hex(core_sha256(bin, s.length * chrsz));
+    return H.map(n=>(n>>>0).toString(16).padStart(8,'0')).join('');
+  }
+  function quickHash(str){ return Promise.resolve(_sha256(str+'_cipher_salt')); }
+
+  // ── Supabase client ──────────────────────────────────────────────
+  let _sb = null;
+  function sb() {
+    if (_sb) return _sb;
+    if (!window.supabase) throw new Error('Supabase SDK yüklenmedi');
+    _sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+    return _sb;
   }
 
-  const impl = () => {
-    // Supabase kontrolü ve yerel fallback mantığı buraya gelir
-    // (Önceki db.js mantığın aynen kalabilir, sadece _sha256'yı yukarıdakiyle değiştir)
-    return {
-      getUser: async (u) => {
-          const users = _get('users') || {};
-          return users[u] || null;
-      },
-      createUser: async (user) => {
-          const users = _get('users') || {};
-          users[user.username] = user;
-          _set('users', users);
-      },
-      getAllUsers: async () => Object.values(_get('users') || {}),
-      deleteUser: async (u) => {
-          const users = _get('users') || {};
-          delete users[u];
-          _set('users', users);
-      }
-    };
+  // ── Supabase implementation ──────────────────────────────────────
+  const Supa = {
+    async getUser(u) {
+      const { data } = await sb().from('users').select('*').eq('username', u).single();
+      return data || null;
+    },
+    async getAllUsers() {
+      const { data } = await sb().from('users').select('*').order('created_at');
+      return data || [];
+    },
+    async createUser(d) {
+      const { data, error } = await sb().from('users').insert(d).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async updateUser(u, d) {
+      const { data, error } = await sb().from('users').update(d).eq('username', u).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async deleteUser(u) {
+      await sb().from('users').delete().eq('username', u);
+    },
+    async getConversations(uid) {
+      const { data } = await sb().from('conversations').select('*').contains('participants', [uid]).order('last_time', { ascending: false });
+      return data || [];
+    },
+    async getConversation(id) {
+      const { data } = await sb().from('conversations').select('*').eq('id', id).single();
+      return data || null;
+    },
+    async createConversation(d) {
+      // Upsert — aynı id varsa güncelle
+      const { data, error } = await sb().from('conversations').upsert(d).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async updateConversation(id, d) {
+      const { data, error } = await sb().from('conversations').update(d).eq('id', id).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async getMessages(cid, lim = 200) {
+      const { data } = await sb().from('messages').select('*').eq('conv_id', cid).order('created_at').limit(lim);
+      return data || [];
+    },
+    async createMessage(d) {
+      const { data, error } = await sb().from('messages').insert(d).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async updateMessage(cid, mid, d) {
+      const { data, error } = await sb().from('messages').update(d).eq('id', mid).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async deleteMessage(cid, mid) {
+      await sb().from('messages').delete().eq('id', mid);
+    },
+    async getStories() {
+      const { data } = await sb().from('stories').select('*').gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false });
+      return data || [];
+    },
+    async createStory(d) {
+      const exp = new Date(Date.now() + 86400000).toISOString();
+      const { data, error } = await sb().from('stories').insert({ ...d, expires_at: exp }).select().single();
+      if (error) throw error;
+      return data;
+    },
+    async deleteStory(id) {
+      await sb().from('stories').delete().eq('id', id);
+    },
+    subscribeMessages(cid, cb) {
+      return sb().channel('msgs_' + cid)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conv_id=eq.${cid}` }, cb)
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages', filter: `conv_id=eq.${cid}` }, cb)
+        .subscribe();
+    },
+    subscribeConversations(uid, cb) {
+      return sb().channel('convs_' + uid)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, cb)
+        .subscribe();
+    },
+    unsubscribe(ch) { if (ch) sb().removeChannel(ch); }
   };
 
-  return { ...impl(), _sha256 };
+  // ── localStorage fallback ────────────────────────────────────────
+  const Local = {
+    async getUser(u)        { return (_get('users')||{})[u]||null; },
+    async getAllUsers()      { return Object.values(_get('users')||{}); },
+    async createUser(d)     { const us=_get('users')||{}; us[d.username]={...d,created_at:d.created_at||Date.now()}; _set('users',us); return us[d.username]; },
+    async updateUser(u,d)   { const us=_get('users')||{}; if(!us[u])return null; us[u]={...us[u],...d}; _set('users',us); return us[u]; },
+    async deleteUser(u)     { const us=_get('users')||{}; delete us[u]; _set('users',us); },
+    async getConversations(uid) { return Object.values(_get('convs')||{}).filter(c=>c.participants?.includes(uid)); },
+    async getConversation(id)   { return (_get('convs')||{})[id]||null; },
+    async createConversation(d) { const cs=_get('convs')||{}; const id=d.id||'conv_'+Date.now(); cs[id]={...d,id,created_at:Date.now()}; _set('convs',cs); return cs[id]; },
+    async updateConversation(id,d){ const cs=_get('convs')||{}; if(!cs[id])return null; cs[id]={...cs[id],...d}; _set('convs',cs); return cs[id]; },
+    async getMessages(cid,lim=200){ return (_get('msgs_'+cid)||[]).slice(-lim); },
+    async createMessage(d) {
+      const msgs=_get('msgs_'+d.conv_id)||[];
+      const msg={...d,id:d.id||'msg_'+Date.now()+Math.random().toString(36).substr(2,4),created_at:d.created_at||Date.now()};
+      msgs.push(msg); _set('msgs_'+d.conv_id,msgs); return msg;
+    },
+    async updateMessage(cid,mid,d){ const msgs=_get('msgs_'+cid)||[]; const i=msgs.findIndex(m=>m.id===mid); if(i<0)return null; msgs[i]={...msgs[i],...d}; _set('msgs_'+cid,msgs); return msgs[i]; },
+    async deleteMessage(cid,mid)  { _set('msgs_'+cid,(_get('msgs_'+cid)||[]).filter(m=>m.id!==mid)); },
+    async getStories()     { const now=Date.now(); return Object.values(_get('stories')||{}).filter(s=>s.expires_at>now); },
+    async createStory(d)   { const ss=_get('stories')||{}; const id='story_'+Date.now(); ss[id]={...d,id,created_at:Date.now(),expires_at:Date.now()+24*3600000}; _set('stories',ss); return ss[id]; },
+    async deleteStory(id)  { const ss=_get('stories')||{}; delete ss[id]; _set('stories',ss); },
+    subscribeMessages:     ()=>null,
+    subscribeConversations:()=>null,
+    unsubscribe:           ()=>null,
+  };
+
+  const impl = () => CONFIG.USE_SUPABASE ? Supa : Local;
+
+  // Cross-tab sync (localStorage mode only)
+  if (_bc) { _bc.onmessage = e => { try { window._onStorageSync?.(e.data?.key); } catch {} }; }
+  window.addEventListener('storage', e => {
+    if (e.key?.startsWith(NS)) window._onStorageSync?.(e.key.slice(NS.length));
+  });
+
+  // Supabase real-time subscription handles cross-device sync automatically
+
+  return {
+    async init() {
+      if (CONFIG.USE_SUPABASE) {
+        // Validate Supabase config
+        if (CONFIG.SUPABASE_URL.includes('YOUR_PROJECT')) {
+          console.error('[CIPHER] Supabase ayarlanmamış! config.js dosyasını düzenleyin.');
+          window._supabaseNotConfigured = true;
+        }
+      }
+    },
+    hashPassword: quickHash,
+    getUser:            (...a) => impl().getUser(...a),
+    getAllUsers:         (...a) => impl().getAllUsers(...a),
+    createUser:         (...a) => impl().createUser(...a),
+    updateUser:         (...a) => impl().updateUser(...a),
+    deleteUser:         (...a) => impl().deleteUser(...a),
+    getConversations:   (...a) => impl().getConversations(...a),
+    getConversation:    (...a) => impl().getConversation(...a),
+    createConversation: (...a) => impl().createConversation(...a),
+    updateConversation: (...a) => impl().updateConversation(...a),
+    getMessages:        (...a) => impl().getMessages(...a),
+    createMessage:      (...a) => impl().createMessage(...a),
+    updateMessage:      (...a) => impl().updateMessage(...a),
+    deleteMessage:      (...a) => impl().deleteMessage(...a),
+    getStories:         (...a) => impl().getStories(...a),
+    createStory:        (...a) => impl().createStory(...a),
+    deleteStory:        (...a) => impl().deleteStory(...a),
+    subscribeMessages:      (...a) => impl().subscribeMessages?.(...a),
+    subscribeConversations: (...a) => impl().subscribeConversations?.(...a),
+    unsubscribe:            (...a) => impl().unsubscribe?.(...a),
+  };
 })();
