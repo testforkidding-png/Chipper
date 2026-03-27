@@ -95,7 +95,14 @@ const Auth = (() => {
     try { sessionStorage.removeItem('cipher_session'); } catch {}
     _encKey = null;
   }
-
+async function register(username, password, name) {
+    const hash = await hashPassword(password);
+    return await DB.saveUser({ 
+      username: username.toLowerCase().trim(), 
+      password_hash: hash, 
+      name 
+    });
+  }
   // ── Login ────────────────────────────────────────────────────────
   async function login(username, password) {
     const uname = username.toLowerCase().trim();
@@ -131,6 +138,5 @@ const Auth = (() => {
     if (!getSession()) { window.location.href = 'index.html'; return false; }
     return true;
   }
-
-  return { login, logout, currentUser, requireAuth, encryptMsg, decryptMsg, hashPassword, getSession };
+return { register, login, logout, currentUser, requireAuth, encryptMsg, decryptMsg, hashPassword, getSession };
 })();
