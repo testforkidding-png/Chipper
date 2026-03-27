@@ -1,15 +1,17 @@
 /**
- * 1. DATABASE (DB) Nesnesi - saveUser eklendi
+ * 1. DATABASE KATMANI (DB)
+ * Auth'dan önce tanımlanmalı ki Auth içinde kullanılabilsin.
  */
 const DB = (() => {
   const storeName = 'users';
-  // Basit bir localStorage DB simülasyonu (Gerçek DB'niz farklıysa burayı uyarlayın)
   const _getUsers = () => JSON.parse(localStorage.getItem(storeName) || '{}');
   const _saveUsers = (users) => localStorage.setItem(storeName, JSON.stringify(users));
 
   return {
-    getUser: async (username) => _getUsers()[username.toLowerCase()] || null,
-    // EKSİK OLAN FONKSİYON:
+    getUser: async (username) => {
+      const users = _getUsers();
+      return users[username.toLowerCase()] || null;
+    },
     saveUser: async (user) => {
       const users = _getUsers();
       users[user.username.toLowerCase()] = user;
@@ -20,13 +22,13 @@ const DB = (() => {
 })();
 
 /**
- * 2. AUTH (CIPHER Auth v3) - register eklendi
+ * 2. AUTH KATMANI (CIPHER Auth v3)
  */
 const Auth = (() => {
   const SK = 'cipher_session_v2';
   let _encKey = null;
 
-  // SHA-256 (Kodun aynısı, kısalttım)
+  // Saf JS SHA-256 (db.js ile birebir aynı)
   function _sha256(str) {
     const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
     const H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
@@ -59,51 +61,40 @@ const Auth = (() => {
     return Promise.resolve(_sha256(pass + '_cipher_salt'));
   }
 
-  // Session ve Diğerleri
   function saveSession(user) {
     localStorage.setItem(SK, JSON.stringify({
       username: user.username,
-      expires: Date.now() + (3 * 3600000) // 3 saat default
+      expires: Date.now() + 86400000 // 24 saat
     }));
   }
 
-  function getSession() {
-    try {
-      const s = JSON.parse(localStorage.getItem(SK));
-      if (!s || s.expires < Date.now()) return null;
-      return s;
-    } catch { return null; }
-  }
-
-  // --- ASIL DÜZELTİLEN YERLER ---
-
+  // --- KRİTİK BUGFİX: register Fonksiyonu ---
   async function register(username, password, name) {
-    const uname = username.toLowerCase().trim();
-    if (!uname || !password) throw new Error('Eksik bilgi.');
-    
-    // DB kontrolü
-    const existing = await DB.getUser(uname);
-    if (existing) throw new Error('Bu kullanıcı zaten var.');
+    const uname = (username || "").toLowerCase().trim();
+    if (!uname || !password) throw new Error("Kullanıcı adı ve şifre zorunludur.");
+
+    const exists = await DB.getUser(uname);
+    if (exists) throw new Error("Bu kullanıcı zaten kayıtlı.");
 
     const hash = await hashPassword(password);
-    const newUser = {
+    const user = {
       username: uname,
       password_hash: hash,
       displayName: name || uname,
       locked: false
     };
 
-    // DB.saveUser burada çağrılıyor
-    return await DB.saveUser(newUser);
+    await DB.saveUser(user);
+    return user;
   }
 
   async function login(username, password) {
-    const uname = username.toLowerCase().trim();
-    let user = await DB.getUser(uname);
-    if (!user) throw new Error('Kullanıcı bulunamadı.');
-    
+    const uname = (username || "").toLowerCase().trim();
+    const user = await DB.getUser(uname);
+    if (!user) throw new Error("Kullanıcı bulunamadı.");
+
     const hash = await hashPassword(password);
-    if (user.password_hash !== hash) throw new Error('Şifre yanlış.');
+    if (user.password_hash !== hash) throw new Error("Hatalı şifre.");
 
     saveSession(user);
     return user;
@@ -111,8 +102,9 @@ const Auth = (() => {
 
   function logout() {
     localStorage.removeItem(SK);
-    window.location.href = 'index.html';
+    window.location.reload();
   }
 
-  return { register, login, logout, getSession, hashPassword };
+  // Fonksiyonları dışa açıyoruz
+  return { register, login, logout, hashPassword };
 })();
