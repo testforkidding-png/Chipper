@@ -5,10 +5,10 @@
  */
 const CONFIG = {
   // ─── SUPABASE (zorunlu — çok cihaz desteği için) ───────────────
+  // ─── SUPABASE (zorunlu — çok cihaz desteği için) ───────────────
   USE_SUPABASE: true,
-  SUPABASE_URL: 'https://YOUR_PROJECT.supabase.co',
-  SUPABASE_ANON_KEY: 'YOUR_ANON_KEY',
-
+  SUPABASE_URL: 'https://cdsauotkjmpslzecborj.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkc2F1b3Rram1wc2x6ZWNib3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDI1NDIsImV4cCI6MjA5MDAxODU0Mn0.OdEO73kPiF0S2bBIbrT1WricScSFhEri1iMPnwSCCME',
   // ─── Uygulama ───────────────────────────────────────────────────
   APP_NAME: 'CIPHER',
   APP_VERSION: '4.0.0',
