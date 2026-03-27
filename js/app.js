@@ -82,8 +82,14 @@ function setTab(tab) {
   document.getElementById('tab-contacts').style.display = tab === 'contacts' ? 'flex' : 'none';
   document.getElementById('tab-updates').style.display = tab === 'updates' ? 'flex' : 'none';
 
-  if (tab === 'contacts') renderContactsList();
+  if (tab === 'contacts') { refreshAllUsers().then(renderContactsList); }
   if (tab === 'updates') renderUpdatesTab();
+}
+
+// ── Refresh user list from DB ─────────────────────────────────────
+async function refreshAllUsers() {
+  const users = await DB.getAllUsers();
+  users.forEach(u => { _allUsers[u.username] = u; });
 }
 
 // ── My avatar ─────────────────────────────────────────────────────
@@ -322,43 +328,67 @@ function openGroupPanel(conv) {
   const color = getConvColor(conv);
   const isAdmin = conv.admin === window._currentUser.username;
 
-  const membersHtml = conv.participants.map(uid => {
+  // Build header HTML
+  const headerHtml = `
+    <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid #1E2D45;margin-bottom:16px">
+      <div style="width:70px;height:70px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;font-family:Syne,sans-serif;margin:0 auto 10px">${conv.avatar || UI.initials(conv.name)}</div>
+      ${isAdmin
+        ? `<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px">
+            <input id="gp-name-inp" value="${conv.name}" style="background:#06080F;border:1.5px solid #1E2D45;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:700;color:#DDE8F8;font-family:Syne,sans-serif;text-align:center;outline:none;width:160px" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+            <button id="gp-save-btn" style="padding:6px 12px;border-radius:8px;background:#00FFB3;color:#062B1F;font-weight:700;font-size:12px;border:none;cursor:pointer">Kaydet</button>
+          </div>`
+        : `<div style="font-family:Syne,sans-serif;font-weight:700;font-size:18px;color:#DDE8F8;margin-bottom:4px">${conv.name}</div>`
+      }
+      <div style="font-size:12px;color:#7A8FA8">${conv.participants.length} üye</div>
+    </div>
+    ${isAdmin ? '<div style="margin-bottom:12px"><button id="gp-add-btn" style="width:100%;padding:10px;border-radius:10px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:13px;cursor:pointer;font-family:\'JetBrains Mono\',monospace">+ Üye Ekle</button></div>' : ''}
+    <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace;margin-bottom:8px">ÜYELER</div>`;
+
+  el.innerHTML = headerHtml;
+
+  // Wire up save/add buttons safely
+  const saveBtn = document.getElementById('gp-save-btn');
+  if (saveBtn) saveBtn.onclick = () => saveGroupName(conv.id);
+  const addBtn = document.getElementById('gp-add-btn');
+  if (addBtn) addBtn.onclick = () => openAddMemberModal(conv.id);
+
+  // Build members as DOM nodes (no inline eval)
+  const membersDiv = document.createElement('div');
+  membersDiv.style.cssText = 'display:flex;flex-direction:column;gap:2px';
+  conv.participants.forEach(uid => {
     const u = _allUsers[uid] || { username: uid, display_name: uid };
     const c = UI.avatarColor(u.username);
+    const isOwner = conv.admin === uid;
+    // In group panel: group members have chatted → show avatar
     const av = u.avatar_url
       ? `<img src="${u.avatar_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover">`
       : `<div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>`;
-    const isOwner = conv.admin === uid;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:9px;border-radius:12px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''" onclick="openUserProfile(_allUsers['${uid}'])">
-      ${av}
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.display_name || u.username}</div>
-        <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${uid}${isOwner ? ' · Yönetici ⚡' : ''}</div>
-      </div>
-      ${isAdmin && uid !== window._currentUser.username ? `<button onclick="event.stopPropagation();removeFromGroup('${conv.id}','${uid}')" style="font-size:11px;padding:4px 8px;border-radius:7px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer">Çıkar</button>` : ''}
-    </div>`;
-  }).join('');
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px;border-radius:12px;cursor:pointer;transition:background .15s';
+    row.onmouseenter = () => row.style.background = '#131D30';
+    row.onmouseleave = () => row.style.background = '';
+    row.onclick = () => { const usr = _allUsers[uid]; if (usr) openUserProfile(usr); };
+    row.innerHTML = `${av}<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.display_name || u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${uid}${isOwner ? ' · Yönetici ⚡' : ''}</div></div>`;
+    if (isAdmin && uid !== window._currentUser.username) {
+      const btn = document.createElement('button');
+      btn.style.cssText = 'font-size:11px;padding:4px 8px;border-radius:7px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer;flex-shrink:0';
+      btn.textContent = 'Çıkar';
+      btn.onclick = e => { e.stopPropagation(); removeFromGroup(conv.id, uid); };
+      row.appendChild(btn);
+    }
+    membersDiv.appendChild(row);
+  });
+  el.appendChild(membersDiv);
 
-  el.innerHTML = `
-    <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid #1E2D45;margin-bottom:16px">
-      <div style="width:70px;height:70px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;font-family:Syne,sans-serif;margin:0 auto 10px">${conv.avatar || UI.initials(conv.name)}</div>
-      ${isAdmin ? `<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:8px">
-        <input id="gp-name-inp" value="${conv.name}" style="background:#06080F;border:1.5px solid #1E2D45;border-radius:8px;padding:6px 10px;font-size:14px;font-weight:700;color:#DDE8F8;font-family:Syne,sans-serif;text-align:center;outline:none;width:160px" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
-        <button onclick="saveGroupName('${conv.id}')" style="padding:6px 12px;border-radius:8px;background:#00FFB3;color:#062B1F;font-weight:700;font-size:12px;border:none;cursor:pointer">Kaydet</button>
-      </div>` : `<div style="font-family:Syne,sans-serif;font-weight:700;font-size:18px;color:#DDE8F8;margin-bottom:4px">${conv.name}</div>`}
-      <div style="font-size:12px;color:#7A8FA8">${conv.participants.length} üye</div>
-    </div>
-
-    ${isAdmin ? `<div style="margin-bottom:12px">
-      <button onclick="openAddMemberModal('${conv.id}')" style="width:100%;padding:10px;border-radius:10px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:13px;cursor:pointer;font-family:'JetBrains Mono',monospace">+ Üye Ekle</button>
-    </div>` : ''}
-
-    <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:8px">ÜYELER</div>
-    <div style="display:flex;flex-direction:column;gap:2px">${membersHtml}</div>
-
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid #1E2D45">
-      <button onclick="leaveGroup('${conv.id}')" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,61,107,.08);color:#FF3D6B;border:1px solid rgba(255,61,107,.2);font-size:13px;cursor:pointer">Gruptan Çık</button>
-    </div>`;
+  // Leave button
+  const footer = document.createElement('div');
+  footer.style.cssText = 'margin-top:16px;padding-top:14px;border-top:1px solid #1E2D45';
+  const leaveBtn = document.createElement('button');
+  leaveBtn.style.cssText = 'width:100%;padding:10px;border-radius:10px;background:rgba(255,61,107,.08);color:#FF3D6B;border:1px solid rgba(255,61,107,.2);font-size:13px;cursor:pointer';
+  leaveBtn.textContent = 'Gruptan Çık';
+  leaveBtn.onclick = () => leaveGroup(conv.id);
+  footer.appendChild(leaveBtn);
+  el.appendChild(footer);
 
   UI.openModal('group-panel-modal');
 }
@@ -455,14 +485,25 @@ function renderContactsList() {
     list.innerHTML = '<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">Henüz kullanıcı yok</div>';
     return;
   }
+
+  // Mesajlaşılan kullanıcıların setini oluştur
+  const chattedSet = new Set(
+    _convs
+      .filter(c => c.type === 'direct')
+      .map(c => c.participants.find(p => p !== window._currentUser.username))
+      .filter(Boolean)
+  );
+
   list.innerHTML = '';
   users.forEach(u => {
     const c = UI.avatarColor(u.username);
+    const hasChatted = chattedSet.has(u.username);
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:14px;cursor:pointer;margin:1px 6px;transition:background .15s';
     div.onmouseenter = () => div.style.background = '#0C1220';
     div.onmouseleave = () => div.style.background = 'transparent';
-    const av = u.avatar_url
+    // Profil fotoğrafı sadece mesajlaştığımız kişilerde görünsün
+    const av = (hasChatted && u.avatar_url)
       ? `<img src="${u.avatar_url}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover">`
       : `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>`;
     div.innerHTML = `${av}
@@ -470,7 +511,7 @@ function renderContactsList() {
         <div style="font-size:13px;font-weight:600;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.display_name || u.username}</div>
         <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}${u.status ? ' · ' + u.status : ''}</div>
       </div>
-      <button onclick="event.stopPropagation();setTab('messages');startDM('${u.username}')" style="padding:6px 12px;border-radius:8px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:12px;cursor:pointer;flex-shrink:0">Mesaj</button>`;
+      <button onclick="event.stopPropagation();setTab('messages');startDM('${u.username}')" style="padding:6px 12px;border-radius:8px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:12px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent">Mesaj</button>`;
     div.onclick = () => openUserProfile(u);
     list.appendChild(div);
   });
@@ -672,20 +713,48 @@ function updateInfoPanel(conv) {
   if (conv.type === 'direct') {
     const other = _allUsers[conv.participants.find(p => p !== window._currentUser.username)] || {};
     const c = UI.avatarColor(other.username || '');
-    const av = other.avatar_url
-      ? `<img src="${other.avatar_url}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 12px;display:block;cursor:pointer" onclick="openUserProfile(_allUsers['${other.username}'])">`
-      : `<div onclick="openUserProfile(_allUsers['${other.username}'])" style="width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 12px;cursor:pointer;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(other.display_name || other.username)}</div>`;
-    el.innerHTML = `<div style="text-align:center">${av}<div style="font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8">${other.display_name || other.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${other.username}</div>${other.status ? `<div style="font-size:12px;margin-top:4px;color:#9AB0C8">${other.status_emoji || ''} ${other.status}</div>` : ''}</div>
-    <div style="border-top:1px solid #1E2D45;padding-top:12px;margin-top:12px"><div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:8px">GÜVENLİK</div><div style="font-size:11px;color:#DDE8F8;display:flex;flex-direction:column;gap:5px"><div>🔒 AES-256-GCM</div><div>🛡 SHA-256</div><div>🚫 Sıfır Kayıt</div></div></div>`;
+    // Info panel = we ARE chatting → show avatar
+    el.innerHTML = '';
+    const top = document.createElement('div');
+    top.style.cssText = 'text-align:center';
+    const avEl = document.createElement(other.avatar_url ? 'img' : 'div');
+    if (other.avatar_url) {
+      avEl.src = other.avatar_url;
+      avEl.style.cssText = 'width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto 12px;display:block;cursor:pointer';
+    } else {
+      avEl.style.cssText = `width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 12px;cursor:pointer;background:${c}22;color:${c};font-family:Syne,sans-serif`;
+      avEl.textContent = UI.initials(other.display_name || other.username);
+    }
+    avEl.onclick = () => { if (_allUsers[other.username]) openUserProfile(_allUsers[other.username]); };
+    top.appendChild(avEl);
+    top.innerHTML += `<div style="font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8">${other.display_name || other.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${other.username}</div>${other.status ? `<div style="font-size:12px;margin-top:4px;color:#9AB0C8">${other.status_emoji || ''} ${other.status}</div>` : ''}`;
+    el.appendChild(top);
+    el.innerHTML += '<div style="border-top:1px solid #1E2D45;padding-top:12px;margin-top:12px"><div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace;margin-bottom:8px">GÜVENLİK</div><div style="font-size:11px;color:#DDE8F8;display:flex;flex-direction:column;gap:5px"><div>🔒 AES-256-GCM</div><div>🛡 SHA-256</div><div>🚫 Sıfır Kayıt</div></div></div>';
   } else {
-    const members = conv.participants.map(uid => {
+    el.innerHTML = '';
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = 'text-align:center;cursor:pointer';
+    header.onclick = () => { const c = _convs.find(cv => cv.id === conv.id); if (c) openGroupPanel(c); };
+    header.innerHTML = `<div style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 12px;background:${getConvColor(conv)}22;color:${getConvColor(conv)};font-family:Syne,sans-serif">${conv.avatar || UI.initials(conv.name)}</div><div style="font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8">${conv.name}</div><div style="font-size:12px;color:#7A8FA8">${conv.participants.length} üye</div>`;
+    el.appendChild(header);
+    // Members
+    const sec = document.createElement('div');
+    sec.style.cssText = 'border-top:1px solid #1E2D45;padding-top:12px;margin-top:12px';
+    sec.innerHTML = '<div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace;margin-bottom:8px">ÜYELER</div>';
+    conv.participants.forEach(uid => {
       const u = _allUsers[uid] || { username: uid, display_name: uid };
       const c = UI.avatarColor(u.username);
-      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer" onclick="openGroupPanel(_convs.find(cv=>cv.id==='${conv.id}'))"><div style="width:28px;height:28px;min-width:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div><div><div style="font-size:12px;font-weight:500;color:#DDE8F8">${u.display_name || u.username}</div>${conv.admin === uid ? '<div style="font-size:10px;color:#FFD700">Yönetici</div>' : ''}</div></div>`;
-    }).join('');
-    el.innerHTML = `<div style="text-align:center;cursor:pointer" onclick="openGroupPanel(_convs.find(cv=>cv.id==='${conv.id}'))"><div style="width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;margin:0 auto 12px;background:${getConvColor(conv)}22;color:${getConvColor(conv)};font-family:Syne,sans-serif">${conv.avatar || UI.initials(conv.name)}</div><div style="font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8">${conv.name}</div><div style="font-size:12px;color:#7A8FA8">${conv.participants.length} üye</div></div><div style="border-top:1px solid #1E2D45;padding-top:12px;margin-top:12px"><div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:8px">ÜYELER</div>${members}</div>`;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer';
+      row.innerHTML = `<div style="width:28px;height:28px;min-width:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div><div><div style="font-size:12px;font-weight:500;color:#DDE8F8">${u.display_name || u.username}</div>${conv.admin === uid ? '<div style="font-size:10px;color:#FFD700">Yönetici</div>' : ''}</div>`;
+      row.onclick = () => { const cv = _convs.find(c => c.id === conv.id); if (cv) openGroupPanel(cv); };
+      sec.appendChild(row);
+    });
+    el.appendChild(sec);
   }
 }
+
 
 // ── Search ────────────────────────────────────────────────────────
 function handleSidebarSearch(q) { _searchQuery = q; document.getElementById('search-clear')?.classList.toggle('hidden', !q); renderChatList(); }
