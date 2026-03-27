@@ -14,12 +14,9 @@ const Messages = (() => {
 
   // ── Subscribe ─────────────────────────────────────────────────
   function subscribeConv(convId) {
-    // Clean up previous subscription
-    if (window._realtimeSub) { DB.unsubscribe(window._realtimeSub); window._realtimeSub = null; }
-    if (CONFIG.USE_SUPABASE && !window._supabaseNotConfigured) {
-      window._realtimeSub = DB.subscribeMessages(convId, async () => {
-        await window._onNewMessage?.();
-      });
+    if (CONFIG.USE_SUPABASE) {
+      if (window._realtimeSub) DB.unsubscribe(window._realtimeSub);
+      window._realtimeSub = DB.subscribeMessages(convId, () => window._onNewMessage?.());
     }
   }
 
