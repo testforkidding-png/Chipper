@@ -5,8 +5,9 @@
  */
 const CONFIG = {
   // ─── Backend ─────────────────────────────────────────────────
-  USE_SUPABASE: false,
-
+  USE_SUPABASE: true,
+  SUPABASE_URL: 'https://cdsauotkjmpslzecborj.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkc2F1b3Rram1wc2x6ZWNib3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDI1NDIsImV4cCI6MjA5MDAxODU0Mn0.OdEO73kPiF0S2bBIbrT1WricScSFhEri1iMPnwSCCME',
   // ─── Uygulama ────────────────────────────────────────────────
   APP_NAME: 'CIPHER',
   APP_VERSION: '5.0.0',
