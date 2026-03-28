@@ -80,13 +80,23 @@ const Auth = (() => {
     catch(e) { throw new Error('Sunucuya bağlanılamadı. Supabase ayarlarını kontrol edin.'); }
     if (existing) throw new Error('Bu kullanıcı adı alınmış.');
     const hash = await hashPassword(password);
+    const now = Date.now();
     const user = await DB.createUser({
-      username: uname, password_hash: hash,
-      display_name: displayName.trim(), bio:'', avatar_url:null,
-      banner_color:'#0A1628', status:'', status_emoji:'',
-      is_admin:false, badges:['early'],
-      server_roles:{ friends:false, private:false, public:true, family:false },
-      last_seen: Date.now(), online: true, created_at: Date.now(),
+      username: uname,
+      password_hash: hash,
+      display_name: displayName.trim(),
+      bio: '',
+      avatar_url: null,
+      banner_color: '#0A1628',
+      status: '',
+      status_emoji: '',
+      is_admin: false,
+      locked: false,
+      badges: ['early'],
+      server_roles: { friends:false, private:false, public:true, family:false },
+      last_seen: now,
+      online: true,
+      created_at: now,
     });
     await deriveEncKey(password, uname);
     saveSession(user);
