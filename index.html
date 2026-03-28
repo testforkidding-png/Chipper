@@ -112,6 +112,7 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
           Güvenli Giriş
         </button>
+        <button onclick="showForgot()" type="button" style="background:none;border:none;color:#7A8FA8;font-size:12px;cursor:pointer;padding:4px;-webkit-tap-highlight-color:transparent;align-self:center">Şifremi unuttum</button>
       </div>
     </div>
 
@@ -160,6 +161,18 @@
       </div>
     </div>
 
+    <!-- FORGOT PASSWORD FORM -->
+    <div id="forgot-form" style="display:none">
+      <div class="field-wrap">
+        <div><label class="lbl">KULLANICI ADI</label><div class="inp-w"><input id="f-u" type="text" class="inp" placeholder="kullanici_adi" autocapitalize="none" autocorrect="off"></div></div>
+        <div><label class="lbl">SIFIRLAMA KODU</label><div class="inp-w"><input id="f-code" type="text" class="inp" placeholder="Admin Key" autocapitalize="none"></div></div>
+        <div><label class="lbl">YENİ ŞİFRE</label><div class="inp-w"><input id="f-p" type="password" class="inp" placeholder="En az 6 karakter" autocomplete="new-password"></div></div>
+        <div><label class="lbl">YENİ ŞİFRE TEKRAR</label><div class="inp-w"><input id="f-p2" type="password" class="inp" placeholder="••••••••" enterkeyhint="go" onkeydown="if(event.key==='Enter')doForgot()"></div></div>
+        <div id="f-err" class="err"></div>
+        <button id="f-btn" onclick="doForgot()" class="btn" type="button">🔓 Şifreyi Sıfırla</button>
+      </div>
+    </div>
+
     <div class="sec">
       <div class="sec-i"><div class="dot"></div>AES-256</div>
       <div class="sec-i"><div class="dot"></div>SHA-256</div>
@@ -174,23 +187,28 @@
 <script>
 (async () => {
   await DB.init();
-  // Show Supabase warning if not configured
-  if (window._supabaseNotConfigured || CONFIG.SUPABASE_URL.includes('YOUR_PROJECT')) {
-    document.getElementById('sb-warn').style.display = 'block';
-  }
   if (Auth.getSession()) { window.location.replace('app.html'); return; }
-  // Hide register tab if disabled
   if (!CONFIG.ALLOW_REGISTER) document.getElementById('reg-tab').style.display = 'none';
   if (window.innerWidth > 768) document.getElementById('l-u').focus();
+  // Hide supabase warning (we use localStorage now)
+  const warn = document.getElementById('sb-warn');
+  if (warn) warn.style.display = 'none';
 })();
 
 function showTab(t) {
   const isLogin = t === 'login';
-  document.getElementById('login-form').style.display = isLogin ? '' : 'none';
-  document.getElementById('register-form').style.display = isLogin ? 'none' : '';
-  document.querySelectorAll('.tab').forEach((el,i) => el.classList.toggle('active', i===(isLogin?0:1)));
-  if (!isLogin) setTimeout(()=>document.getElementById('r-name').focus(),100);
+  const isForgot = t === 'forgot';
+  document.getElementById('login-form').style.display    = isLogin ? '' : 'none';
+  document.getElementById('register-form').style.display = (t === 'register') ? '' : 'none';
+  document.getElementById('forgot-form').style.display   = isForgot ? '' : 'none';
+  document.querySelectorAll('.tab').forEach((el, i) => {
+    el.classList.toggle('active', (isLogin && i===0) || (t==='register' && i===1));
+  });
+  if (t === 'register') setTimeout(() => document.getElementById('r-name').focus(), 100);
+  if (isForgot) setTimeout(() => document.getElementById('f-u').focus(), 100);
 }
+
+function showForgot() { showTab('forgot'); }
 
 async function doLogin() {
   const btn = document.getElementById('l-btn');
@@ -231,11 +249,32 @@ async function doRegister() {
   }
 }
 
+async function doForgot() {
+  const btn = document.getElementById('f-btn');
+  const u    = document.getElementById('f-u').value.trim();
+  const code = document.getElementById('f-code').value.trim();
+  const p    = document.getElementById('f-p').value;
+  const p2   = document.getElementById('f-p2').value;
+  if (!u||!code||!p||!p2) { showErr('f-err','Tüm alanları doldurun.'); return; }
+  if (p !== p2) { showErr('f-err','Şifreler eşleşmiyor.'); return; }
+  setLoading(btn, true);
+  hideErr('f-err');
+  try {
+    await Auth.resetPasswordWithCode(u, code, p);
+    btn.textContent = '✓ Şifre sıfırlandı! Giriş yapın.';
+    setTimeout(() => showTab('login'), 1500);
+  } catch(e) {
+    showErr('f-err', e.message);
+    setLoading(btn, false, 'forgot');
+  }
+}
+
 function setLoading(btn, on, type) {
   if (on) { btn.innerHTML = '<div class="spin"></div>'; btn.disabled = true; return; }
   btn.disabled = false;
-  if (type === 'login') btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Güvenli Giriş';
-  else btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Hesap Oluştur';
+  if (type === 'login')    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Güvenli Giriş';
+  else if (type==='register') btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Hesap Oluştur';
+  else btn.textContent = '🔓 Şifreyi Sıfırla';
 }
 function showErr(id, msg) { const e=document.getElementById(id); e.textContent=msg; e.style.display='block'; e.scrollIntoView({behavior:'smooth',block:'nearest'}); }
 function hideErr(id) { document.getElementById(id).style.display='none'; }
