@@ -215,7 +215,12 @@ function renderChatList() {
     const q = _searchQuery.toLowerCase();
     items = items.filter(c => getConvName(c).toLowerCase().includes(q) || (c.last_msg || '').toLowerCase().includes(q));
   }
-  items.sort((a, b) => (b.last_time || 0) - (a.last_time || 0));
+  // Sort: my messages NOT on top. Truly sort by last_time (most recent conv first)
+  items.sort((a, b) => {
+    const ta = typeof a.last_time === 'string' ? new Date(a.last_time).getTime() : (a.last_time || 0);
+    const tb = typeof b.last_time === 'string' ? new Date(b.last_time).getTime() : (b.last_time || 0);
+    return tb - ta;
+  });
   list.innerHTML = '';
   if (!items.length) {
     list.innerHTML = '<div style="text-align:center;padding:32px 16px;font-size:13px;color:#7A8FA8">Sohbet yok</div>';
@@ -238,6 +243,16 @@ function renderChatList() {
       ? `<img src="${other.avatar_url}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover">`
       : `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:${color}22;color:${color};font-family:'Syne',sans-serif">${UI.initials(name)}</div>`;
 
+    // Last sender: show who sent last message
+    const lastSender = conv.last_from && conv.last_from !== window._currentUser?.username
+      ? (_allUsers[conv.last_from]?.display_name || conv.last_from)
+      : (conv.last_from === window._currentUser?.username ? 'Sen' : '');
+    const msgCount = conv.msg_count || '';
+    const lastMsgText = (conv.last_msg || '').slice(0, 36);
+    const lastMsgPreview = conv.type === 'group' && lastSender
+      ? `<span style="color:#00FFB3;font-size:10px;font-weight:600;margin-right:3px">${lastSender}:</span>${lastMsgText}`
+      : lastMsgText;
+
     div.innerHTML = `${avHtml}
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
@@ -245,8 +260,11 @@ function renderChatList() {
           <span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;flex-shrink:0;margin-left:4px">${conv.last_time ? UI.fmtTime(conv.last_time) : ''}</span>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:12px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:170px">${(conv.last_msg || '').slice(0, 38)}</span>
-          ${unread > 0 ? `<span style="min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:#00FFB3;color:#062B1F;flex-shrink:0;margin-left:4px">${unread > 99 ? '99+' : unread}</span>` : ''}
+          <span style="font-size:12px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:155px">${lastMsgPreview}</span>
+          <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:4px">
+            ${msgCount ? `<span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${msgCount}</span>` : ''}
+            ${unread > 0 ? `<span style="min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:#00FFB3;color:#062B1F;">${unread > 99 ? '99+' : unread}</span>` : ''}
+          </div>
         </div>
       </div>`;
     list.appendChild(div);
@@ -355,6 +373,7 @@ function openUserProfile(user) {
   if (!user) return;
   const color = UI.avatarColor(user.username);
   const banner = user.banner_color || '#0A1628';
+  const st = UI.onlineStatus(user);
   const badges = (user.badges || []).map(b => {
     const bd = CONFIG.BADGES[b];
     return bd ? `<span style="background:${bd.color}22;border:1px solid ${bd.color}44;color:${bd.color};padding:3px 10px;border-radius:20px;font-size:11px">${bd.icon} ${bd.label}</span>` : '';
@@ -365,24 +384,29 @@ function openUserProfile(user) {
 
   const el = document.getElementById('user-profile-content');
   if (!el) return;
+  // Kapatma butonu profile content dışında (modal'da) — padding:0 ile banner tam köşeye oturur
   el.innerHTML = `
-    <div style="height:90px;background:${banner};border-radius:16px 16px 0 0;position:relative;margin:-20px -20px 0;flex-shrink:0">
+    <div style="height:90px;background:${banner};border-radius:20px 20px 0 0;position:relative;flex-shrink:0">
       <div style="position:absolute;bottom:-40px;left:20px">${avHtml}</div>
-      ${user.is_admin ? '<span style="position:absolute;top:10px;right:12px;font-size:10px;padding:2px 8px;border-radius:20px;background:#FFD70022;color:#FFD700;border:1px solid #FFD70044">ADMİN</span>' : ''}
+      ${user.is_admin ? '<span style="position:absolute;top:10px;left:20px;font-size:10px;padding:2px 8px;border-radius:20px;background:#FFD70022;color:#FFD700;border:1px solid #FFD70044">⚡ ADMİN</span>' : ''}
     </div>
-    <div style="margin-top:48px">
+    <div style="padding:48px 20px 20px">
       <div style="font-family:Syne,sans-serif;font-weight:700;font-size:20px;color:#DDE8F8">${user.display_name || user.username}</div>
-      <div style="font-size:12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:8px">@${user.username}</div>
+      <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:4px">@${user.username}</div>
+      <div style="font-size:12px;color:${st.color};margin-bottom:8px">${st.text}</div>
       ${user.status ? `<div style="font-size:13px;color:#B0C4D8;margin-bottom:10px">${user.status_emoji || ''} ${user.status}</div>` : ''}
       ${user.bio ? `<div style="font-size:13px;color:#9AB0C8;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:#06080F;border-radius:10px;border:1px solid #1E2D45">${user.bio}</div>` : ''}
       ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${badges}</div>` : ''}
       <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:4px">ÜYE OLDU</div>
       <div style="font-size:13px;color:#DDE8F8;margin-bottom:16px">${UI.fmtDate(user.created_at || Date.now())}</div>
       <div style="display:flex;gap:8px">
-        <button onclick="UI.closeModal('user-profile-modal');startDM('${user.username}')" style="flex:1;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;border:none;cursor:pointer">💬 Mesaj Gönder</button>
-        <button onclick="window._brTarget='${user.username}';UI.closeModal('user-profile-modal');UI.openModal('block-report-modal')" style="padding:11px 14px;border-radius:12px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;cursor:pointer">⋯</button>
+        <button id="profile-dm-btn" style="flex:1;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;border:none;cursor:pointer">💬 Mesaj Gönder</button>
+        <button id="profile-more-btn" style="padding:11px 14px;border-radius:12px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;cursor:pointer">⋯</button>
       </div>
     </div>`;
+  // Wire buttons safely
+  document.getElementById('profile-dm-btn').onclick = () => { UI.closeModal('user-profile-modal'); startDM(user.username); };
+  document.getElementById('profile-more-btn').onclick = () => { window._brTarget = user.username; UI.closeModal('user-profile-modal'); UI.openModal('block-report-modal'); };
   UI.openModal('user-profile-modal');
 }
 
