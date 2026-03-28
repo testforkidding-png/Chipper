@@ -1,12 +1,11 @@
 /**
- * CIPHER Auth v5
- * localStorage session, pure-JS SHA-256, register, forgot password
+ * CIPHER Auth v6
+ * localStorage session, pure-JS SHA-256, heartbeat, change name/password, forgot
  */
 const Auth = (() => {
   const SK = 'cipher_session_v2';
   let _encKey = null;
 
-  // ── SHA-256 ──────────────────────────────────────────────────
   function _sha256(str) {
     const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
     const H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
@@ -34,23 +33,30 @@ const Auth = (() => {
     }
     return H.map(n=>(n>>>0).toString(16).padStart(8,'0')).join('');
   }
-  const hashPassword = str => Promise.resolve(_sha256(str+'_cipher_salt'));
+  const hashPassword = str => Promise.resolve(_sha256(str + '_cipher_salt'));
 
-  // ── Encryption (HTTPS only) ───────────────────────────────────
-  async function deriveEncKey(pass,uid){ if(typeof crypto==='undefined'||!crypto.subtle)return; try{ const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']); _encKey=await crypto.subtle.deriveKey({name:'PBKDF2',salt:new TextEncoder().encode('cipher_'+uid),iterations:100000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']); }catch{_encKey=null;} }
-  async function encryptMsg(t){ if(!_encKey)return t; try{ const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},_encKey,new TextEncoder().encode(t));const b=new Uint8Array(12+ct.byteLength);b.set(iv);b.set(new Uint8Array(ct),12);return btoa(String.fromCharCode(...b)); }catch{return t;} }
-  async function decryptMsg(d){ if(!_encKey)return d; try{ const b=Uint8Array.from(atob(d),c=>c.charCodeAt(0));const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},_encKey,b.slice(12));return new TextDecoder().decode(pt); }catch{return d;} }
+  // Encryption (HTTPS only, gracefully disabled on HTTP)
+  async function deriveEncKey(pass,uid){
+    if(typeof crypto==='undefined'||!crypto.subtle)return;
+    try{
+      const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pass),'PBKDF2',false,['deriveKey']);
+      _encKey=await crypto.subtle.deriveKey({name:'PBKDF2',salt:new TextEncoder().encode('cipher_'+uid),iterations:100000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+    }catch{_encKey=null;}
+  }
+  async function encryptMsg(t){if(!_encKey)return t;try{const iv=crypto.getRandomValues(new Uint8Array(12));const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},_encKey,new TextEncoder().encode(t));const b=new Uint8Array(12+ct.byteLength);b.set(iv);b.set(new Uint8Array(ct),12);return btoa(String.fromCharCode(...b));}catch{return t;}}
+  async function decryptMsg(d){if(!_encKey)return d;try{const b=Uint8Array.from(atob(d),c=>c.charCodeAt(0));const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},_encKey,b.slice(12));return new TextDecoder().decode(pt);}catch{return d;}}
 
-  // ── Session ───────────────────────────────────────────────────
+  // Session in localStorage (NOT sessionStorage — iOS Safari wipes sessionStorage)
   function saveSession(user){ localStorage.setItem(SK,JSON.stringify({username:user.username,expires:Date.now()+CONFIG.SESSION_TIMEOUT_HOURS*3600000})); }
-  function getSession(){ try{ const s=JSON.parse(localStorage.getItem(SK)); if(!s||s.expires<Date.now()){clearSession();return null;} return s; }catch{return null;} }
+  function getSession(){ try{const s=JSON.parse(localStorage.getItem(SK));if(!s||s.expires<Date.now()){clearSession();return null;}return s;}catch{return null;} }
   function clearSession(){ localStorage.removeItem(SK); _encKey=null; }
 
-  // ── Login ─────────────────────────────────────────────────────
   async function login(username, password) {
     const uname = username.toLowerCase().trim();
     if (!uname||!password) throw new Error('Kullanıcı adı ve şifre girin.');
-    const user = await DB.getUser(uname);
+    let user;
+    try { user = await DB.getUser(uname); }
+    catch(e) { throw new Error('Sunucuya bağlanılamadı. Supabase ayarlarını kontrol edin.'); }
     if (!user) throw new Error('Kullanıcı bulunamadı.');
     if (user.stale_hash) throw new Error('Şifrenizi admin panelinden sıfırlatın.');
     if (user.locked) throw new Error('Hesap kilitli.');
@@ -58,20 +64,20 @@ const Auth = (() => {
     if (user.password_hash !== hash) throw new Error('Şifre yanlış.');
     await deriveEncKey(password, uname);
     saveSession(user);
-    // Update last_seen
-    await DB.updateUser(uname, { last_seen: Date.now(), online: true });
+    try { await DB.updateUser(uname, { last_seen: Date.now(), online: true }); } catch {}
     return user;
   }
 
-  // ── Register ──────────────────────────────────────────────────
   async function register(username, password, displayName) {
     if (!CONFIG.ALLOW_REGISTER) throw new Error('Kayıt kapalı.');
     const uname = username.toLowerCase().trim();
     if (!uname||!password||!displayName) throw new Error('Tüm alanları doldurun.');
-    if (!/^[a-z0-9_.-]{3,20}$/.test(uname)) throw new Error('Kullanıcı adı: 3-20 karakter, harf/rakam/_');
+    if (!/^[a-z0-9_.-]{3,20}$/.test(uname)) throw new Error('Kullanıcı adı: 3-20 karakter, küçük harf/rakam/_');
     if (password.length < 6) throw new Error('Şifre en az 6 karakter.');
     if (displayName.trim().length < 2) throw new Error('Ad en az 2 karakter.');
-    const existing = await DB.getUser(uname);
+    let existing;
+    try { existing = await DB.getUser(uname); }
+    catch(e) { throw new Error('Sunucuya bağlanılamadı. Supabase ayarlarını kontrol edin.'); }
     if (existing) throw new Error('Bu kullanıcı adı alınmış.');
     const hash = await hashPassword(password);
     const user = await DB.createUser({
@@ -79,7 +85,7 @@ const Auth = (() => {
       display_name: displayName.trim(), bio:'', avatar_url:null,
       banner_color:'#0A1628', status:'', status_emoji:'',
       is_admin:false, badges:['early'],
-      server_roles: { friends:false, private:false, public:true, family:false },
+      server_roles:{ friends:false, private:false, public:true, family:false },
       last_seen: Date.now(), online: true, created_at: Date.now(),
     });
     await deriveEncKey(password, uname);
@@ -87,57 +93,47 @@ const Auth = (() => {
     return user;
   }
 
-  // ── Change display name ───────────────────────────────────────
   async function changeDisplayName(username, newName) {
-    if (!newName || newName.trim().length < 2) throw new Error('Ad en az 2 karakter.');
-    await DB.updateUser(username, { display_name: newName.trim() });
+    if (!newName||newName.trim().length<2) throw new Error('Ad en az 2 karakter.');
+    return await DB.updateUser(username, { display_name: newName.trim() });
   }
 
-  // ── Change password ───────────────────────────────────────────
-  async function changePassword(username, oldPassword, newPassword) {
+  async function changePassword(username, oldPwd, newPwd) {
     const user = await DB.getUser(username);
     if (!user) throw new Error('Kullanıcı bulunamadı.');
-    const oldHash = await hashPassword(oldPassword);
+    const oldHash = await hashPassword(oldPwd);
     if (user.password_hash !== oldHash) throw new Error('Mevcut şifre yanlış.');
-    if (newPassword.length < 6) throw new Error('Yeni şifre en az 6 karakter.');
-    const newHash = await hashPassword(newPassword);
-    await DB.updateUser(username, { password_hash: newHash });
+    if (newPwd.length < 6) throw new Error('Yeni şifre en az 6 karakter.');
+    const newHash = await hashPassword(newPwd);
+    return await DB.updateUser(username, { password_hash: newHash });
   }
 
-  // ── Forgot password (admin reset code) ───────────────────────
-  async function resetPasswordWithCode(username, code, newPassword) {
-    // code = admin key (simple but functional)
-    if (code !== CONFIG.ADMIN_KEY) throw new Error('Kod yanlış. Admin panelinden alın.');
-    if (newPassword.length < 6) throw new Error('Şifre en az 6 karakter.');
+  async function resetPasswordWithCode(username, code, newPwd) {
+    if (code !== CONFIG.ADMIN_KEY) throw new Error('Kod yanlış. Admin panelinden alın: ' + CONFIG.ADMIN_KEY);
+    if (newPwd.length < 6) throw new Error('Şifre en az 6 karakter.');
     const user = await DB.getUser(username.toLowerCase().trim());
     if (!user) throw new Error('Kullanıcı bulunamadı.');
-    const hash = await hashPassword(newPassword);
-    await DB.updateUser(user.username, { password_hash: hash, stale_hash: false });
-    return true;
+    const hash = await hashPassword(newPwd);
+    return await DB.updateUser(user.username, { password_hash: hash, stale_hash: false });
   }
 
   function logout() {
     const s = getSession();
-    if (s) DB.updateUser(s.username, { last_seen: Date.now(), online: false }).catch(()=>{});
+    if (s) { try { DB.updateUser(s.username, { last_seen: Date.now(), online: false }); } catch {} }
     clearSession();
-    setTimeout(()=>{ window.location.href='index.html'; }, 50);
+    setTimeout(() => { window.location.href = 'index.html'; }, 50);
   }
-  async function currentUser() { const s=getSession(); if(!s)return null; return await DB.getUser(s.username); }
-  function requireAuth() { if(!getSession()){ window.location.href='index.html'; return false; } return true; }
 
-  // ── Online heartbeat ──────────────────────────────────────────
+  async function currentUser() { const s=getSession(); if(!s)return null; return await DB.getUser(s.username); }
+  function requireAuth() { if(!getSession()){window.location.href='index.html';return false;} return true; }
+
   function startHeartbeat(username) {
-    const tick = async () => {
-      await DB.updateUser(username, { last_seen: Date.now(), online: true });
-    };
+    const tick = () => { try { DB.updateUser(username, { last_seen: Date.now(), online: true }); } catch {} };
     tick();
-    const iv = setInterval(tick, 30000); // every 30s
-    // Mark offline on unload
-    window.addEventListener('beforeunload', () => {
-      DB.updateUser(username, { last_seen: Date.now(), online: false });
-    });
+    const iv = setInterval(tick, 30000);
+    window.addEventListener('beforeunload', () => { try { DB.updateUser(username, { last_seen: Date.now(), online: false }); } catch {} });
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) DB.updateUser(username, { last_seen: Date.now(), online: false });
+      if (document.hidden) { try { DB.updateUser(username, { last_seen: Date.now(), online: false }); } catch {} }
       else tick();
     });
     return iv;
