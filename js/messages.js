@@ -519,6 +519,8 @@ const Messages = (() => {
   return {
     subscribeConv, renderAll, buildEl, send, sendGif, sendSticker,
     toggleGif, searchGifs, renderGifs,
+    toggleGifPicker: toggleGif,         // alias — app.html calls this
+    toggleStickerPicker: toggleSticker, // alias — app.html calls this
     toggleSticker, renderStickerPack, closeAllPickers,
     startVoice, stopVoice, toggleDestruct, startDestructTimer,
     handleFiles, clearFiles, clearReply, saveEdit, initEvents,
