@@ -151,7 +151,10 @@
         </div>
       </div>
       <div style="position:relative">
-        <pre id="sql-block" style="background:#06080F;border:1px solid #1E2D45;border-radius:10px;padding:14px;font-size:11px;color:#00FFB3;font-family:'JetBrains Mono',monospace;max-height:400px;overflow-y:auto;line-height:1.6">CREATE TABLE IF NOT EXISTS users (
+        <pre id="sql-block" style="background:#06080F;border:1px solid #1E2D45;border-radius:10px;padding:14px;font-size:11px;color:#00FFB3;font-family:'JetBrains Mono',monospace;max-height:400px;overflow-y:auto;line-height:1.6">-- CIPHER v6 — Supabase kurulum SQL
+-- SQL Editor'da çalıştırın (mevcut tablo varsa ALTER kullanın)
+
+CREATE TABLE IF NOT EXISTS users (
   username      TEXT PRIMARY KEY,
   password_hash TEXT NOT NULL,
   display_name  TEXT NOT NULL DEFAULT '',
@@ -163,8 +166,18 @@
   is_admin      BOOLEAN DEFAULT false,
   locked        BOOLEAN DEFAULT false,
   badges        TEXT[] DEFAULT '{}',
+  server_roles  JSONB DEFAULT '{"friends":false,"private":false,"public":true,"family":false}',
+  last_seen     BIGINT DEFAULT 0,
+  online        BOOLEAN DEFAULT false,
+  stale_hash    BOOLEAN DEFAULT false,
   created_at    BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())*1000
 );
+
+-- Eğer tablo zaten varsa eksik kolonları ekle:
+ALTER TABLE users ADD COLUMN IF NOT EXISTS server_roles JSONB DEFAULT '{"friends":false,"private":false,"public":true,"family":false}';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen BIGINT DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS online BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS stale_hash BOOLEAN DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS conversations (
   id           TEXT PRIMARY KEY,
