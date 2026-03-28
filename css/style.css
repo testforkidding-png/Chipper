@@ -242,3 +242,28 @@ html.low-data img:not(.avatar-img){display:none!important}
 @supports (height:100dvh){
   #app{height:100dvh}
 }
+
+/* ── Server bar ────────────────────────────────────────── */
+#server-bar {
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:10px 6px;background:var(--bg);border-right:1px solid var(--border);
+  width:52px;flex-shrink:0;overflow-y:auto;z-index:21;
+}
+.server-btn {
+  width:38px;height:38px;border-radius:12px;border:none;
+  font-size:18px;cursor:pointer;transition:all .15s;
+  background:var(--elev);color:var(--text);
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  flex-shrink:0;
+}
+.server-btn:hover { background:var(--surf);transform:scale(1.05); }
+.server-btn.active { background:var(--accent);transform:scale(1.05); }
+.server-btn.active { box-shadow: 0 0 12px rgba(0,255,179,.4); }
+@media(max-width:767px) {
+  #server-bar {
+    flex-direction:row;width:100%;height:52px;padding:6px 10px;
+    border-right:none;border-bottom:1px solid var(--border);
+    overflow-x:auto;overflow-y:hidden;
+  }
+}
