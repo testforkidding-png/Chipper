@@ -50,7 +50,7 @@ const CONFIG = {
 Object.freeze(CONFIG);
 // Tüm sayfalara otomatik olarak ikon ekleyen kod
 (function() {
-    const iconUrl = 'icon-512.png'; // Logonun adı ve yolu
+    const iconUrl = 'icon-1024.png'; // Logonun adı ve yolu
 
     // 1. Standart Favicon ekle
     let link = document.createElement('link');
