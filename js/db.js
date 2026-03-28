@@ -55,7 +55,16 @@ const DB = (() => {
   const Supa = {
     async getUser(u)      { const{data}=await sb().from('users').select('*').eq('username',u).single(); return data||null; },
     async getAllUsers()    { const{data,error}=await sb().from('users').select('*').order('created_at'); if(error)throw error; return data||[]; },
-    async createUser(d)   { const{data,error}=await sb().from('users').insert(d).select().single(); if(error)throw error; return data; },
+    async createUser(d)   {
+      // Ensure JSONB fields are proper objects (not strings)
+      const row = { ...d };
+      if (row.server_roles && typeof row.server_roles === 'object') {
+        // keep as-is for Supabase JSONB
+      }
+      const{data,error}=await sb().from('users').insert(row).select().single();
+      if(error) { console.error('createUser error:', error); throw new Error(error.message || 'Kullanıcı oluşturulamadı'); }
+      return data;
+    },
     async updateUser(u,d) { const{data,error}=await sb().from('users').update(d).eq('username',u).select().single(); if(error)throw error; return data; },
     async deleteUser(u)   { const{error}=await sb().from('users').delete().eq('username',u); if(error)throw error; },
 
