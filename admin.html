@@ -268,26 +268,58 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
     }
     users.forEach(u => {
       const color = UI.avatarColor(u.username);
-      const div = document.createElement('div');
-      div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:#06080F;border:1px solid #1E2D45';
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'border-radius:14px;background:#06080F;border:1px solid #1E2D45;overflow:hidden';
+
       const av = u.avatar_url
         ? `<img src="${u.avatar_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">`
         : `<div style="width:40px;height:40px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>`;
-      div.innerHTML = `${av}
-        <div style="flex:1;min-width:0">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
-            <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px;color:#DDE8F8">${u.display_name || u.username}</span>
-            ${u.is_admin ? '<span style="font-size:9px;padding:1px 7px;border-radius:20px;background:#FFD70022;color:#FFD700;border:1px solid #FFD70033;font-family:\'JetBrains Mono\',monospace">ADMİN</span>' : ''}
+
+      // Server role pills
+      const srvRoles = u.server_roles || {};
+      const srvPills = Object.values(CONFIG.SERVERS).map(srv => {
+        const has = srvRoles[srv.id] || false;
+        return `<button onclick="toggleServerRole('${u.username}','${srv.id}')" style="font-size:10px;padding:2px 8px;border-radius:12px;cursor:pointer;border:1px solid ${has ? srv.color+'88' : '#1E2D45'};background:${has ? srv.color+'22' : 'transparent'};color:${has ? srv.color : '#7A8FA8'};transition:all .15s">${srv.icon} ${srv.label}</button>`;
+      }).join('');
+
+      wrapper.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px">
+          ${av}
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+              <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px;color:#DDE8F8">${u.display_name || u.username}</span>
+              ${u.is_admin ? '<span style="font-size:9px;padding:1px 7px;border-radius:20px;background:#FFD70022;color:#FFD700;border:1px solid #FFD70033;font-family:\'JetBrains Mono\',monospace">ADMİN</span>' : ''}
+            </div>
+            <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div>
           </div>
-          <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div>
-          ${u.bio ? `<div style="font-size:11px;color:#7A8FA8;margin-top:2px">${u.bio}</div>` : ''}
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button onclick="toggleAdminRole('${u.username}',${!u.is_admin})" style="font-size:11px;padding:5px 9px;border-radius:7px;background:#131D30;color:${u.is_admin?'#FFD700':'#7A8FA8'};border:1px solid ${u.is_admin?'rgba(255,215,0,.3)':'#1E2D45'};cursor:pointer">${u.is_admin?'⚡Admin':'Kullanıcı'}</button>
+            <button onclick="resetPassword('${u.username}')" style="font-size:11px;padding:5px 9px;border-radius:7px;background:#131D30;color:#FFA535;border:1px solid rgba(255,165,53,.3);cursor:pointer">Şifre</button>
+            <button onclick="deleteUser('${u.username}')" style="font-size:11px;padding:5px 9px;border-radius:7px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer">Sil</button>
+          </div>
         </div>
-        <div style="display:flex;gap:6px;flex-shrink:0">
-          <button onclick="resetPassword('${u.username}')" style="font-size:11px;padding:5px 10px;border-radius:7px;background:#131D30;color:#FFA535;border:1px solid rgba(255,165,53,.3);cursor:pointer">Şifre</button>
-          <button onclick="deleteUser('${u.username}')" style="font-size:11px;padding:5px 10px;border-radius:7px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer">Sil</button>
+        <div style="padding:8px 12px 10px;border-top:1px solid #131D30;display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+          <span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-right:4px">SUNUCULAR:</span>
+          ${srvPills}
         </div>`;
-      table.appendChild(div);
+      table.appendChild(wrapper);
     });
+  }
+
+  async function toggleAdminRole(username, makeAdmin) {
+    const badges = makeAdmin ? ['admin','verified','early'] : ['verified'];
+    await DB.updateUser(username, { is_admin: makeAdmin, badges });
+    await loadUsers();
+    UI.toast(`@${username} ${makeAdmin ? 'admin yapıldı ⚡' : 'kullanıcıya döndürüldü'}`, 'success');
+  }
+
+  async function toggleServerRole(username, serverId) {
+    const u = await DB.getUser(username);
+    if (!u) return;
+    const roles = { ...(u.server_roles || {}), friends:false, private:false, public:false, family:false, ...u.server_roles };
+    roles[serverId] = !roles[serverId];
+    await DB.updateUser(username, { server_roles: roles });
+    await loadUsers();
   }
 
   async function addUser() {
