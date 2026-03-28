@@ -1,67 +1,44 @@
 /**
- * CIPHER Config v5
- * localStorage tabanlı — Supabase yok
- * 4 sunucu sistemi
+ * CIPHER Config v6
+ * USE_SUPABASE: true → Supabase (çok cihaz)
+ * USE_SUPABASE: false → localStorage (tek cihaz)
  */
 const CONFIG = {
-  // ─── Backend ─────────────────────────────────────────────────
+  // ─── BACKEND — Supabase bilgilerini buraya girin ───────────────
   USE_SUPABASE: true,
-  SUPABASE_URL: 'https://cdsauotkjmpslzecborj.supabase.co',
+  SUPABASE_URL:      'https://cdsauotkjmpslzecborj.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkc2F1b3Rram1wc2x6ZWNib3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDI1NDIsImV4cCI6MjA5MDAxODU0Mn0.OdEO73kPiF0S2bBIbrT1WricScSFhEri1iMPnwSCCME',
-  // ─── Uygulama ────────────────────────────────────────────────
+
+  // ─── Uygulama ──────────────────────────────────────────────────
   APP_NAME: 'CIPHER',
-  APP_VERSION: '5.0.0',
+  APP_VERSION: '6.0.0',
   ADMIN_KEY: 'cipher-admin-2024',
   SESSION_TIMEOUT_HOURS: 168,
   MAX_FILE_SIZE_MB: 5,
   ALLOW_REGISTER: true,
 
-  // ─── 4 Sunucu / Space ────────────────────────────────────────
+  // ─── 4 Sunucu ──────────────────────────────────────────────────
   SERVERS: {
-    friends: {
-      id: 'friends',
-      label: 'Arkadaşlar',
-      icon: '👫',
-      desc: 'Arkadaşlarıma özel',
-      color: '#0066FF',
-    },
-    private: {
-      id: 'private',
-      label: 'Bana Özel',
-      icon: '🔒',
-      desc: 'Sadece benim görebileceğim',
-      color: '#9333EA',
-    },
-    public: {
-      id: 'public',
-      label: 'Herkese Açık',
-      icon: '🌐',
-      desc: 'Halka açık alan',
-      color: '#10B981',
-    },
-    family: {
-      id: 'family',
-      label: 'Aile',
-      icon: '🏠',
-      desc: 'Akrabalarıma özel',
-      color: '#F59E0B',
-    },
+    friends: { id:'friends', label:'Arkadaşlar', icon:'👫', desc:'Arkadaşlarıma özel',  color:'#0066FF' },
+    private: { id:'private', label:'Bana Özel',  icon:'🔒', desc:'Sadece ben görürüm', color:'#9333EA' },
+    public:  { id:'public',  label:'Herkese Açık',icon:'🌐',desc:'Halka açık',          color:'#10B981' },
+    family:  { id:'family',  label:'Aile',        icon:'🏠', desc:'Akrabalarıma özel',  color:'#F59E0B' },
   },
 
-  // ─── Giphy ───────────────────────────────────────────────────
-  GIPHY_API_KEY: 'dc6zaTOxFJmzC',
+  // ─── Giphy ─────────────────────────────────────────────────────
+  GIPHY_API_KEY: 'MyUO0T9onUDn5nmCE15L2daCuRYitSzl',
   GIPHY_LIMIT: 18,
 
-  // ─── Sticker pakları ─────────────────────────────────────────
+  // ─── Sticker pakları ───────────────────────────────────────────
   STICKER_PACKS: {
     'Duygular': ['😂','😍','🥺','😎','🤔','😴','🥳','😤','😭','🤩','😇','🤗','😬','🙄','😏','🤯','🥴','😵','😆','🤪'],
     'Tepkiler': ['👍','👎','❤️','🔥','⚡','✅','❌','🎉','💯','🚀','👀','💀','🙏','👏','🤝','💪','🫡','🫠','💅','🤌'],
-    'Hayvanlar': ['🐶','🐱','🦊','🐺','🐻','🐼','🐨','🦁','🐯','🦅','🦋','🐙','🦑','🐠','🦈','🐸','🦎','🐍','🦄','🐉'],
-    'Yemek': ['🍕','🍔','🌮','🍜','🍣','🍩','🎂','🍰','☕','🧋','🍺','🥤','🍎','🍓','🥑','🌶️','🍦','🧁','🥞','🍟'],
-    'CIPHER': ['🔐','🔒','🔓','🛡️','⚔️','🗝️','💻','📱','👁️','🕵️','🌐','📡','🔭','⚙️','🔬','💡','🎯','🎰','🃏','🎭'],
+    'Hayvanlar':['🐶','🐱','🦊','🐺','🐻','🐼','🐨','🦁','🐯','🦅','🦋','🐙','🦑','🐠','🦈','🐸','🦎','🐍','🦄','🐉'],
+    'Yemek':    ['🍕','🍔','🌮','🍜','🍣','🍩','🎂','🍰','☕','🧋','🍺','🥤','🍎','🍓','🥑','🌶️','🍦','🧁','🥞','🍟'],
+    'CIPHER':   ['🔐','🔒','🔓','🛡️','⚔️','🗝️','💻','📱','👁️','🕵️','🌐','📡','🔭','⚙️','🔬','💡','🎯','🎰','🃏','🎭'],
   },
 
-  BANNER_COLORS: ['#0A1628','#1A0A28','#0A2818','#281A0A','#1A0A1A','#0A1A28','#280A0A','#0A2828'],
+  BANNER_COLORS:['#0A1628','#1A0A28','#0A2818','#281A0A','#1A0A1A','#0A1A28','#280A0A','#0A2828'],
 
   BADGES: {
     admin:    { icon:'⚡', label:'Yönetici',        color:'#FFD700' },
