@@ -48,3 +48,19 @@ const CONFIG = {
   },
 };
 Object.freeze(CONFIG);
+// Tüm sayfalara otomatik olarak ikon ekleyen kod
+(function() {
+    const iconUrl = 'icon-512.png'; // Logonun adı ve yolu
+
+    // 1. Standart Favicon ekle
+    let link = document.createElement('link');
+    link.rel = 'icon';
+    link.href = iconUrl;
+    document.head.appendChild(link);
+
+    // 2. Apple cihazlar için dokunmatik ikon ekle
+    let appleLink = document.createElement('link');
+    appleLink.rel = 'apple-touch-icon';
+    appleLink.href = iconUrl;
+    document.head.appendChild(appleLink);
+})();
