@@ -22,6 +22,7 @@ async function bootApp() {
   users.forEach(u => { _allUsers[u.username] = u; });
 
   renderMyAvatar();
+  renderServerBar();
   await ensureBotConversation();
   await loadConversations();
   await renderStories();
@@ -29,6 +30,8 @@ async function bootApp() {
   PWA.init();
   setupScreenshotDetection();
   buildStickerTabs();
+  Auth.startHeartbeat(window._currentUser.username);
+  await requestPushPermission();
 
   if ('Notification' in window && Notification.permission === 'default') {
     Notification.requestPermission();
@@ -48,7 +51,9 @@ async function bootApp() {
         const msgs = await DB.getMessages(convId);
         const last = msgs[msgs.length - 1];
         if (last && last.from !== window._currentUser.username) {
+          const sender = _allUsers[last.from];
           addNotif(last.text || (last.type === 'gif' ? '🎬 GIF' : last.sticker || '📎'), last.from, convId);
+          sendPushNotif(sender?.display_name || last.from, last.text || '📎 Medya', convId);
           const convs = await DB.getConversations(window._currentUser.username);
           const conv = convs.find(c => c.id === convId);
           if (conv) {
@@ -73,23 +78,80 @@ async function bootApp() {
 // ── Bottom nav tab switching ───────────────────────────────────────
 function setTab(tab) {
   _activeTab = tab;
-  // Update tab bar active state
   document.querySelectorAll('.bottom-tab').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === tab);
   });
-  // Show/hide sidebar content
   document.getElementById('tab-messages').style.display = tab === 'messages' ? 'flex' : 'none';
   document.getElementById('tab-contacts').style.display = tab === 'contacts' ? 'flex' : 'none';
   document.getElementById('tab-updates').style.display = tab === 'updates' ? 'flex' : 'none';
-
   if (tab === 'contacts') { refreshAllUsers().then(renderContactsList); }
   if (tab === 'updates') renderUpdatesTab();
 }
 
-// ── Refresh user list from DB ─────────────────────────────────────
+// ── Refresh users ─────────────────────────────────────────────────
 async function refreshAllUsers() {
   const users = await DB.getAllUsers();
   users.forEach(u => { _allUsers[u.username] = u; });
+}
+
+// ── Server / Space system ─────────────────────────────────────────
+let _activeServer = 'all';
+
+function renderServerBar() {
+  const bar = document.getElementById('server-bar');
+  if (!bar) return;
+  const cu = window._currentUser;
+  bar.innerHTML = '';
+  if (cu?.is_admin) {
+    const btn = document.createElement('button');
+    btn.className = 'server-btn' + (_activeServer === 'all' ? ' active' : '');
+    btn.title = 'Tüm Sunucular'; btn.textContent = '🌐';
+    btn.onclick = () => setServer('all');
+    bar.appendChild(btn);
+  }
+  Object.values(CONFIG.SERVERS).forEach(srv => {
+    if (!cu?.is_admin && !hasServerAccess(cu, srv.id)) return;
+    const btn = document.createElement('button');
+    btn.className = 'server-btn' + (_activeServer === srv.id ? ' active' : '');
+    btn.title = srv.label + ' — ' + srv.desc;
+    btn.textContent = srv.icon;
+    btn.onclick = () => setServer(srv.id);
+    bar.appendChild(btn);
+  });
+}
+
+function hasServerAccess(user, serverId) {
+  if (!user) return false;
+  if (user.is_admin) return true;
+  return user.server_roles?.[serverId] === true;
+}
+
+function setServer(id) {
+  _activeServer = id;
+  renderServerBar();
+  renderChatList();
+}
+
+function convMatchesServer(conv) {
+  if (_activeServer === 'all') return true;
+  return (conv.server || 'public') === _activeServer;
+}
+
+// ── Push notifications ────────────────────────────────────────────
+async function requestPushPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') UI.toast('🔔 Bildirimler aktif!', 'success');
+  }
+}
+
+function sendPushNotif(title, body, convId) {
+  if (Notification.permission !== 'granted' || !document.hidden) return;
+  try {
+    const n = new Notification(title, { body, icon: 'icons/icon-192.png', tag: convId, renotify: true });
+    n.onclick = () => { window.focus(); if (convId) openConv(convId); n.close(); };
+  } catch {}
 }
 
 // ── My avatar ─────────────────────────────────────────────────────
@@ -147,6 +209,8 @@ function renderChatList() {
   let items = [..._convs];
   if (_chatFilter === 'unread') items = items.filter(c => (c.unread_for?.[window._currentUser.username] || 0) > 0);
   if (_chatFilter === 'groups') items = items.filter(c => c.type === 'group');
+  // Server filter
+  items = items.filter(convMatchesServer);
   if (_searchQuery) {
     const q = _searchQuery.toLowerCase();
     items = items.filter(c => getConvName(c).toLowerCase().includes(q) || (c.last_msg || '').toLowerCase().includes(q));
@@ -215,9 +279,16 @@ async function openConv(convId) {
     avEl.textContent = conv.type === 'group' ? (conv.avatar || UI.initials(name)) : UI.initials(name);
   }
   document.getElementById('chat-name').textContent = name;
-  document.getElementById('chat-status').textContent = conv.type === 'group'
-    ? `${conv.participants.length} üye · Grup`
-    : (other?.status ? `${other.status_emoji || ''} ${other.status}` : '🟢 Çevrimiçi');
+  {
+    const statusEl = document.getElementById('chat-status');
+    if (conv.type === 'group') {
+      statusEl.textContent = `${conv.participants.length} üye · Grup`;
+    } else {
+      const st = UI.onlineStatus(other);
+      statusEl.textContent = st.text;
+      statusEl.style.color = st.color;
+    }
+  }
 
   // Avatar click: profile for DM, group panel for groups
   avEl.style.cursor = 'pointer';
@@ -924,6 +995,87 @@ async function forwardTo(convId) { UI.closeModal('forward-modal'); const msgId =
 // ── Screenshot ────────────────────────────────────────────────────
 function setupScreenshotDetection() { document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && (e.key === 's' || e.key === 'p') && window._currentConvId) { e.preventDefault(); document.getElementById('ss-overlay')?.classList.add('show'); UI.toast('⚠️ Ekran görüntüsü engellendi', 'warn'); } }); }
 function startVoiceCall() { UI.toast('📞 Sesli arama başlatılıyor… (Demo)', 'info'); setTimeout(() => UI.toast('Karşı taraf yanıt vermiyor.', 'warn'), 2500); }
+
+// ── Change display name ───────────────────────────────────────────
+function openChangeName() {
+  const cu = window._currentUser;
+  document.getElementById('cn-input').value = cu.display_name || '';
+  document.getElementById('cn-err').style.display = 'none';
+  UI.openModal('change-name-modal');
+}
+async function submitChangeName() {
+  const val = document.getElementById('cn-input').value.trim();
+  const errEl = document.getElementById('cn-err');
+  errEl.style.display = 'none';
+  try {
+    await Auth.changeDisplayName(window._currentUser.username, val);
+    window._currentUser.display_name = val;
+    _allUsers[window._currentUser.username].display_name = val;
+    renderMyAvatar();
+    UI.closeModal('change-name-modal');
+    UI.closeModal('settings-modal');
+    UI.toast('Ad güncellendi ✓', 'success');
+  } catch(e) { errEl.textContent = e.message; errEl.style.display = ''; }
+}
+
+// ── Change password ────────────────────────────────────────────────
+function openChangePassword() {
+  ['cp-old','cp-new','cp-new2'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('cp-err').style.display = 'none';
+  UI.openModal('change-password-modal');
+}
+async function submitChangePassword() {
+  const old = document.getElementById('cp-old').value;
+  const nw  = document.getElementById('cp-new').value;
+  const nw2 = document.getElementById('cp-new2').value;
+  const errEl = document.getElementById('cp-err');
+  errEl.style.display = 'none';
+  if (nw !== nw2) { errEl.textContent = 'Şifreler eşleşmiyor.'; errEl.style.display = ''; return; }
+  try {
+    await Auth.changePassword(window._currentUser.username, old, nw);
+    // Update session hash
+    const u = await DB.getUser(window._currentUser.username);
+    window._currentUser = u;
+    UI.closeModal('change-password-modal');
+    UI.toast('Şifre güncellendi ✓', 'success');
+  } catch(e) { errEl.textContent = e.message; errEl.style.display = ''; }
+}
+
+// ── Forgot password (reset with admin code) ────────────────────────
+function openForgotPassword() {
+  ['fp-user','fp-code','fp-new','fp-new2'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('fp-err').style.display = 'none';
+  UI.openModal('forgot-password-modal');
+}
+async function submitForgotPassword() {
+  const user = document.getElementById('fp-user').value.trim();
+  const code = document.getElementById('fp-code').value.trim();
+  const nw   = document.getElementById('fp-new').value;
+  const nw2  = document.getElementById('fp-new2').value;
+  const errEl = document.getElementById('fp-err');
+  errEl.style.display = 'none';
+  if (nw !== nw2) { errEl.textContent = 'Şifreler eşleşmiyor.'; errEl.style.display = ''; return; }
+  try {
+    await Auth.resetPasswordWithCode(user, code, nw);
+    UI.closeModal('forgot-password-modal');
+    UI.toast('Şifre sıfırlandı! Giriş yapabilirsiniz.', 'success');
+  } catch(e) { errEl.textContent = e.message; errEl.style.display = ''; }
+}
+
+// ── Create conv in specific server ────────────────────────────────
+async function startDMInServer(userId, serverId) {
+  const server = serverId || _activeServer || 'public';
+  const ids = [window._currentUser.username, userId].sort();
+  const convId = ids.join('_') + (server !== 'public' ? '_' + server : '');
+  let conv = await DB.getConversation(convId);
+  if (!conv) {
+    conv = await DB.createConversation({ id: convId, type: 'direct', participants: ids, last_msg: '', last_time: Date.now(), unread_for: {}, server });
+  }
+  if (!_convs.find(c => c.id === convId)) _convs.push(conv);
+  setServer(server);
+  renderChatList();
+  await openConv(convId);
+}
 
 // ── Boot ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
