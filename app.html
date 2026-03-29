@@ -375,6 +375,9 @@
         <button onclick="shareApp()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
           <span style="font-size:20px">🔗</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Uygulamayı Paylaş</div><div style="font-size:11px;color:#7A8FA8">Linki kopyala veya paylaş</div></div>
         </button>
+        <button onclick="UI.closeModal('settings-modal');openChangePwd()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🔑</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Şifre Değiştir</div><div style="font-size:11px;color:#7A8FA8">Hesap şifreni güncelle</div></div>
+        </button>
         <button onclick="UI.closeModal('settings-modal');openChangeName()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
           <span style="font-size:20px">✏️</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Ad Değiştir</div><div style="font-size:11px;color:#7A8FA8">Görünen adını güncelle</div></div>
         </button>
@@ -455,7 +458,7 @@
             <input id="pe-avatar-url" type="url" placeholder="https://sdk.bitmoji.com/render/panel/..." style="flex:1;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:8px 12px;font-size:13px;color:#DDE8F8;outline:none;transition:border-color .2s;font-family:'DM Sans',sans-serif" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
             <button onclick="applyAvatarUrl()" style="padding:8px 14px;border-radius:10px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.25);cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap">Uygula</button>
           </div>
-          <div style="font-size:10px;color:#7A8FA8;margin-top:4px">Bitmoji paylaşım linki veya herhangi bir resim URL'si</div>
+          <div style="font-size:10px;color:#7A8FA8;margin-top:4px;line-height:1.5">Bitmoji: Snapchat → Profil → Bitmoji → Paylaş → Linki kopyala<br>veya herhangi bir resim URL'si yapıştırın</div>
         </div>
       </div>
       <div>
@@ -663,6 +666,23 @@
 </style>
 
 <!-- Change Name Modal -->
+<!-- Change Password Modal -->
+<div id="change-pwd-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
+  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🔑 Şifre Değiştir</span>
+      <button onclick="UI.closeModal('change-pwd-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+      <div><label class="modal-lbl">MEVCUT ŞİFRE</label><input id="cp-old" type="password" class="modal-inp" placeholder="••••••••" autocomplete="current-password"></div>
+      <div><label class="modal-lbl">YENİ ŞİFRE</label><input id="cp-new" type="password" class="modal-inp" placeholder="En az 6 karakter" autocomplete="new-password"></div>
+      <div><label class="modal-lbl">YENİ ŞİFRE TEKRAR</label><input id="cp-new2" type="password" class="modal-inp" placeholder="••••••••" autocomplete="new-password" enterkeyhint="done" onkeydown="if(event.key==='Enter')submitChangePwd()"></div>
+      <div id="cp-err" class="modal-err"></div>
+      <button onclick="submitChangePwd()" class="modal-btn">Güncelle</button>
+    </div>
+  </div>
+</div>
+
 <div id="change-name-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
   <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
