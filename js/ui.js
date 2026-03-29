@@ -52,33 +52,31 @@ const UI = (() => {
   // ── Online status with duration ──────────────────────────────
   function onlineStatus(user) {
     if (!user) return { text: 'Bilinmiyor', color: '#7A8FA8', dot: '#7A8FA8' };
-    const lastSeen = _ms(user.last_seen);
     const now = Date.now();
-    
-    // No last_seen data at all
+
+    // Try DB value first, then localStorage fallback
+    let lastSeen = _ms(user.last_seen);
+    let isOnline = !!user.online;
+
+    // If DB has no last_seen, check localStorage fallback (stored by heartbeat)
+    if (!lastSeen && typeof Auth !== 'undefined' && Auth.getLastSeenLocal) {
+      const local = Auth.getLastSeenLocal(user.username);
+      if (local) { lastSeen = local.ts || 0; isOnline = local.online || false; }
+    }
+
+    // Still no data
     if (!lastSeen) {
-      if (user.online) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
+      if (isOnline) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
       return { text: '⚫ Bilinmiyor', color: '#7A8FA8', dot: '#7A8FA8' };
     }
 
     const diff = now - lastSeen;
-
-    // Negative diff = clock skew, treat as online
-    if (diff < 0) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
-    
-    // Within 2 minutes + online flag = online
+    if (diff < 0)      return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
     if (diff < 120000) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
-    
-    // 2-10 minutes = recently active
     if (diff < 600000) return { text: `🟡 ${Math.floor(diff/60000)} dk önce`, color: '#FFA535', dot: '#FFA535' };
-    
-    // Hours
     if (diff < 3600000) return { text: `⚫ ${Math.floor(diff/60000)} dk önce`, color: '#7A8FA8', dot: '#7A8FA8' };
     if (diff < 86400000) return { text: `⚫ ${Math.floor(diff/3600000)} sa önce`, color: '#7A8FA8', dot: '#7A8FA8' };
-    
-    // Days
-    const days = Math.floor(diff/86400000);
-    return { text: `⚫ ${days} gün önce`, color: '#7A8FA8', dot: '#7A8FA8' };
+    return { text: `⚫ ${Math.floor(diff/86400000)} gün önce`, color: '#7A8FA8', dot: '#7A8FA8' };
   }
 
   // ── Modals ────────────────────────────────────────────────────
