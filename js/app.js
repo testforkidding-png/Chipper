@@ -27,7 +27,6 @@ async function bootApp() {
   } catch(e) { console.warn('getAllUsers failed:', e); }
 
   renderMyAvatar();
-  renderServerBar();
   await loadConversations();
   renderStories().catch(console.warn);
   loadSettings();
@@ -74,12 +73,18 @@ async function bootApp() {
     }
   };
 
-  // Supabase real-time
-  if (CONFIG.USE_SUPABASE) {
+  // Supabase real-time conversations subscription
+  if (CONFIG.USE_SUPABASE && !window._supabaseNotConfigured) {
     try {
       DB.subscribeConversations?.(window._currentUser.username, () => loadConversations().catch(console.warn));
-    } catch {}
+    } catch(e) { console.warn('subscribeConversations failed:', e); }
   }
+
+  // Polling for conversation list (catches cases Supabase realtime misses)
+  if (window._convPollInterval) clearInterval(window._convPollInterval);
+  window._convPollInterval = setInterval(() => {
+    if (!document.hidden) loadConversations().catch(console.warn);
+  }, CONFIG.USE_SUPABASE ? 30000 : 5000); // Supabase: 30s fallback; localStorage: 5s
 }
 
 // ── Bottom nav ─────────────────────────────────────────────────────
@@ -106,7 +111,7 @@ async function refreshAllUsers() {
 // ── Server bar ─────────────────────────────────────────────────────
 function renderServerBar() {
   const bar = document.getElementById('server-bar');
-  if (!bar) return;
+  if (!bar) return; // server-bar removed from app.html - only in admin
   const cu = window._currentUser;
   bar.innerHTML = '';
 
@@ -388,6 +393,8 @@ function backToSidebar() {
   const backBtn = document.getElementById('back-btn');
   if (backBtn) backBtn.style.display = 'none';
   Messages.closeAllPickers();
+  // Stop polling when leaving chat
+  if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
 }
 
 async function sendMessage() {
@@ -1124,3 +1131,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!e.target.closest('#ctx-menu')) document.getElementById('ctx-menu')?.classList.add('hidden');
   });
 });
+
+// ── Bitmoji / URL avatar ───────────────────────────────────────────
+async function applyAvatarUrl() {
+  const urlInput = document.getElementById('pe-avatar-url');
+  const url = urlInput?.value.trim();
+  if (!url) { UI.toast('URL girin', 'error'); return; }
+  // Basic URL validation
+  try { new URL(url); } catch { UI.toast('Geçersiz URL', 'error'); return; }
+  // Show loading in preview
+  const prev = document.getElementById('avatar-preview');
+  if (prev) prev.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px">⏳</div>';
+  // Test image loads
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = async () => {
+    try {
+      await DB.updateUser(window._currentUser.username, { avatar_url: url });
+      window._currentUser.avatar_url = url;
+      _allUsers[window._currentUser.username].avatar_url = url;
+      renderMyAvatar();
+      if (prev) prev.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover">`;
+      UI.toast('Fotoğraf güncellendi ✓', 'success');
+      if (urlInput) urlInput.value = '';
+    } catch(e) { UI.toast('Kaydedilemedi: ' + e.message, 'error'); }
+  };
+  img.onerror = () => {
+    // URL might still work even if CORS blocks test — save it anyway
+    DB.updateUser(window._currentUser.username, { avatar_url: url }).then(() => {
+      window._currentUser.avatar_url = url;
+      _allUsers[window._currentUser.username].avatar_url = url;
+      renderMyAvatar();
+      if (prev) prev.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover">`;
+      UI.toast('Fotoğraf güncellendi ✓', 'success');
+      if (urlInput) urlInput.value = '';
+    }).catch(e => UI.toast('Kaydedilemedi: ' + e.message, 'error'));
+  };
+  img.src = url;
+}
