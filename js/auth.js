@@ -148,31 +148,38 @@ const Auth = (() => {
   async function currentUser() { const s=getSession(); if(!s)return null; return await DB.getUser(s.username); }
   function requireAuth() { if(!getSession()){window.location.href='index.html';return false;} return true; }
 
+  // localStorage fallback for last_seen when Supabase column missing
+  const _lsKey = u => 'cipher_lastseen_' + u;
+  function _saveLsLocal(username, ts, online) {
+    try { localStorage.setItem(_lsKey(username), JSON.stringify({ ts, online })); } catch {}
+  }
+  function _getLsLocal(username) {
+    try { return JSON.parse(localStorage.getItem(_lsKey(username))); } catch { return null; }
+  }
+
   function startHeartbeat(username) {
     const tick = () => {
-      DB.updateUser(username, { last_seen: Date.now(), online: true }).catch(() => {});
+      const now = Date.now();
+      _saveLsLocal(username, now, true);
+      DB.updateUser(username, { last_seen: now, online: true }).catch(() => {
+        // Column may not exist — localStorage fallback already saved above
+      });
     };
     const setOffline = () => {
-      DB.updateUser(username, { last_seen: Date.now(), online: false }).catch(() => {});
+      const now = Date.now();
+      _saveLsLocal(username, now, false);
+      DB.updateUser(username, { last_seen: now, online: false }).catch(() => {});
     };
 
-    tick(); // immediate first tick
-    const iv = setInterval(tick, 25000); // every 25s (< 30s threshold)
-
+    tick();
+    const iv = setInterval(tick, 25000);
     window.addEventListener('beforeunload', setOffline);
-    window.addEventListener('pagehide', setOffline); // iOS Safari
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) setOffline();
-      else tick();
-    });
-
-    // Focus/blur as backup
+    window.addEventListener('pagehide', setOffline);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) setOffline(); else tick(); });
     window.addEventListener('focus', tick);
     window.addEventListener('blur', setOffline);
-
     return iv;
   }
 
-  return { login, register, logout, currentUser, requireAuth, changeDisplayName, changePassword, encryptMsg, decryptMsg, hashPassword, getSession, startHeartbeat };
+  return { login, register, logout, currentUser, requireAuth, changeDisplayName, changePassword, encryptMsg, decryptMsg, hashPassword, getSession, startHeartbeat, getLastSeenLocal: _getLsLocal };
 })();
