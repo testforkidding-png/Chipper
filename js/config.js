@@ -8,7 +8,6 @@ const CONFIG = {
   USE_SUPABASE: true,
   SUPABASE_URL:      'https://cdsauotkjmpslzecborj.supabase.co',
   SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkc2F1b3Rram1wc2x6ZWNib3JqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0NDI1NDIsImV4cCI6MjA5MDAxODU0Mn0.OdEO73kPiF0S2bBIbrT1WricScSFhEri1iMPnwSCCME',
-
   // ─── Uygulama ──────────────────────────────────────────────────
   APP_NAME: 'CIPHER',
   APP_VERSION: '6.0.0',
@@ -48,19 +47,3 @@ const CONFIG = {
   },
 };
 Object.freeze(CONFIG);
-// Tüm sayfalara otomatik olarak ikon ekleyen kod
-(function() {
-    const iconUrl = 'icon-1024.png'; // Logonun adı ve yolu
-
-    // 1. Standart Favicon ekle
-    let link = document.createElement('link');
-    link.rel = 'icon';
-    link.href = iconUrl;
-    document.head.appendChild(link);
-
-    // 2. Apple cihazlar için dokunmatik ikon ekle
-    let appleLink = document.createElement('link');
-    appleLink.rel = 'apple-touch-icon';
-    appleLink.href = iconUrl;
-    document.head.appendChild(appleLink);
-})();
