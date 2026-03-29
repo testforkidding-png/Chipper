@@ -188,10 +188,16 @@ CREATE TABLE IF NOT EXISTS conversations (
   banner_color TEXT DEFAULT '#0A1628',
   last_msg     TEXT DEFAULT '',
   last_time    BIGINT DEFAULT 0,
+  last_from    TEXT DEFAULT '',
   unread_for   JSONB DEFAULT '{}',
   admin        TEXT,
+  server       TEXT DEFAULT 'public',
   created_at   BIGINT DEFAULT EXTRACT(EPOCH FROM NOW())*1000
 );
+
+-- Mevcut tablo için:
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_from TEXT DEFAULT '';
+ALTER TABLE conversations ADD COLUMN IF NOT EXISTS server TEXT DEFAULT 'public';
 
 CREATE TABLE IF NOT EXISTS messages (
   id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -320,24 +326,32 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
   }
 
   async function toggleAdminRole(username, makeAdmin) {
-    const badges = makeAdmin ? ['admin','verified','early'] : ['verified'];
-    await DB.updateUser(username, { is_admin: makeAdmin, badges });
-    await loadUsers();
-    UI.toast(`@${username} ${makeAdmin ? 'admin yapıldı ⚡' : 'kullanıcıya döndürüldü'}`, 'success');
+    try {
+      const badges = makeAdmin ? ['admin','verified','early'] : ['early'];
+      await DB.updateUser(username, { is_admin: makeAdmin, badges });
+      await loadUsers();
+      UI.toast(`@${username} ${makeAdmin ? 'admin yapıldı ⚡' : 'kullanıcıya döndürüldü'}`, 'success');
+    } catch(e) {
+      UI.toast('Güncellenemedi: ' + e.message, 'error');
+    }
   }
 
   async function toggleServerRole(username, serverId) {
     const u = await DB.getUser(username);
     if (!u) return;
-    // Start with defaults then apply user's existing roles
-    const defaults = { friends:false, private:false, public:false, family:false };
-    const roles = { ...defaults, ...(u.server_roles || {}) };
+    // Build full roles object from all known servers
+    const defaults = {};
+    Object.keys(CONFIG.SERVERS).forEach(k => defaults[k] = false);
+    const existing = (typeof u.server_roles === 'object' && u.server_roles) ? u.server_roles : {};
+    const roles = { ...defaults, ...existing };
     roles[serverId] = !roles[serverId];
     try {
       await DB.updateUser(username, { server_roles: roles });
-      UI.toast(`@${username} sunucu erişimi güncellendi ✓`, 'success');
+      const srv = CONFIG.SERVERS[serverId];
+      UI.toast(`@${username} → ${srv?.icon || ''} ${srv?.label || serverId}: ${roles[serverId] ? '✅ Eklendi' : '❌ Kaldırıldı'}`, roles[serverId] ? 'success' : 'info');
     } catch(e) {
-      UI.toast('Güncellenemedi: ' + e.message, 'error');
+      // server_roles column may not exist yet — show helpful message
+      UI.toast('Hata: ' + e.message + ' (Admin panelindeki SQL'i çalıştırın)', 'error');
     }
     await loadUsers();
   }
