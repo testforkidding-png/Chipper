@@ -391,9 +391,7 @@
         <button onclick="UI.closeModal('settings-modal');openChangeName()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
           <span style="font-size:20px">✏️</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Ad Değiştir</div><div style="font-size:11px;color:#7A8FA8">Görünen adını güncelle</div></div>
         </button>
-        <button onclick="UI.closeModal('settings-modal');openChangePassword()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">🔑</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Şifre Değiştir</div><div style="font-size:11px;color:#7A8FA8">Hesap şifreni güncelle</div></div>
-        </button>
+
         <button onclick="UI.closeModal('settings-modal');openProfileEdit()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
           <span style="font-size:20px">👤</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Profili Düzenle</div><div style="font-size:11px;color:#7A8FA8">Ad, biyografi, fotoğraf</div></div>
         </button>
@@ -679,44 +677,6 @@
       <div><label class="modal-lbl">YENİ GÖRÜNEN AD</label><input id="cn-input" type="text" class="modal-inp" placeholder="Adınız" autocomplete="name" enterkeyhint="done" onkeydown="if(event.key==='Enter')submitChangeName()"></div>
       <div id="cn-err" class="modal-err"></div>
       <button onclick="submitChangeName()" class="modal-btn">Kaydet</button>
-    </div>
-  </div>
-</div>
-
-<!-- Change Password Modal -->
-<div id="change-password-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🔑 Şifre Değiştir</span>
-      <button onclick="UI.closeModal('change-password-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
-    </div>
-    <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
-      <div><label class="modal-lbl">MEVCUT ŞİFRE</label><input id="cp-old" type="password" class="modal-inp" placeholder="••••••••" autocomplete="current-password"></div>
-      <div><label class="modal-lbl">YENİ ŞİFRE</label><input id="cp-new" type="password" class="modal-inp" placeholder="En az 6 karakter" autocomplete="new-password"></div>
-      <div><label class="modal-lbl">YENİ ŞİFRE TEKRAR</label><input id="cp-new2" type="password" class="modal-inp" placeholder="••••••••" autocomplete="new-password" enterkeyhint="done" onkeydown="if(event.key==='Enter')submitChangePassword()"></div>
-      <div id="cp-err" class="modal-err"></div>
-      <button onclick="submitChangePassword()" class="modal-btn">Güncelle</button>
-    </div>
-  </div>
-</div>
-
-<!-- Forgot Password Modal -->
-<div id="forgot-password-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🔓 Şifremi Unuttum</span>
-      <button onclick="UI.closeModal('forgot-password-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
-    </div>
-    <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
-      <div style="padding:10px 12px;border-radius:10px;background:rgba(255,165,53,.08);border:1px solid rgba(255,165,53,.2);font-size:12px;color:#FFA535;line-height:1.5">
-        Admin panelinden <strong>ADMIN_KEY</strong> kodunu alın ve buraya girin.
-      </div>
-      <div><label class="modal-lbl">KULLANICI ADI</label><input id="fp-user" type="text" class="modal-inp" placeholder="kullanici_adi" autocapitalize="none"></div>
-      <div><label class="modal-lbl">SIFIRLAMA KODU (Admin Key)</label><input id="fp-code" type="text" class="modal-inp" placeholder="cipher-admin-2024" autocapitalize="none"></div>
-      <div><label class="modal-lbl">YENİ ŞİFRE</label><input id="fp-new" type="password" class="modal-inp" placeholder="En az 6 karakter"></div>
-      <div><label class="modal-lbl">YENİ ŞİFRE TEKRAR</label><input id="fp-new2" type="password" class="modal-inp" placeholder="••••••••" enterkeyhint="done" onkeydown="if(event.key==='Enter')submitForgotPassword()"></div>
-      <div id="fp-err" class="modal-err"></div>
-      <button onclick="submitForgotPassword()" class="modal-btn">Şifreyi Sıfırla</button>
     </div>
   </div>
 </div>
