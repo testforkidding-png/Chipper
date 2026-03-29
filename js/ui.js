@@ -16,12 +16,20 @@ const UI = (() => {
   function avatarColor(seed){ let h=0; for(const c of(seed||'x'))h=(h*31+c.charCodeAt(0))&0xFFFFFF; return PAL[Math.abs(h)%PAL.length]; }
   function initials(name){ return (name||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 
-  // ── FIX: always convert ts to number first ───────────────────
+  // ── Convert any timestamp to milliseconds ────────────────────
   function _ms(ts) {
-    if (!ts) return Date.now();
-    if (typeof ts === 'number') return ts;
-    const n = new Date(ts).getTime();
-    return isNaN(n) ? Date.now() : n;
+    if (!ts) return 0; // 0 means "never" not "now"
+    if (typeof ts === 'string') {
+      // ISO string from Supabase TIMESTAMPTZ
+      const n = new Date(ts).getTime();
+      return isNaN(n) ? 0 : n;
+    }
+    if (typeof ts === 'number') {
+      // Could be seconds (Unix) or milliseconds
+      // If < 10^12 it's likely seconds (before year 2001 in ms)
+      return ts < 1e12 ? ts * 1000 : ts;
+    }
+    return 0;
   }
 
   function fmtTime(ts) {
@@ -41,19 +49,36 @@ const UI = (() => {
     return Math.floor(d/604800000) + ' hafta önce';
   }
 
-  // ── Online status with duration ────────────────────────────────
+  // ── Online status with duration ──────────────────────────────
   function onlineStatus(user) {
     if (!user) return { text: 'Bilinmiyor', color: '#7A8FA8', dot: '#7A8FA8' };
     const lastSeen = _ms(user.last_seen);
-    const diff = Date.now() - lastSeen;
-    // Consider online if last_seen < 2 minutes
-    if (user.online && diff < 120000) {
-      return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
+    const now = Date.now();
+    
+    // No last_seen data at all
+    if (!lastSeen) {
+      if (user.online) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
+      return { text: '⚫ Bilinmiyor', color: '#7A8FA8', dot: '#7A8FA8' };
     }
-    if (diff < 300000)  return { text: '🟡 5 dk önce', color: '#FFA535', dot: '#FFA535' };
-    if (diff < 3600000) return { text: `⚫ ${Math.floor(diff/60000)} dk önce çevrimdışı`, color: '#7A8FA8', dot: '#7A8FA8' };
-    if (diff < 86400000)return { text: `⚫ ${Math.floor(diff/3600000)} sa önce çevrimdışı`, color: '#7A8FA8', dot: '#7A8FA8' };
-    return { text: `⚫ ${fmtRelative(lastSeen)}`, color: '#7A8FA8', dot: '#7A8FA8' };
+
+    const diff = now - lastSeen;
+
+    // Negative diff = clock skew, treat as online
+    if (diff < 0) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
+    
+    // Within 2 minutes + online flag = online
+    if (diff < 120000) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
+    
+    // 2-10 minutes = recently active
+    if (diff < 600000) return { text: `🟡 ${Math.floor(diff/60000)} dk önce`, color: '#FFA535', dot: '#FFA535' };
+    
+    // Hours
+    if (diff < 3600000) return { text: `⚫ ${Math.floor(diff/60000)} dk önce`, color: '#7A8FA8', dot: '#7A8FA8' };
+    if (diff < 86400000) return { text: `⚫ ${Math.floor(diff/3600000)} sa önce`, color: '#7A8FA8', dot: '#7A8FA8' };
+    
+    // Days
+    const days = Math.floor(diff/86400000);
+    return { text: `⚫ ${days} gün önce`, color: '#7A8FA8', dot: '#7A8FA8' };
   }
 
   // ── Modals ────────────────────────────────────────────────────
