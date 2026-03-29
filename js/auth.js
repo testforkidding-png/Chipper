@@ -1,6 +1,6 @@
 /**
  * CIPHER Auth v6
- * localStorage session, pure-JS SHA-256, heartbeat, change name/password, forgot
+ * localStorage session, pure-JS SHA-256, heartbeat, change name/password
  */
 const Auth = (() => {
   const SK = 'cipher_session_v2';
@@ -81,7 +81,9 @@ const Auth = (() => {
     if (existing) throw new Error('Bu kullanıcı adı alınmış.');
     const hash = await hashPassword(password);
     const now = Date.now();
-    const user = await DB.createUser({
+    // Try with all fields first, fall back to basic fields if Supabase columns missing
+    let user;
+    const fullData = {
       username: uname,
       password_hash: hash,
       display_name: displayName.trim(),
@@ -97,7 +99,22 @@ const Auth = (() => {
       last_seen: now,
       online: true,
       created_at: now,
-    });
+    };
+    try {
+      user = await DB.createUser(fullData);
+    } catch(e) {
+      // Fallback: try without extended columns (old schema)
+      console.warn('Full insert failed, trying basic:', e.message);
+      const basicData = {
+        username: uname, password_hash: hash,
+        display_name: displayName.trim(), bio: '',
+        avatar_url: null, banner_color: '#0A1628',
+        status: '', status_emoji: '',
+        is_admin: false, locked: false,
+        badges: ['early'], created_at: now,
+      };
+      user = await DB.createUser(basicData);
+    }
     await deriveEncKey(password, uname);
     saveSession(user);
     return user;
@@ -118,14 +135,6 @@ const Auth = (() => {
     return await DB.updateUser(username, { password_hash: newHash });
   }
 
-  async function resetPasswordWithCode(username, code, newPwd) {
-    if (code !== CONFIG.ADMIN_KEY) throw new Error('Kod yanlış. Admin panelinden alın: ' + CONFIG.ADMIN_KEY);
-    if (newPwd.length < 6) throw new Error('Şifre en az 6 karakter.');
-    const user = await DB.getUser(username.toLowerCase().trim());
-    if (!user) throw new Error('Kullanıcı bulunamadı.');
-    const hash = await hashPassword(newPwd);
-    return await DB.updateUser(user.username, { password_hash: hash, stale_hash: false });
-  }
 
   function logout() {
     const s = getSession();
@@ -149,5 +158,5 @@ const Auth = (() => {
     return iv;
   }
 
-  return { login, register, logout, currentUser, requireAuth, changeDisplayName, changePassword, resetPasswordWithCode, encryptMsg, decryptMsg, hashPassword, getSession, startHeartbeat };
+  return { login, register, logout, currentUser, requireAuth, changeDisplayName, changePassword, encryptMsg, decryptMsg, hashPassword, getSession, startHeartbeat };
 })();
