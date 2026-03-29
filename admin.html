@@ -329,9 +329,16 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
   async function toggleServerRole(username, serverId) {
     const u = await DB.getUser(username);
     if (!u) return;
-    const roles = { ...(u.server_roles || {}), friends:false, private:false, public:false, family:false, ...u.server_roles };
+    // Start with defaults then apply user's existing roles
+    const defaults = { friends:false, private:false, public:false, family:false };
+    const roles = { ...defaults, ...(u.server_roles || {}) };
     roles[serverId] = !roles[serverId];
-    await DB.updateUser(username, { server_roles: roles });
+    try {
+      await DB.updateUser(username, { server_roles: roles });
+      UI.toast(`@${username} sunucu erişimi güncellendi ✓`, 'success');
+    } catch(e) {
+      UI.toast('Güncellenemedi: ' + e.message, 'error');
+    }
     await loadUsers();
   }
 
