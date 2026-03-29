@@ -1,14 +1,15 @@
 {
-  "name":"CIPHER Messenger",
-  "short_name":"CIPHER",
-  "description":"Uçtan uca şifreli, gizli mesajlaşma",
-  "start_url":"./index.html",
-  "display":"standalone",
-  "background_color":"#06080F",
-  "theme_color":"#00FFB3",
-  "orientation":"any",
-  "icons":[
-    {"src":"icons/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
-    {"src":"icons/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+  "name": "CIPHER Messenger",
+  "short_name": "CIPHER",
+  "description": "Uçtan uca şifreli, gizli mesajlaşma",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#06080F",
+  "theme_color": "#00FFB3",
+  "orientation": "any",
+  "icons": [
+    {"src":"icons/icon-1024.png","sizes":"1024x1024","type":"image/png","purpose":"any maskable"},
+    {"src":"icons/icon-1024.png","sizes":"512x512","type":"image/png","purpose":"any maskable"},
+    {"src":"icons/icon-1024.png","sizes":"192x192","type":"image/png","purpose":"any maskable"}
   ]
 }
