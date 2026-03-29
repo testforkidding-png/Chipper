@@ -64,7 +64,8 @@ const Auth = (() => {
     if (user.password_hash !== hash) throw new Error('Şifre yanlış.');
     await deriveEncKey(password, uname);
     saveSession(user);
-    try { await DB.updateUser(uname, { last_seen: Date.now(), online: true }); } catch {}
+    // Update online status (silently - column may not exist yet)
+    DB.updateUser(uname, { last_seen: Date.now(), online: true }).catch(() => {});
     return user;
   }
 
@@ -114,6 +115,7 @@ const Auth = (() => {
         badges: ['early'], created_at: now,
       };
       user = await DB.createUser(basicData);
+      if (!user) throw new Error('Kayıt başarısız.');
     }
     await deriveEncKey(password, uname);
     saveSession(user);
@@ -147,14 +149,28 @@ const Auth = (() => {
   function requireAuth() { if(!getSession()){window.location.href='index.html';return false;} return true; }
 
   function startHeartbeat(username) {
-    const tick = () => { try { DB.updateUser(username, { last_seen: Date.now(), online: true }); } catch {} };
-    tick();
-    const iv = setInterval(tick, 30000);
-    window.addEventListener('beforeunload', () => { try { DB.updateUser(username, { last_seen: Date.now(), online: false }); } catch {} });
+    const tick = () => {
+      DB.updateUser(username, { last_seen: Date.now(), online: true }).catch(() => {});
+    };
+    const setOffline = () => {
+      DB.updateUser(username, { last_seen: Date.now(), online: false }).catch(() => {});
+    };
+
+    tick(); // immediate first tick
+    const iv = setInterval(tick, 25000); // every 25s (< 30s threshold)
+
+    window.addEventListener('beforeunload', setOffline);
+    window.addEventListener('pagehide', setOffline); // iOS Safari
+
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) { try { DB.updateUser(username, { last_seen: Date.now(), online: false }); } catch {} }
+      if (document.hidden) setOffline();
       else tick();
     });
+
+    // Focus/blur as backup
+    window.addEventListener('focus', tick);
+    window.addEventListener('blur', setOffline);
+
     return iv;
   }
 
