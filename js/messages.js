@@ -14,9 +14,22 @@ const Messages = (() => {
 
   // ── Subscribe ─────────────────────────────────────────────────
   function subscribeConv(convId) {
-    if (CONFIG.USE_SUPABASE) {
-      if (window._realtimeSub) DB.unsubscribe(window._realtimeSub);
-      window._realtimeSub = DB.subscribeMessages(convId, () => window._onNewMessage?.());
+    // Clear previous subscription/polling
+    if (window._realtimeSub) { try { DB.unsubscribe(window._realtimeSub); } catch {} window._realtimeSub = null; }
+    if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
+
+    if (CONFIG.USE_SUPABASE && !window._supabaseNotConfigured) {
+      try {
+        window._realtimeSub = DB.subscribeMessages(convId, () => window._onNewMessage?.());
+      } catch(e) { console.warn('subscribeMessages failed:', e); }
+    } else {
+      // Polling fallback for localStorage mode (cross-tab via BroadcastChannel is instant,
+      // but polling ensures consistency)
+      window._pollInterval = setInterval(async () => {
+        if (window._currentConvId === convId && !document.hidden) {
+          await window._onNewMessage?.();
+        }
+      }, 3000);
     }
   }
 
@@ -190,14 +203,14 @@ const Messages = (() => {
     } else {
       await DB.createMessage({ ...base, type: 'text', text });
     }
-    await DB.updateConversation(convId, { last_msg: text || '📎', last_time: now });
+    await DB.updateConversation(convId, { last_msg: text || '📎', last_time: now, last_from: cu.username });
     window._onNewMessage?.();
   }
 
   async function sendGif(convId, gifUrl, gifTitle) {
     const cu = window._currentUser; const now = Date.now();
     await DB.createMessage({ conv_id: convId, from: cu.username, type: 'gif', text: '', gif_url: gifUrl, gif_title: gifTitle || 'GIF', status: 'sent', created_at: now });
-    await DB.updateConversation(convId, { last_msg: '🎬 GIF', last_time: now });
+    await DB.updateConversation(convId, { last_msg: '🎬 GIF', last_time: now, last_from: cu.username });
     closeAllPickers();
     window._onNewMessage?.();
   }
@@ -205,7 +218,7 @@ const Messages = (() => {
   async function sendSticker(convId, sticker) {
     const cu = window._currentUser; const now = Date.now();
     await DB.createMessage({ conv_id: convId, from: cu.username, type: 'sticker', text: '', sticker, status: 'sent', created_at: now });
-    await DB.updateConversation(convId, { last_msg: sticker + ' Sticker', last_time: now });
+    await DB.updateConversation(convId, { last_msg: sticker + ' Sticker', last_time: now, last_from: cu.username });
     closeAllPickers();
     window._onNewMessage?.();
   }
@@ -311,7 +324,7 @@ const Messages = (() => {
           const dur = `0:${String(_recSecs).padStart(2, '0')}`;
           const cu = window._currentUser; const now = Date.now();
           await DB.createMessage({ conv_id: convId, from: cu.username, type: 'voice', text: '', duration: dur, audio_data: reader.result, status: 'sent', created_at: now });
-          await DB.updateConversation(convId, { last_msg: `🎙 ${dur}`, last_time: now });
+          await DB.updateConversation(convId, { last_msg: `🎙 ${dur}`, last_time: now, last_from: cu.username });
           window._onNewMessage?.();
         };
       };
