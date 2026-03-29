@@ -1169,3 +1169,31 @@ async function applyAvatarUrl() {
   };
   img.src = url;
 }
+
+// ── Change Password (in-app) ──────────────────────────────────────
+function openChangePwd() {
+  ['cp-old','cp-new','cp-new2'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  const errEl = document.getElementById('cp-err');
+  if (errEl) errEl.style.display = 'none';
+  UI.openModal('change-pwd-modal');
+}
+
+async function submitChangePwd() {
+  const oldP = document.getElementById('cp-old')?.value;
+  const newP = document.getElementById('cp-new')?.value;
+  const newP2= document.getElementById('cp-new2')?.value;
+  const errEl= document.getElementById('cp-err');
+  if (errEl) errEl.style.display = 'none';
+
+  if (!oldP || !newP || !newP2) { if(errEl){errEl.textContent='Tüm alanları doldurun.';errEl.style.display='';} return; }
+  if (newP !== newP2) { if(errEl){errEl.textContent='Şifreler eşleşmiyor.';errEl.style.display='';} return; }
+  if (newP.length < 6) { if(errEl){errEl.textContent='Şifre en az 6 karakter.';errEl.style.display='';} return; }
+
+  try {
+    await Auth.changePassword(window._currentUser.username, oldP, newP);
+    UI.closeModal('change-pwd-modal');
+    UI.toast('Şifre güncellendi ✓', 'success');
+  } catch(e) {
+    if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
+  }
+}
