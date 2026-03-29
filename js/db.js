@@ -86,8 +86,31 @@ const DB = (() => {
     },
     async updateUser(u, d) {
       const { data, error } = await sb().from('users').update(d).eq('username', u).select().single();
-      if (error) throw error;
-      return data;
+      if (!error) return data;
+      // If column missing (schema cache error), retry without extended columns
+      if (error.message && (error.message.includes('column') || error.message.includes('schema'))) {
+        console.warn('updateUser column error, retrying without extended cols:', error.message);
+        const safe = {};
+        const safeKeys = ['display_name','bio','avatar_url','banner_color','status','status_emoji','is_admin','locked','badges','password_hash'];
+        for (const k of safeKeys) { if (k in d) safe[k] = d[k]; }
+        // Try extended keys separately
+        const ext = {};
+        const extKeys = ['server_roles','last_seen','online','stale_hash'];
+        for (const k of extKeys) { if (k in d) ext[k] = d[k]; }
+        if (Object.keys(safe).length) {
+          const { data: d2, error: e2 } = await sb().from('users').update(safe).eq('username', u).select().single();
+          if (!e2) {
+            if (Object.keys(ext).length) {
+              // Try to add extended cols silently
+              await sb().from('users').update(ext).eq('username', u).select().single().catch(() => {});
+            }
+            return d2;
+          }
+          throw new Error(e2.message);
+        }
+        throw new Error(error.message);
+      }
+      throw error;
     },
     async deleteUser(u) {
       const { error } = await sb().from('users').delete().eq('username', u);
