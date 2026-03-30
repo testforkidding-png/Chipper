@@ -35,7 +35,7 @@
       <input id="admin-key-input" type="password" class="field" placeholder="Admin şifresi…" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')checkAdminKey()">
       <div id="auth-err" class="hidden" style="color:#FF3D6B;font-size:12px;margin-bottom:8px;padding:8px 12px;background:rgba(255,61,107,.1);border-radius:8px;border:1px solid rgba(255,61,107,.2)"></div>
       <button onclick="checkAdminKey()" class="btn-green" style="width:100%;padding:12px">Giriş</button>
-      <p style="text-align:center;font-size:11px;color:#7A8FA8;margin-top:10px">URL: <code style="color:#00FFB3">?key=</code></p>
+      
     </div>
   </div>
 </div>
@@ -252,27 +252,36 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
 <script src="js/auth.js"></script>
 <script src="js/ui.js"></script>
 <script>
-  DB.init().then(() => {
+  DB.init().catch(()=>{}).finally(() => {
+    // Check URL key param (silent admin access)
     const urlKey = new URLSearchParams(location.search).get('key');
-    if (urlKey === CONFIG.ADMIN_KEY) unlockAdmin();
+    if (urlKey && urlKey === CONFIG.ADMIN_KEY) unlockAdmin();
+    // Auto-focus input
+    document.getElementById('admin-key-input')?.focus();
   });
 
   function checkAdminKey() {
-    const k = document.getElementById('admin-key-input').value;
-    if (k === CONFIG.ADMIN_KEY) { unlockAdmin(); }
-    else {
+    const k = document.getElementById('admin-key-input')?.value?.trim() || '';
+    if (k === CONFIG.ADMIN_KEY) {
+      unlockAdmin();
+    } else {
       const e = document.getElementById('auth-err');
-      e.textContent = 'Yanlış admin anahtarı.';
-      e.classList.remove('hidden');
-      setTimeout(() => e.classList.add('hidden'), 3000);
+      if (e) {
+        e.textContent = 'Yanlış şifre.';
+        e.classList.remove('hidden');
+        setTimeout(() => e.classList.add('hidden'), 2500);
+      }
+      // Shake animation
+      const input = document.getElementById('admin-key-input');
+      if (input) { input.style.borderColor='#FF3D6B'; input.value=''; input.focus(); setTimeout(()=>input.style.borderColor='',800); }
     }
   }
 
   async function unlockAdmin() {
     document.getElementById('admin-auth').style.display = 'none';
     document.getElementById('admin-panel').classList.remove('hidden');
-    await loadUsers();
-    loadReports();
+    try { await loadUsers(); } catch(e) { console.error('loadUsers:', e); }
+    try { loadReports(); } catch(e) {}
   }
 
   // ── Users ──────────────────────────────────────────────────────
