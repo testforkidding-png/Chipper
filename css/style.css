@@ -151,33 +151,38 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 .toggle-track.off .toggle-knob{left:3px;background:var(--muted)}
 
 /* GIF picker — inline in chat-view, hidden by default */
-/* Pickers — inline flex, açıkken görünür, kapalıyken display:none */
+/* ── Pickers ─────────────────────────────────────────────────── */
 #gif-picker{
-  display:none;
-  flex-direction:column;
-  background:var(--surf);
-  border-top:1px solid var(--border);
-  height:280px;
-  max-height:280px;
-  overflow:hidden;
-  flex-shrink:0;
+  display:none;flex-direction:column;
+  background:var(--surf);border-top:1px solid var(--border);
+  height:280px;flex-shrink:0;overflow:hidden;
 }
 #gif-picker.open{display:flex}
-.gif-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;overflow-y:auto;padding:8px;-webkit-overflow-scrolling:touch;flex:1;min-height:0}
-@media(max-width:767px){.gif-grid{grid-template-columns:repeat(2,1fr)}}
-.gif-item{border-radius:8px;overflow:hidden;cursor:pointer;aspect-ratio:1;background:var(--elev)}
-.gif-item img{width:100%;height:100%;object-fit:cover}
-.gif-item:active img{opacity:.8}
+
+.gif-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:6px;padding:8px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  flex:1;min-height:0;align-content:start;
+}
+@media(max-width:600px){.gif-grid{grid-template-columns:repeat(2,1fr)}}
+.gif-item{
+  border-radius:10px;overflow:hidden;cursor:pointer;
+  aspect-ratio:1;background:var(--elev);
+  transition:transform .12s;
+}
+.gif-item:hover{transform:scale(1.03)}
+.gif-item:active{transform:scale(.95)}
+.gif-item img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* Shimmer animation for GIF skeleton */
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
 #sticker-picker{
-  display:none;
-  flex-direction:column;
-  background:var(--surf);
-  border-top:1px solid var(--border);
-  height:260px;
-  max-height:260px;
-  overflow:hidden;
-  flex-shrink:0;
+  display:none;flex-direction:column;
+  background:var(--surf);border-top:1px solid var(--border);
+  height:260px;flex-shrink:0;overflow:hidden;
 }
 #sticker-picker.open{display:flex}
 .sticker-pack-tabs{display:flex;overflow-x:auto;gap:2px;padding:8px 8px 0;scrollbar-width:none;-webkit-overflow-scrolling:touch}
