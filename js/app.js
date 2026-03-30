@@ -20,23 +20,28 @@ async function bootApp() {
     UI.toast('⚠️ Supabase ayarlanmamış — çok cihaz desteği kapalı', 'warn', 8000);
   }
 
-  // Load all users into memory
-  try {
-    const users = await DB.getAllUsers();
-    users.forEach(u => { _allUsers[u.username] = u; });
-  } catch(e) { console.warn('getAllUsers failed:', e); }
-
-  renderMyAvatar();
-  await loadConversations();
-  renderStories().catch(console.warn);
+  // Parallel load: users + conversations simultaneously for faster boot
   loadSettings();
-  PWA.init();
+  renderMyAvatar();
   buildStickerTabs();
-  Auth.startHeartbeat(window._currentUser.username);
-  requestPushPermission().catch(console.warn);
 
-  // Ensure bot conv exists (silently)
-  ensureBotConversation().catch(console.warn);
+  const [convs, users] = await Promise.allSettled([
+    DB.getConversations(window._currentUser.username),
+    DB.getAllUsers(),
+  ]);
+  if (users.status === 'fulfilled') users.value.forEach(u => { _allUsers[u.username] = u; });
+  _convs = convs.status === 'fulfilled' ? convs.value : [];
+  renderChatList();
+
+  // Defer non-critical
+  setTimeout(() => {
+    renderStories().catch(()=>{});
+    ensureBotConversation().catch(()=>{});
+    requestPushPermission().catch(()=>{});
+    PWA.init();
+  }, 100);
+
+  Auth.startHeartbeat(window._currentUser.username);
 
   // New message handler
   window._onNewMessage = async () => {
