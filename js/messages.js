@@ -224,14 +224,17 @@ const Messages = (() => {
   }
 
   // ── GIF Picker ────────────────────────────────────────────────
-  let _gifResults = [], _gifLoading = false;
+  let _gifResults = [], _gifLoading = false, _gifCache = null;
   function toggleGif() {
     _gifOpen = !_gifOpen; _stickerOpen = false;
     const gp = document.getElementById('gif-picker');
     const sp = document.getElementById('sticker-picker');
     if (gp) gp.classList.toggle('open', _gifOpen);
     if (sp) sp.classList.remove('open');
-    if (_gifOpen && !_gifResults.length) searchGifs('');
+    if (_gifOpen) {
+      if (_gifCache) { _gifResults = _gifCache; renderGifs(); } // instant from cache
+      else searchGifs('');
+    }
   }
 
   async function searchGifs(q = '') {
@@ -239,19 +242,22 @@ const Messages = (() => {
     _gifLoading = true;
     const grid = document.getElementById('gif-grid');
     if (!grid) { _gifLoading = false; return; }
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#7A8FA8">
-      <div style="display:inline-block;width:20px;height:20px;border:2px solid #1E2D45;border-top-color:#00FFB3;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:8px"></div><br>Yükleniyor…</div>`;
+    // Show skeleton placeholders instead of spinner
+    grid.innerHTML = Array(6).fill(0).map(() =>
+      `<div style="border-radius:8px;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;aspect-ratio:1"></div>`
+    ).join('');
     try {
       const url = q
         ? `https://api.giphy.com/v1/gifs/search?api_key=${CONFIG.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg`
         : `https://api.giphy.com/v1/gifs/trending?api_key=${CONFIG.GIPHY_API_KEY}&limit=18&rating=pg`;
       const res = await fetch(url);
-      if (!res.ok) throw new Error(res.status);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const json = await res.json();
       _gifResults = json.data || [];
+      if (!q) _gifCache = _gifResults; // cache trending
       renderGifs();
     } catch(err) {
-      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;color:#FF3D6B;font-size:12px">GIF yüklenemedi (${err.message}).<br><small style="color:#7A8FA8">API key gerekli → developers.giphy.com</small></div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;color:#FF3D6B;font-size:12px;text-align:center;gap:8px"><span style="font-size:24px">😵</span>GIF yüklenemedi<small style="color:#7A8FA8">Bağlantı kontrolü yapın</small></div>`;
     }
     _gifLoading = false;
   }
