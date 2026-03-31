@@ -358,6 +358,12 @@
         <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Bildirimler</div><div style="font-size:11px;color:#7A8FA8">Masaüstü bildirimleri</div></div><div id="notif-toggle" class="toggle-track on" onclick="toggleNotifs()"><div class="toggle-knob"></div></div></div>
       </div>
       <div style="border-top:1px solid #1E2D45;padding-top:14px">
+        <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">KİŞİSELLEŞTİRME</div>
+        <button onclick="UI.closeModal('settings-modal');openCustomize()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🎨</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Kişiselleştir</div><div style="font-size:11px;color:#7A8FA8">Logo, arkaplan, tema rengi</div></div>
+        </button>
+      </div>
+      <div style="border-top:1px solid #1E2D45;padding-top:14px">
         <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">UYGULAMA</div>
         <button onclick="PWA.install()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
           <span style="font-size:20px">📱</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Uygulamayı Kur</div><div style="font-size:11px;color:#7A8FA8">Masaüstü / Telefon</div></div>
