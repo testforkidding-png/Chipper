@@ -360,7 +360,7 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
       UI.toast(`@${username} → ${srv?.icon || ''} ${srv?.label || serverId}: ${roles[serverId] ? '✅ Eklendi' : '❌ Kaldırıldı'}`, roles[serverId] ? 'success' : 'info');
     } catch(e) {
       // server_roles column may not exist yet — show helpful message
-      UI.toast('Hata: ' + e.message + ' (Admin panelindeki SQL'i çalıştırın)', 'error');
+      UI.toast(`Hata: ${e.message} (SQL şemasını admin panelinden çalıştırın)`, 'error');
     }
     await loadUsers();
   }
