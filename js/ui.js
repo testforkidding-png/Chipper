@@ -5,10 +5,14 @@ const UI = (() => {
   function toast(msg, type='info', ms=3000) {
     const C={success:'#00FFB3',error:'#FF3D6B',warn:'#FFA535',info:'#0EA5E9'};
     const I={success:'✓',error:'✕',warn:'⚠',info:'ℹ'};
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    // Limit to 3 toasts
+    while (container.children.length >= 3) container.firstChild?.remove();
     const el=document.createElement('div');
     el.style.cssText=`display:flex;align-items:center;gap:10px;padding:10px 16px;border-radius:12px;background:#0C1220;border:1px solid ${C[type]}44;box-shadow:0 8px 30px rgba(0,0,0,.5);animation:slideUp .25s ease-out;max-width:320px;pointer-events:auto`;
     el.innerHTML=`<span style="color:${C[type]};font-size:14px">${I[type]}</span><span style="font-size:13px;color:#DDE8F8;line-height:1.4">${msg}</span>`;
-    document.getElementById('toast-container')?.appendChild(el);
+    container.appendChild(el);
     setTimeout(()=>{ el.style.cssText+=';opacity:0;transform:translateY(6px);transition:all .3s'; setTimeout(()=>el.remove(),300); },ms);
   }
 
@@ -41,8 +45,8 @@ const UI = (() => {
   function fmtDate(ts){ return new Date(_ms(ts)).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}); }
   function fmtRelative(ts) {
     const d = Date.now() - _ms(ts);
-    if (d < 0 || isNaN(d)) return 'Az önce';
-    if (d < 60000)    return 'Az önce';
+    if (!d || d < 0 || isNaN(d)) return 'Az önce';
+    if (d < 45000)    return 'Az önce';
     if (d < 3600000)  return Math.floor(d/60000) + ' dk önce';
     if (d < 86400000) return Math.floor(d/3600000) + ' sa önce';
     if (d < 604800000)return Math.floor(d/86400000) + ' gün önce';
