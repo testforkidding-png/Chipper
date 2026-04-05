@@ -127,7 +127,10 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 
 /* Message bubbles */
 .msg-bubble{word-break:break-word;transition:background .15s}
-.msg-bubble.sent{background:linear-gradient(135deg,#0F3D2E,#0A2D22);border:1px solid rgba(0,255,179,.2)}
+.msg-bubble.sent{
+  background:linear-gradient(135deg,var(--bubble-sent-1,#0F3D2E),var(--bubble-sent-2,#0A2D22));
+  border:1px solid var(--bubble-sent-border,rgba(0,255,179,.2))
+}
 .msg-bubble.recv{background:var(--elev);border:1px solid var(--border)}
 .msg-bubble:active{opacity:.85}
 
@@ -136,7 +139,7 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 .reaction-pill:hover,.reaction-pill.active{background:#0F3D2E;border-color:rgba(0,255,179,.4)}
 
 /* Story rings */
-.story-ring{background:conic-gradient(#00FFB3,#00C48A,#00FFB3);padding:2.5px;border-radius:50%}
+.story-ring{background:conic-gradient(var(--accent),var(--accent-d),var(--accent));padding:2.5px;border-radius:50%}
 .story-ring-seen{background:conic-gradient(#2A3D55,#1E2D45,#2A3D55);padding:2.5px;border-radius:50%}
 
 /* Typing */
