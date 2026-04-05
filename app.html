@@ -37,6 +37,10 @@
 
     <!-- Header -->
     <div id="sidebar-header" style="display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid #1E2D45;flex-shrink:0">
+      <!-- App logo — customize-logo-target sınıfı ile JS'den güncellenir -->
+      <div id="app-logo-box" class="customize-logo-target" style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-d));display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
       <button id="my-avatar" onclick="openProfileEdit()"
         style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid transparent;cursor:pointer;overflow:hidden;flex-shrink:0;transition:border-color .2s;font-family:Syne,sans-serif"
         onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='transparent'">
@@ -713,50 +717,33 @@
 
 <!-- ── KİŞİSELLEŞTİRME MODAL ───────────────────────────────── -->
 <div id="customize-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:380px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;animation:slideUp .2s ease-out;overflow:hidden">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45">
-      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">🎨 Kişiselleştir</span>
-      <button onclick="UI.closeModal('customize-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%">✕</button>
-    </div>
-    <div style="padding:20px;display:flex;flex-direction:column;gap:20px">
+  <div style="width:100%;max-width:400px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:88dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out">
 
-      <!-- VURGU RENGİ -->
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">🎨 Kişiselleştir</span>
+      <button onclick="UI.closeModal('customize-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%">✕</button>
+    </div>
+
+    <!-- Scrollable content -->
+    <div style="overflow-y:auto;flex:1;padding:20px;display:flex;flex-direction:column;gap:22px">
+
+      <!-- TEMA RENGİ -->
       <div>
-        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">🎨 VURGU RENGİ</div>
-        <div id="accent-grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px"></div>
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:#131D30;border-radius:10px;border:1px solid #1E2D45">
-          <span style="font-size:12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;flex-shrink:0">Özel renk:</span>
-          <input id="accent-custom-color" type="color" value="#00FFB3"
-            style="width:40px;height:32px;border-radius:8px;border:1px solid #1E2D45;background:transparent;cursor:pointer;padding:2px"
-            oninput="customizeCustomColor(this.value)">
-          <span style="font-size:11px;color:#5A6E88">istediğin her renk</span>
-        </div>
+        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">TEMA RENGİ</div>
+        <div id="cust-theme-grid" style="display:flex;flex-wrap:wrap;gap:10px"></div>
       </div>
 
-      <!-- ARKAPLAN & LOGO - dosyadan -->
-      <div style="border-top:1px solid #1E2D45;padding-top:16px">
-        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">📁 ARKAPLAN & LOGO</div>
-        <div style="background:#06080F;border:1px solid #1E2D45;border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:12px">
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="width:38px;height:38px;border-radius:10px;background:#131D30;border:1px solid #1E2D45;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px">🖼</div>
-            <div>
-              <div style="font-size:13px;color:#DDE8F8;font-weight:600;margin-bottom:3px">Sohbet Arkaplanı</div>
-              <div style="font-size:12px;color:#7A8FA8">PNG dosyasını koy:</div>
-              <code style="font-size:11px;color:#00FFB3;font-family:'JetBrains Mono',monospace">customize/bg.png</code>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="width:38px;height:38px;border-radius:10px;background:#131D30;border:1px solid #1E2D45;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px">⚡</div>
-            <div>
-              <div style="font-size:13px;color:#DDE8F8;font-weight:600;margin-bottom:3px">Uygulama Logosu</div>
-              <div style="font-size:12px;color:#7A8FA8">PNG dosyasını koy:</div>
-              <code style="font-size:11px;color:#00FFB3;font-family:'JetBrains Mono',monospace">customize/logo.png</code>
-            </div>
-          </div>
-          <div style="font-size:11px;color:#5A6E88;padding-top:8px;border-top:1px solid #131D30;line-height:1.6">
-            Proje klasöründe <code style="color:#7A8FA8">customize/</code> klasörü oluştur, PNG'leri içine koy, sayfayı yenile.
-          </div>
-        </div>
+      <!-- UYGULAMA LOGOSU -->
+      <div style="border-top:1px solid #1E2D45;padding-top:18px">
+        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">UYGULAMA LOGOSU</div>
+        <div id="cust-logo-grid" style="display:flex;flex-wrap:wrap;gap:12px"></div>
+      </div>
+
+      <!-- SOHBET ARKAPLANI -->
+      <div style="border-top:1px solid #1E2D45;padding-top:18px">
+        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">SOHBET ARKAPLANI</div>
+        <div id="cust-bg-grid" style="display:flex;flex-wrap:wrap;gap:12px"></div>
       </div>
 
     </div>
