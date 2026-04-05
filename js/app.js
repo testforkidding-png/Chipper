@@ -1209,8 +1209,6 @@ async function submitChangePwd() {
 
 
 // ══════════════════════════════════════════════════════════════════
-// KİŞİSELLEŞTİRME — Renk seçici + dosyadan logo/arkaplan
-// ══════════════════════════════════════════════════════════════════
 const _CK = 'cipher_custom_v1';
 function _cLoad() { try { return JSON.parse(localStorage.getItem(_CK) || '{}'); } catch { return {}; } }
 function _cSave(obj) { localStorage.setItem(_CK, JSON.stringify({ ..._cLoad(), ...obj })); }
@@ -1302,4 +1300,182 @@ function customizeCustomColor(val) {
   // Update grid selection
   const grid = document.getElementById('accent-grid');
   if (grid) grid.querySelectorAll('button').forEach(b => { b.style.borderColor = 'transparent'; b.innerHTML = ''; });
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+// KİŞİSELLEŞTİRME SİSTEMİ v2
+// config: customize/config.json  |  localStorage: cipher_custom_v2
+// ══════════════════════════════════════════════════════════════════
+const _CK2 = 'cipher_custom_v2';
+let   _customizeCfg = null; // loaded from config.json
+
+function _cGet()      { try { return JSON.parse(localStorage.getItem(_CK2) || '{}'); } catch { return {}; } }
+function _cSet(patch) { localStorage.setItem(_CK2, JSON.stringify({ ..._cGet(), ...patch })); }
+
+function _darker(hex) {
+  try {
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16), f=.78;
+    return '#'+[r,g,b].map(v=>Math.round(v*f).toString(16).padStart(2,'0')).join('');
+  } catch { return '#00C48A'; }
+}
+
+// ── Sayfa açılınca uygula ─────────────────────────────────────────
+function customizeApply() {
+  const s = _cGet();
+
+  // Tema rengi
+  if (s.accent) {
+    document.documentElement.style.setProperty('--accent',   s.accent);
+    document.documentElement.style.setProperty('--accent-d', _darker(s.accent));
+    document.documentElement.style.setProperty('--online',   s.accent);
+  }
+
+  // Sohbet arkaplanı
+  const msgEl = document.getElementById('messages');
+  if (msgEl) {
+    if (s.bgFile) {
+      msgEl.style.backgroundImage    = `url('customize/${s.bgFile}?v=1')`;
+      msgEl.style.backgroundSize     = 'cover';
+      msgEl.style.backgroundPosition = 'center';
+      msgEl.style.backgroundRepeat   = 'no-repeat';
+    } else {
+      // Varsayılan: düz gri
+      msgEl.style.backgroundImage = 'none';
+      msgEl.style.backgroundColor = '#0D1424';
+    }
+  }
+
+  // Logo
+  if (s.logoFile) {
+    _applyLogo(`customize/${s.logoFile}?v=1`);
+  }
+}
+
+function _applyLogo(src) {
+  document.querySelectorAll('.customize-logo-target').forEach(el => {
+    el.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.style.display='none'">`;
+  });
+}
+
+// ── Konfigürasyonu yükle, modalı aç ──────────────────────────────
+async function openCustomize() {
+  if (!_customizeCfg) {
+    try {
+      const r = await fetch('customize/config.json?t=' + Date.now());
+      _customizeCfg = await r.json();
+    } catch(e) {
+      _customizeCfg = { logos:[], backgrounds:[], themes:[] };
+      console.warn('customize/config.json yüklenemedi:', e);
+    }
+  }
+  _renderCustomizeModal();
+  UI.openModal('customize-modal');
+}
+
+function _renderCustomizeModal() {
+  const cfg = _customizeCfg;
+  const saved = _cGet();
+
+  // ── TEMALAR ──────────────────────────────────────────────────
+  const themeGrid = document.getElementById('cust-theme-grid');
+  if (themeGrid && cfg.themes?.length) {
+    themeGrid.innerHTML = '';
+    cfg.themes.forEach(t => {
+      const active = (saved.accent || '#00FFB3').toLowerCase() === t.accent.toLowerCase();
+      const btn = document.createElement('button');
+      btn.style.cssText = `width:44px;height:44px;border-radius:50%;background:${t.accent};border:3px solid ${active ? '#fff' : 'transparent'};cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;flex-shrink:0`;
+      btn.title = t.label;
+      if (active) btn.innerHTML = `<span style="font-size:18px;color:#000;font-weight:700">✓</span>`;
+      btn.onclick = () => {
+        themeGrid.querySelectorAll('button').forEach(b => { b.style.borderColor='transparent'; b.innerHTML=''; });
+        btn.style.borderColor = '#fff';
+        btn.innerHTML = `<span style="font-size:18px;color:#000;font-weight:700">✓</span>`;
+        document.documentElement.style.setProperty('--accent',   t.accent);
+        document.documentElement.style.setProperty('--accent-d', _darker(t.accent));
+        document.documentElement.style.setProperty('--online',   t.accent);
+        _cSet({ accent: t.accent });
+        UI.toast(t.label + ' tema ✓', 'success');
+      };
+      themeGrid.appendChild(btn);
+    });
+  }
+
+  // ── LOGOLAR ──────────────────────────────────────────────────
+  const logoGrid = document.getElementById('cust-logo-grid');
+  if (logoGrid) {
+    if (!cfg.logos?.length) {
+      logoGrid.innerHTML = '<div style="font-size:12px;color:#5A6E88">Logo seçeneği yok. customize/config.json dosyasına ekleyin.</div>';
+    } else {
+      logoGrid.innerHTML = '';
+      cfg.logos.forEach(l => {
+        const active = saved.logoFile === l.file;
+        const wrap = document.createElement('button');
+        wrap.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:6px;background:transparent;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent`;
+        const box = document.createElement('div');
+        box.style.cssText = `width:56px;height:56px;border-radius:14px;overflow:hidden;border:2.5px solid ${active ? 'var(--accent)' : '#1E2D45'};background:#131D30;display:flex;align-items:center;justify-content:center;transition:border-color .15s;flex-shrink:0`;
+        box.innerHTML = `<img src="customize/${l.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=font-size:22px>🔒</span>'">`;
+        const lbl = document.createElement('span');
+        lbl.style.cssText = 'font-size:10px;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace';
+        lbl.textContent = l.label;
+        wrap.appendChild(box);
+        wrap.appendChild(lbl);
+        wrap.onclick = () => {
+          logoGrid.querySelectorAll('div[style*="border"]').forEach(b => b.style.borderColor = '#1E2D45');
+          box.style.borderColor = 'var(--accent)';
+          _cSet({ logoFile: l.file });
+          _applyLogo(`customize/${l.file}?v=1`);
+          UI.toast(l.label + ' logo seçildi ✓', 'success');
+        };
+        logoGrid.appendChild(wrap);
+      });
+    }
+  }
+
+  // ── ARKAPLANLAR ──────────────────────────────────────────────
+  const bgGrid = document.getElementById('cust-bg-grid');
+  if (bgGrid) {
+    if (!cfg.backgrounds?.length) {
+      bgGrid.innerHTML = '<div style="font-size:12px;color:#5A6E88">Arkaplan seçeneği yok. customize/config.json dosyasına ekleyin.</div>';
+    } else {
+      bgGrid.innerHTML = '';
+      cfg.backgrounds.forEach(b => {
+        const active = b.file ? saved.bgFile === b.file : !saved.bgFile;
+        const wrap = document.createElement('button');
+        wrap.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:6px;background:transparent;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent`;
+        const box = document.createElement('div');
+        box.style.cssText = `width:56px;height:56px;border-radius:12px;overflow:hidden;border:2.5px solid ${active ? 'var(--accent)' : '#1E2D45'};background:#0D1424;transition:border-color .15s;flex-shrink:0`;
+        if (b.file) {
+          box.innerHTML = `<img src="customize/${b.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.background='#0D1424'">`;
+        } else {
+          box.style.background = '#0D1424';
+          box.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#1E2D45">✕</div>`;
+        }
+        const lbl = document.createElement('span');
+        lbl.style.cssText = 'font-size:10px;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace';
+        lbl.textContent = b.label;
+        wrap.appendChild(box);
+        wrap.appendChild(lbl);
+        wrap.onclick = () => {
+          bgGrid.querySelectorAll('div[style*="border"]').forEach(el => el.style.borderColor = '#1E2D45');
+          box.style.borderColor = 'var(--accent)';
+          const msgEl = document.getElementById('messages');
+          if (b.file) {
+            _cSet({ bgFile: b.file });
+            if (msgEl) {
+              msgEl.style.backgroundImage    = `url('customize/${b.file}?v=1')`;
+              msgEl.style.backgroundSize     = 'cover';
+              msgEl.style.backgroundPosition = 'center';
+              msgEl.style.backgroundRepeat   = 'no-repeat';
+            }
+          } else {
+            _cSet({ bgFile: '' });
+            if (msgEl) { msgEl.style.backgroundImage = 'none'; msgEl.style.backgroundColor = '#0D1424'; }
+          }
+          UI.toast(b.label + ' arkaplan ✓', 'success');
+        };
+        bgGrid.appendChild(wrap);
+      });
+    }
+  }
 }
