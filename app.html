@@ -10,6 +10,10 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icons/icon-1024.png">
   <!-- Supabase SDK -->
+  <!-- Preconnect: Supabase DNS/TLS resolved before scripts run -->
+  <link rel="preconnect" href="https://supabase.co">
+  <link rel="dns-prefetch" href="https://supabase.co">
+  <!-- Supabase SDK — async so it doesn't block render -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <link rel="apple-touch-icon" href="icons/icon-1024.png">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -37,10 +41,6 @@
 
     <!-- Header -->
     <div id="sidebar-header" style="display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <!-- App logo — customize-logo-target sınıfı ile JS'den güncellenir -->
-      <div id="app-logo-box" class="customize-logo-target" style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-d));display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-      </div>
       <button id="my-avatar" onclick="openProfileEdit()"
         style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid transparent;cursor:pointer;overflow:hidden;flex-shrink:0;transition:border-color .2s;font-family:Syne,sans-serif"
         onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='transparent'">
