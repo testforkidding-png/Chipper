@@ -112,7 +112,8 @@ body{background:#06080F;color:#DDE8F8;font-family:'DM Sans',sans-serif}
   #compose{padding-bottom:max(10px,env(safe-area-inset-bottom))}
   #msg-input{font-size:16px!important}
   input,textarea,select{font-size:16px!important}
-  #messages{padding:10px 12px}
+  #messages{
+  background-color:#0D1424;padding:10px 12px}
 }
 @media(min-width:768px){
   #back-btn{display:none!important}
