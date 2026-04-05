@@ -1293,13 +1293,15 @@ function openCustomize() {
 
 function customizeCustomColor(val) {
   if (!val) return;
-  document.documentElement.style.setProperty('--accent', val);
-  document.documentElement.style.setProperty('--accent-d', _darker(val));
-  document.documentElement.style.setProperty('--online', val);
-  _cSave({ accent: val });
-  // Update grid selection
+  document.documentElement.style.setProperty('--accent',             val);
+  document.documentElement.style.setProperty('--accent-d',           _darker(val));
+  document.documentElement.style.setProperty('--online',             val);
+  document.documentElement.style.setProperty('--bubble-sent-1',      _mix(val,'#06080F',0.18));
+  document.documentElement.style.setProperty('--bubble-sent-2',      _mix(val,'#06080F',0.10));
+  document.documentElement.style.setProperty('--bubble-sent-border', _mix(val,'transparent',0.28));
+  _cSet({ accent: val });
   const grid = document.getElementById('accent-grid');
-  if (grid) grid.querySelectorAll('button').forEach(b => { b.style.borderColor = 'transparent'; b.innerHTML = ''; });
+  if (grid) grid.querySelectorAll('button').forEach(b => { b.style.borderColor='transparent'; b.innerHTML=''; });
 }
 
 
@@ -1319,6 +1321,17 @@ function _darker(hex) {
     return '#'+[r,g,b].map(v=>Math.round(v*f).toString(16).padStart(2,'0')).join('');
   } catch { return '#00C48A'; }
 }
+function _mix(hex, base, alpha) {
+  // Mix hex color with base at alpha opacity → returns hex
+  try {
+    const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+    const br = base==='transparent'?6:parseInt(base.slice(1,3)||'06',16);
+    const bg = base==='transparent'?8:parseInt(base.slice(3,5)||'08',16);
+    const bb = base==='transparent'?15:parseInt(base.slice(5,7)||'0F',16);
+    const mr=Math.round(r*alpha+br*(1-alpha)), mg=Math.round(g*alpha+bg*(1-alpha)), mb=Math.round(b*alpha+bb*(1-alpha));
+    return '#'+[mr,mg,mb].map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+  } catch { return '#0F3D2E'; }
+}
 
 // ── Sayfa açılınca uygula ─────────────────────────────────────────
 function customizeApply() {
@@ -1326,9 +1339,15 @@ function customizeApply() {
 
   // Tema rengi
   if (s.accent) {
-    document.documentElement.style.setProperty('--accent',   s.accent);
-    document.documentElement.style.setProperty('--accent-d', _darker(s.accent));
-    document.documentElement.style.setProperty('--online',   s.accent);
+    const acc = s.accent;
+    const dark = _darker(acc);
+    document.documentElement.style.setProperty('--accent',   acc);
+    document.documentElement.style.setProperty('--accent-d', dark);
+    document.documentElement.style.setProperty('--online',   acc);
+    // Mesaj balonu renkleri --accent ile senkronize
+    document.documentElement.style.setProperty('--bubble-sent-1',      _mix(acc, '#06080F', 0.18));
+    document.documentElement.style.setProperty('--bubble-sent-2',      _mix(acc, '#06080F', 0.10));
+    document.documentElement.style.setProperty('--bubble-sent-border', _mix(acc, 'transparent', 0.28));
   }
 
   // Sohbet arkaplanı
@@ -1391,9 +1410,13 @@ function _renderCustomizeModal() {
         themeGrid.querySelectorAll('button').forEach(b => { b.style.borderColor='transparent'; b.innerHTML=''; });
         btn.style.borderColor = '#fff';
         btn.innerHTML = `<span style="font-size:18px;color:#000;font-weight:700">✓</span>`;
-        document.documentElement.style.setProperty('--accent',   t.accent);
-        document.documentElement.style.setProperty('--accent-d', _darker(t.accent));
-        document.documentElement.style.setProperty('--online',   t.accent);
+        const _a = t.accent;
+        document.documentElement.style.setProperty('--accent',   _a);
+        document.documentElement.style.setProperty('--accent-d', _darker(_a));
+        document.documentElement.style.setProperty('--online',   _a);
+        document.documentElement.style.setProperty('--bubble-sent-1',      _mix(_a,'#06080F',0.18));
+        document.documentElement.style.setProperty('--bubble-sent-2',      _mix(_a,'#06080F',0.10));
+        document.documentElement.style.setProperty('--bubble-sent-border', _mix(_a,'transparent',0.28));
         _cSet({ accent: t.accent });
         UI.toast(t.label + ' tema ✓', 'success');
       };
