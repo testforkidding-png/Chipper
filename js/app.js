@@ -24,7 +24,7 @@ async function bootApp() {
   loadSettings();
   renderMyAvatar();
   buildStickerTabs();
-  customizeApply(); // load saved customization
+  customizeApply();
 
   const [convs, users] = await Promise.allSettled([
     DB.getConversations(window._currentUser.username),
@@ -1207,234 +1207,99 @@ async function submitChangePwd() {
   }
 }
 
+
 // ══════════════════════════════════════════════════════════════════
-// KİŞİSELLEŞTİRME SİSTEMİ
+// KİŞİSELLEŞTİRME — Renk seçici + dosyadan logo/arkaplan
 // ══════════════════════════════════════════════════════════════════
+const _CK = 'cipher_custom_v1';
+function _cLoad() { try { return JSON.parse(localStorage.getItem(_CK) || '{}'); } catch { return {}; } }
+function _cSave(obj) { localStorage.setItem(_CK, JSON.stringify({ ..._cLoad(), ...obj })); }
 
-const CUSTOMIZE_KEY = 'cipher_customize';
-
-// Hazır arkaplan desenleri (CSS gradient — PNG yoksa fallback)
-const BG_PRESETS = [
-  { id: 'none',    label: 'Yok',      style: '#06080F',                                                         icon: '⬛' },
-  { id: 'grid',    label: 'Izgara',   style: 'linear-gradient(rgba(0,255,179,.04)1px,transparent 1px),linear-gradient(90deg,rgba(0,255,179,.04)1px,transparent 1px),#06080F', icon: '⊞' },
-  { id: 'dots',    label: 'Noktalar', style: 'radial-gradient(circle,rgba(0,255,179,.1)1px,transparent 1px)',  icon: '⠿' },
-  { id: 'diagonal',label: 'Diyagonal',style: 'repeating-linear-gradient(45deg,transparent,transparent 18px,rgba(0,255,179,.04)18px,rgba(0,255,179,.04)19px),#06080F', icon: '╱' },
-];
-
-// Hazır vurgu renkleri
-const ACCENT_PRESETS = [
-  { color: '#00FFB3', label: 'Yeşil'    },
-  { color: '#4D9EFF', label: 'Mavi'     },
-  { color: '#BF5FFF', label: 'Mor'      },
-  { color: '#FF4D7A', label: 'Kırmızı'  },
-  { color: '#FFB830', label: 'Altın'    },
-  { color: '#FF7A30', label: 'Turuncu'  },
-  { color: '#00E5FF', label: 'Cyan'     },
-  { color: '#FFFFFF', label: 'Beyaz'    },
-];
-
-// Kayıtlı kişiselleştirme ayarlarını oku
-function customizeLoad() {
-  try { return JSON.parse(localStorage.getItem(CUSTOMIZE_KEY) || '{}'); } catch { return {}; }
-}
-
-// Kişiselleştirmeyi uygula (sayfa yüklendiğinde çağrılır)
+// Uygulama başlangıcında kayıtlı kişiselleştirmeyi uygula
 function customizeApply() {
-  const cfg = customizeLoad();
-
-  // Logo
-  if (cfg.logoUrl) {
-    _applyLogoUrl(cfg.logoUrl);
-  }
-
-  // Sohbet arkaplanı
-  const msgEl = document.getElementById('messages');
-  if (msgEl) {
-    if (cfg.bgUrl) {
-      // Kullanıcı yüklediği PNG
-      msgEl.style.backgroundImage = `url('${cfg.bgUrl}')`;
-      msgEl.style.backgroundSize = 'cover';
-      msgEl.style.backgroundPosition = 'center';
-      msgEl.style.backgroundAttachment = 'local';
-    } else if (cfg.bgPreset && cfg.bgPreset !== 'none') {
-      const preset = BG_PRESETS.find(p => p.id === cfg.bgPreset);
-      if (preset) {
-        msgEl.style.backgroundImage = preset.style.includes('gradient') ? preset.style : '';
-        msgEl.style.backgroundColor = '#06080F';
-        msgEl.style.backgroundSize = cfg.bgPreset === 'dots' ? '20px 20px' : cfg.bgPreset === 'grid' ? '28px 28px' : '';
-      }
-    }
-  }
-
+  const cfg = _cLoad();
   // Vurgu rengi
   if (cfg.accent) {
-    const darker = _darkenColor(cfg.accent, 0.8);
     document.documentElement.style.setProperty('--accent', cfg.accent);
-    document.documentElement.style.setProperty('--accent-d', darker);
+    document.documentElement.style.setProperty('--accent-d', _darker(cfg.accent));
     document.documentElement.style.setProperty('--online', cfg.accent);
   }
-}
-
-function _applyLogoUrl(url) {
-  // Sidebar'daki logo kutusunu güncelle
-  const logoBoxes = document.querySelectorAll('.logo-bar-icon, #logo-preview-box');
-  logoBoxes.forEach(box => {
-    box.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
-  });
-  // index.html'deki logo-box varsa (app içinde değil ama ileride)
-}
-
-function _darkenColor(hex, factor) {
-  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-  return `#${Math.round(r*factor).toString(16).padStart(2,'0')}${Math.round(g*factor).toString(16).padStart(2,'0')}${Math.round(b*factor).toString(16).padStart(2,'0')}`;
-}
-
-// ── Kişiselleştirme modalını aç ───────────────────────────────────
-function openCustomize() {
-  const cfg = customizeLoad();
-
-  // Logo preview
-  const logoBox = document.getElementById('logo-preview-box');
-  if (logoBox && cfg.logoUrl) {
-    logoBox.innerHTML = `<img src="${cfg.logoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
-  }
-
-  // Arkaplan preset grid
-  const bgGrid = document.getElementById('bg-preset-grid');
-  if (bgGrid) {
-    bgGrid.innerHTML = '';
-    BG_PRESETS.forEach(p => {
-      const btn = document.createElement('button');
-      const active = (cfg.bgPreset === p.id) || (!cfg.bgPreset && p.id === 'none');
-      btn.style.cssText = `aspect-ratio:1;border-radius:10px;border:2px solid ${active ? '#00FFB3' : '#1E2D45'};cursor:pointer;font-size:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#131D30;transition:border-color .15s;-webkit-tap-highlight-color:transparent`;
-      btn.innerHTML = `<span>${p.icon}</span><span style="font-size:9px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${p.label}</span>`;
-      btn.onclick = () => {
-        bgGrid.querySelectorAll('button').forEach(b => b.style.borderColor = '#1E2D45');
-        btn.style.borderColor = '#00FFB3';
-        window._customizePendingBgPreset = p.id;
-        window._customizePendingBgUrl = null;
-      };
-      bgGrid.appendChild(btn);
-    });
-    // PNG yüklenmiş arkaplan varsa göster
-    if (cfg.bgUrl) {
-      const customBtn = document.createElement('button');
-      customBtn.style.cssText = `aspect-ratio:1;border-radius:10px;border:2px solid #00FFB3;cursor:pointer;overflow:hidden;background:#131D30;position:relative`;
-      customBtn.innerHTML = `<img src="${cfg.bgUrl}" style="width:100%;height:100%;object-fit:cover"><span style="position:absolute;bottom:2px;left:0;right:0;font-size:8px;color:#fff;text-align:center;font-family:'JetBrains Mono',monospace;background:rgba(0,0,0,.5)">Mevcut</span>`;
-      customBtn.onclick = () => {
-        bgGrid.querySelectorAll('button').forEach(b => b.style.borderColor = '#1E2D45');
-        customBtn.style.borderColor = '#00FFB3';
-        window._customizePendingBgUrl = cfg.bgUrl;
-      };
-      bgGrid.appendChild(customBtn);
+  // Arkaplan (customize/bg.png)
+  const msg = document.getElementById('messages');
+  if (msg) {
+    if (cfg.bgEnabled !== false) {
+      msg.style.cssText += ';background-image:url("customize/bg.png");background-size:cover;background-position:center;background-attachment:local';
+      // Eğer dosya yoksa hata vermeden silinsin
+      const testImg = new Image();
+      testImg.onerror = () => { msg.style.backgroundImage = ''; };
+      testImg.src = 'customize/bg.png?t=' + Date.now();
     }
   }
-
-  // Vurgu rengi grid
-  const accentGrid = document.getElementById('accent-color-grid');
-  if (accentGrid) {
-    accentGrid.innerHTML = '';
-    ACCENT_PRESETS.forEach(p => {
-      const active = cfg.accent === p.color;
-      const btn = document.createElement('button');
-      btn.style.cssText = `width:36px;height:36px;border-radius:50%;background:${p.color};border:3px solid ${active ? '#fff' : 'transparent'};cursor:pointer;transition:border-color .15s;-webkit-tap-highlight-color:transparent`;
-      btn.title = p.label;
-      btn.onclick = () => {
-        accentGrid.querySelectorAll('button').forEach(b => b.style.borderColor = 'transparent');
-        btn.style.borderColor = '#fff';
-        customizeSetAccent(p.color);
-      };
-      accentGrid.appendChild(btn);
-    });
-    const customColor = document.getElementById('custom-accent-input');
-    if (customColor && cfg.accent) customColor.value = cfg.accent;
+  // Logo (customize/logo.png)
+  if (cfg.logoEnabled !== false) {
+    const logoBoxes = document.querySelectorAll('.logo-bar-icon');
+    const testLogo = new Image();
+    testLogo.onload = () => {
+      logoBoxes.forEach(box => {
+        box.innerHTML = `<img src="customize/logo.png?t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
+      });
+    };
+    testLogo.src = 'customize/logo.png?t=' + Date.now();
   }
+}
 
-  window._customizePendingBgPreset = null;
-  window._customizePendingBgUrl = null;
-  window._customizePendingAccent = cfg.accent || null;
+function _darker(hex) {
+  try {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    const f = 0.78;
+    return `#${Math.round(r*f).toString(16).padStart(2,'0')}${Math.round(g*f).toString(16).padStart(2,'0')}${Math.round(b*f).toString(16).padStart(2,'0')}`;
+  } catch { return '#00C48A'; }
+}
+
+function openCustomize() {
+  // Render renkler
+  const cfg = _cLoad();
+  const current = cfg.accent || '#00FFB3';
+  const colors = [
+    ['#00FFB3','Yeşil'],['#4D9EFF','Mavi'],['#BF5FFF','Mor'],
+    ['#FF4D7A','Kırmızı'],['#FFB830','Altın'],['#FF7A30','Turuncu'],
+    ['#00E5FF','Cyan'],['#FF80AB','Pembe'],['#FFFFFF','Beyaz'],
+  ];
+  const grid = document.getElementById('accent-grid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  colors.forEach(([color, label]) => {
+    const btn = document.createElement('button');
+    const isActive = current.toLowerCase() === color.toLowerCase();
+    btn.style.cssText = `width:40px;height:40px;border-radius:50%;background:${color};border:3px solid ${isActive ? '#fff' : 'transparent'};cursor:pointer;transition:all .15s;position:relative;-webkit-tap-highlight-color:transparent`;
+    btn.title = label;
+    if (isActive) btn.innerHTML = `<span style="font-size:16px;color:${color === '#FFFFFF' ? '#000' : '#000'}">✓</span>`;
+    btn.onclick = () => {
+      grid.querySelectorAll('button').forEach(b => { b.style.borderColor = 'transparent'; b.innerHTML = ''; });
+      btn.style.borderColor = '#fff';
+      btn.innerHTML = `<span style="font-size:16px;color:${color === '#FFFFFF' ? '#000' : '#000'}">✓</span>`;
+      // Live preview
+      document.documentElement.style.setProperty('--accent', color);
+      document.documentElement.style.setProperty('--accent-d', _darker(color));
+      document.documentElement.style.setProperty('--online', color);
+      _cSave({ accent: color });
+      UI.toast(label + ' tema aktif ✓', 'success');
+    };
+    grid.appendChild(btn);
+  });
+  // Custom color input
+  const ci = document.getElementById('accent-custom-color');
+  if (ci) ci.value = current;
   UI.openModal('customize-modal');
 }
 
-// ── Logo yükleme ──────────────────────────────────────────────────
-function customizeUploadLogo(input) {
-  const file = input.files[0]; if (!file) return;
-  if (file.size > 2 * 1024 * 1024) { UI.toast('Logo maks. 2MB olabilir', 'error'); return; }
-  const r = new FileReader();
-  r.readAsDataURL(file);
-  r.onload = () => {
-    const url = r.result;
-    window._customizePendingLogoUrl = url;
-    const preview = document.getElementById('logo-preview-box');
-    if (preview) preview.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
-    UI.toast('Logo seçildi ✓', 'success');
-  };
-}
-
-function customizeResetLogo() {
-  window._customizePendingLogoUrl = '';
-  const preview = document.getElementById('logo-preview-box');
-  if (preview) preview.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
-  UI.toast('Logo sıfırlandı', 'info');
-}
-
-// ── Arkaplan yükleme ──────────────────────────────────────────────
-function customizeUploadBg(input) {
-  const file = input.files[0]; if (!file) return;
-  if (file.size > 5 * 1024 * 1024) { UI.toast('Arkaplan maks. 5MB olabilir', 'error'); return; }
-  const r = new FileReader();
-  r.readAsDataURL(file);
-  r.onload = () => {
-    window._customizePendingBgUrl = r.result;
-    window._customizePendingBgPreset = null;
-    // Show preview in grid
-    const bgGrid = document.getElementById('bg-preset-grid');
-    if (bgGrid) {
-      bgGrid.querySelectorAll('button').forEach(b => b.style.borderColor = '#1E2D45');
-      const prev = bgGrid.querySelector('[data-custom-preview]') || document.createElement('button');
-      prev.setAttribute('data-custom-preview', '1');
-      prev.style.cssText = `aspect-ratio:1;border-radius:10px;border:2px solid #00FFB3;cursor:pointer;overflow:hidden;background:#131D30;position:relative`;
-      prev.innerHTML = `<img src="${r.result}" style="width:100%;height:100%;object-fit:cover"><span style="position:absolute;bottom:2px;left:0;right:0;font-size:8px;color:#fff;text-align:center;font-family:'JetBrains Mono',monospace;background:rgba(0,0,0,.5)">Yeni</span>`;
-      if (!prev.parentElement) bgGrid.appendChild(prev);
-    }
-    UI.toast('Arkaplan seçildi ✓', 'success');
-  };
-}
-
-function customizeResetBg() {
-  window._customizePendingBgUrl = null;
-  window._customizePendingBgPreset = 'none';
-  const bgGrid = document.getElementById('bg-preset-grid');
-  if (bgGrid) {
-    bgGrid.querySelectorAll('button').forEach((b, i) => b.style.borderColor = i === 0 ? '#00FFB3' : '#1E2D45');
-  }
-  UI.toast('Arkaplan kaldırıldı', 'info');
-}
-
-// ── Vurgu rengi ───────────────────────────────────────────────────
-function customizeSetAccent(color) {
-  window._customizePendingAccent = color;
-  // Live preview
-  const darker = _darkenColor(color, 0.8);
-  document.documentElement.style.setProperty('--accent', color);
-  document.documentElement.style.setProperty('--accent-d', darker);
-}
-
-// ── Kaydet & Uygula ───────────────────────────────────────────────
-function customizeSave() {
-  const cfg = customizeLoad();
-
-  if (window._customizePendingLogoUrl !== undefined) cfg.logoUrl = window._customizePendingLogoUrl;
-  if (window._customizePendingBgUrl !== undefined)   cfg.bgUrl   = window._customizePendingBgUrl || '';
-  if (window._customizePendingBgPreset)              cfg.bgPreset = window._customizePendingBgPreset;
-  if (window._customizePendingAccent)                cfg.accent   = window._customizePendingAccent;
-
-  // Clear bg url if preset selected
-  if (cfg.bgPreset && cfg.bgPreset !== 'none' && window._customizePendingBgPreset) cfg.bgUrl = '';
-  if (cfg.bgPreset === 'none') cfg.bgUrl = '';
-
-  localStorage.setItem(CUSTOMIZE_KEY, JSON.stringify(cfg));
-  customizeApply();
-  UI.closeModal('customize-modal');
-  UI.toast('Kişiselleştirme kaydedildi ✓', 'success');
+function customizeCustomColor(val) {
+  if (!val) return;
+  document.documentElement.style.setProperty('--accent', val);
+  document.documentElement.style.setProperty('--accent-d', _darker(val));
+  document.documentElement.style.setProperty('--online', val);
+  _cSave({ accent: val });
+  // Update grid selection
+  const grid = document.getElementById('accent-grid');
+  if (grid) grid.querySelectorAll('button').forEach(b => { b.style.borderColor = 'transparent'; b.innerHTML = ''; });
 }
