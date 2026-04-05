@@ -1,8 +1,12 @@
 {
   "logos": [
     { "id": "logo-1", "file": "logos/logo-1.png", "label": "Varsayılan" },
-    { "id": "logo-2", "file": "logos/logo-2.png", "label": "Mavi" },
-    { "id": "logo-3", "file": "logos/logo-3.png", "label": "Mor" }
+    { "id": "logo-2", "file": "logos/logo-2.png", "label": "Yeşil" },
+    { "id": "logo-3", "file": "logos/logo-3.png", "label": "Pembe" }
+    { "id": "logo-4", "file": "logos/logo-4.png", "label": "Mor & Sarı" },
+    { "id": "logo-5", "file": "logos/logo-5.png", "label": "Beyaz" },
+    { "id": "logo-6", "file": "logos/logo-6.png", "label": "Ters Çevrilmiş" }
+    { "id": "logo-6", "file": "logos/logo-7.png", "label": "Özel" }
   ],
   "backgrounds": [
     { "id": "none",  "file": null,                          "label": "Yok"     },
