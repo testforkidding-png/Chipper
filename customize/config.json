@@ -9,19 +9,20 @@
     { "id": "logo-7", "file": "logos/logo-7.png", "label": "Özel" }
   ],
   "backgrounds": [
-    { "id": "none", "file": null, "label": "Yok" },
-    { "id": "bg-1", "file": "backgrounds/bg-1.png", "label": "Gece" },
-    { "id": "bg-2", "file": "backgrounds/bg-2.png", "label": "Gri" },
-    { "id": "bg-3", "file": "backgrounds/bg-3.png", "label": "Siyah" }
+    { "id": "none",  "file": null,                  "label": "Yok"      },
+    { "id": "bg-1",  "file": "backgrounds/bg-1.png", "label": "Noktalar" },
+    { "id": "bg-2",  "file": "backgrounds/bg-2.png", "label": "Izgara"   },
+    { "id": "bg-3",  "file": "backgrounds/bg-3.png", "label": "Diyagonal"},
+    { "id": "bg-4",  "file": "backgrounds/bg-4.png", "label": "Dalga"    }
   ],
   "themes": [
-    { "id": "green", "accent": "#00FFB3", "label": "Yeşil" },
-    { "id": "blue", "accent": "#4D9EFF", "label": "Mavi" },
-    { "id": "purple", "accent": "#BF5FFF", "label": "Mor" },
-    { "id": "red", "accent": "#FF4D7A", "label": "Kırmızı" },
-    { "id": "gold", "accent": "#FFB830", "label": "Altın" },
-    { "id": "orange", "accent": "#FF7A30", "label": "Turuncu" },
-    { "id": "cyan", "accent": "#00E5FF", "label": "Cyan" },
-    { "id": "pink", "accent": "#FF80AB", "label": "Pembe" }
+    { "id": "green",  "accent": "#00FFB3", "label": "Yeşil"    },
+    { "id": "blue",   "accent": "#4D9EFF", "label": "Mavi"     },
+    { "id": "purple", "accent": "#BF5FFF", "label": "Mor"      },
+    { "id": "red",    "accent": "#FF4D7A", "label": "Kırmızı"  },
+    { "id": "gold",   "accent": "#FFB830", "label": "Altın"    },
+    { "id": "orange", "accent": "#FF7A30", "label": "Turuncu"  },
+    { "id": "cyan",   "accent": "#00E5FF", "label": "Cyan"     },
+    { "id": "pink",   "accent": "#FF80AB", "label": "Pembe"    }
   ]
 }
