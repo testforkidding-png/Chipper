@@ -1372,9 +1372,19 @@ function customizeApply() {
 }
 
 function _applyLogo(src) {
+  // 1. DOM elements with class customize-logo-target
   document.querySelectorAll('.customize-logo-target').forEach(el => {
     el.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.style.display='none'">`;
   });
+  // 2. Page favicon (tab icon)
+  let favicon = document.querySelector('link[rel="icon"]');
+  if (!favicon) { favicon = document.createElement('link'); favicon.rel = 'icon'; favicon.type = 'image/png'; document.head.appendChild(favicon); }
+  favicon.href = src;
+  // 3. Apple touch icon (iOS homescreen shortcut)
+  let apple = document.querySelector('link[rel="apple-touch-icon"]');
+  if (!apple) { apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; document.head.appendChild(apple); }
+  apple.href = src;
+  // 4. Theme-color meta stays the same (accent color)
 }
 
 // ── Konfigürasyonu yükle, modalı aç ──────────────────────────────
