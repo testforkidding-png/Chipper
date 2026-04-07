@@ -10,30 +10,40 @@ let _renderChatListTimer = null; // debounce
 
 // ── Boot ───────────────────────────────────────────────────────────
 async function bootApp() {
-  if (!Auth.requireAuth()) return;
+  const session = Auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
 
-  window._currentUser = await Auth.currentUser();
-  if (!window._currentUser) { Auth.logout(); return; }
-
-  // Supabase check
-  if (CONFIG.USE_SUPABASE && (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('YOUR_PROJECT'))) {
-    UI.toast('⚠️ Supabase ayarlanmamış — çok cihaz desteği kapalı', 'warn', 8000);
-  }
-
-  // Parallel load: users + conversations simultaneously for faster boot
+  // Show UI immediately with cached data while DB loads
   loadSettings();
-  renderMyAvatar();
   buildStickerTabs();
   customizeApply();
 
-  const [convs, users] = await Promise.allSettled([
-    DB.getConversations(window._currentUser.username),
+  // Fire ALL three requests simultaneously — don't wait sequentially
+  const [userRes, convsRes, allUsersRes] = await Promise.allSettled([
+    DB.getUser(session.username),
+    DB.getConversations(session.username),
     DB.getAllUsers(),
   ]);
-  if (users.status === 'fulfilled') users.value.forEach(u => { _allUsers[u.username] = u; });
-  _convs = convs.status === 'fulfilled' ? convs.value : [];
-  window._convs = _convs; // expose for messages.js
+
+  // Current user
+  window._currentUser = userRes.status === 'fulfilled' ? userRes.value : null;
+  if (!window._currentUser) { Auth.logout(); return; }
+
+  // All users into memory
+  if (allUsersRes.status === 'fulfilled') allUsersRes.value.forEach(u => { _allUsers[u.username] = u; });
+
+  // Conversations
+  _convs = convsRes.status === 'fulfilled' ? convsRes.value : [];
+  window._convs = _convs;
+
+  // Now render (data is ready)
+  renderMyAvatar();
   renderChatList();
+
+  // Supabase check (non-blocking)
+  if (CONFIG.USE_SUPABASE && (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('YOUR_PROJECT'))) {
+    UI.toast('⚠️ Supabase ayarlanmamış', 'warn', 8000);
+  }
 
   // Defer non-critical
   setTimeout(() => {
@@ -1372,19 +1382,36 @@ function customizeApply() {
 }
 
 function _applyLogo(src) {
-  // 1. DOM elements with class customize-logo-target
-  document.querySelectorAll('.customize-logo-target').forEach(el => {
-    el.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit" onerror="this.style.display='none'">`;
-  });
-  // 2. Page favicon (tab icon)
+  // 1. Favicon (browser tab icon) — updates immediately
   let favicon = document.querySelector('link[rel="icon"]');
   if (!favicon) { favicon = document.createElement('link'); favicon.rel = 'icon'; favicon.type = 'image/png'; document.head.appendChild(favicon); }
   favicon.href = src;
-  // 3. Apple touch icon (iOS homescreen shortcut)
+
+  // 2. Apple touch icon — update link tag
+  // NOTE: iOS caches this at "Add to Home Screen" time.
+  // For the shortcut to update, user must re-add to home screen after changing logo.
   let apple = document.querySelector('link[rel="apple-touch-icon"]');
   if (!apple) { apple = document.createElement('link'); apple.rel = 'apple-touch-icon'; document.head.appendChild(apple); }
   apple.href = src;
-  // 4. Theme-color meta stays the same (accent color)
+
+  // 3. Update manifest dynamically so FUTURE installs use new logo
+  const manifestLink = document.querySelector('link[rel="manifest"]');
+  if (manifestLink) {
+    // Create a dynamic manifest blob with updated icons
+    const manifest = {
+      name: 'CIPHER Messenger', short_name: 'CIPHER',
+      start_url: './index.html', display: 'standalone',
+      background_color: '#06080F', theme_color: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#00FFB3',
+      icons: [
+        { src: src, sizes: '192x192', type: 'image/png', purpose: 'any' },
+        { src: src, sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: src, sizes: '1024x1024', type: 'image/png', purpose: 'any maskable' },
+      ]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    manifestLink.href = url;
+  }
 }
 
 // ── Konfigürasyonu yükle, modalı aç ──────────────────────────────
