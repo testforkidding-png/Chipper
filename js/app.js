@@ -13,21 +13,34 @@ async function bootApp() {
   const session = Auth.getSession();
   if (!session) { window.location.href = 'index.html'; return; }
 
-  // Show UI immediately with cached data while DB loads
+  // ── PHASE 1: Instant render from session cache ─────────────────
   loadSettings();
   buildStickerTabs();
   customizeApply();
 
-  // Fire ALL three requests simultaneously — don't wait sequentially
+  // Use cached user from session for instant UI (no DB wait)
+  window._currentUser = session.user || null;
+  if (window._currentUser) {
+    renderMyAvatar();
+    // Show empty chat list with skeleton while loading
+    const chatList = document.getElementById('chat-list');
+    if (chatList) chatList.innerHTML = '<div style="padding:16px;display:flex;flex-direction:column;gap:8px">' + Array(4).fill(0).map(()=>'<div style="display:flex;gap:10px;align-items:center"><div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div style="height:12px;border-radius:6px;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;width:60%"></div><div style="height:10px;border-radius:5px;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;width:80%"></div></div></div>').join('') + '</div>';
+  }
+
+  // ── PHASE 2: DB load — all 3 requests in parallel ─────────────
   const [userRes, convsRes, allUsersRes] = await Promise.allSettled([
     DB.getUser(session.username),
     DB.getConversations(session.username),
     DB.getAllUsers(),
   ]);
 
-  // Current user
-  window._currentUser = userRes.status === 'fulfilled' ? userRes.value : null;
-  if (!window._currentUser) { Auth.logout(); return; }
+  // Current user (fresh from DB)
+  if (userRes.status === 'fulfilled' && userRes.value) {
+    window._currentUser = userRes.value;
+    renderMyAvatar();
+  } else if (!window._currentUser) {
+    Auth.logout(); return;
+  }
 
   // All users into memory
   if (allUsersRes.status === 'fulfilled') allUsersRes.value.forEach(u => { _allUsers[u.username] = u; });
@@ -35,12 +48,9 @@ async function bootApp() {
   // Conversations
   _convs = convsRes.status === 'fulfilled' ? convsRes.value : [];
   window._convs = _convs;
-
-  // Now render (data is ready)
-  renderMyAvatar();
   renderChatList();
 
-  // Supabase check (non-blocking)
+  // Supabase warning
   if (CONFIG.USE_SUPABASE && (!CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('YOUR_PROJECT'))) {
     UI.toast('⚠️ Supabase ayarlanmamış', 'warn', 8000);
   }
@@ -55,10 +65,12 @@ async function bootApp() {
 
   Auth.startHeartbeat(window._currentUser.username);
 
-  // New message handler
+  // New message handler — update UI from memory first, refresh DB in background
   window._onNewMessage = async () => {
-    await loadConversations();
+    // Render messages from store immediately (optimistic)
     if (window._currentConvId) await renderMessages();
+    // Then refresh convs list from DB (updates last_msg, unread counts)
+    loadConversations().catch(() => {});
   };
 
   // localStorage cross-tab sync (non-Supabase mode)
