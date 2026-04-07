@@ -13,7 +13,11 @@
     { "id": "bg-1",  "file": "backgrounds/bg-1.png", "label": "Noktalar" },
     { "id": "bg-2",  "file": "backgrounds/bg-2.png", "label": "Izgara"   },
     { "id": "bg-3",  "file": "backgrounds/bg-3.png", "label": "Diyagonal"},
-    { "id": "bg-4",  "file": "backgrounds/bg-4.png", "label": "Dalga"    }
+    { "id": "bg-4",  "file": "backgrounds/bg-4.png", "label": "Dalga"    },
+    { "id": "bg-5",  "file": "backgrounds/bg-5.png", "label": "Dünya Batışı"},
+    { "id": "bg-6",  "file": "backgrounds/bg-6.png", "label": "Biyoçeşitlilik"},
+    { "id": "bg-7",  "file": "backgrounds/bg-7.png", "label": "Doğa"},
+    { "id": "bg-7",  "file": "backgrounds/bg-7.png", "label": "Ufuk Tepeleri"},
   ],
   "themes": [
     { "id": "green",  "accent": "#00FFB3", "label": "Yeşil"    },
