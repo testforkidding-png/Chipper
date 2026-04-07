@@ -1,8 +1,31 @@
 /**
- * CIPHER Messages v5 — Full debug & optimization
- * Fixes: error handling, reaction perf, scroll preserve, GIF cache, sticker tabs
+ * CIPHER Messages v6 — Speed & debug
+ * Key fixes:
+ *  - Shared in-memory message store (_store)
+ *  - Optimistic send: show message immediately, DB in background
+ *  - Incremental DOM append: only add new messages, don't rebuild
+ *  - Single getMessages source for reply/copy/reaction
+ *  - Parallel createMessage + updateConversation
  */
 const Messages = (() => {
+  // ── In-memory message store ───────────────────────────────────
+  // convId → { msgs: [], lastRenderedCount: 0 }
+  const _store = {};
+
+  function _getStore(convId) {
+    if (!_store[convId]) _store[convId] = { msgs: [], lastRenderedCount: 0 };
+    return _store[convId];
+  }
+
+  function _getMsgs(convId) {
+    return _store[convId]?.msgs || [];
+  }
+
+  function _findMsg(convId, msgId) {
+    return _store[convId]?.msgs.find(m => m.id === msgId);
+  }
+
+  // ── State ─────────────────────────────────────────────────────
   let _replyTo = null, _destruct = false, _destructSecs = 30;
   let _files = [], _recMR = null, _recInt = null, _recSecs = 0;
   let _gifOpen = false, _stickerOpen = false;
@@ -16,37 +39,52 @@ const Messages = (() => {
 
     if (CONFIG.USE_SUPABASE && !window._supabaseNotConfigured) {
       try {
-        window._realtimeSub = DB.subscribeMessages(convId, () => window._onNewMessage?.());
+        window._realtimeSub = DB.subscribeMessages(convId, async (payload) => {
+          // Realtime: fetch only new messages since last known
+          await _refreshMessages(convId);
+          window._onNewMessage?.();
+        });
       } catch(e) { console.warn('subscribeMessages:', e); }
     } else {
-      window._pollInterval = setInterval(() => {
-        if (window._currentConvId === convId && !document.hidden) window._onNewMessage?.();
+      window._pollInterval = setInterval(async () => {
+        if (window._currentConvId === convId && !document.hidden) {
+          await _refreshMessages(convId);
+          window._onNewMessage?.();
+        }
       }, 3000);
     }
   }
 
-  // ── Render all messages ───────────────────────────────────────
+  // ── Fetch + update store, return only new messages ─────────────
+  async function _refreshMessages(convId) {
+    const fresh = await DB.getMessages(convId);
+    const store = _getStore(convId);
+    const oldCount = store.msgs.length;
+    store.msgs = fresh;
+    return fresh.slice(oldCount); // new messages only
+  }
+
+  // ── Render all ─────────────────────────────────────────────────
   async function renderAll(convId, users, highlight = '') {
-    const msgs = await DB.getMessages(convId);
     const container = document.getElementById('messages');
     if (!container) return;
 
-    // Preserve scroll position
     const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
     const prevScrollHeight = container.scrollHeight;
 
+    // Fetch and store
+    const msgs = await DB.getMessages(convId);
+    const store = _getStore(convId);
+    store.msgs = msgs;
+
+    // Full rebuild
     const frag = document.createDocumentFragment();
     let lastDate = '';
-
     for (const msg of msgs) {
-      const tsMs = _normTs(msg.created_at);
-      const ds = new Date(tsMs).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+      const ds = _dateStr(msg.created_at);
       if (ds !== lastDate) {
         lastDate = ds;
-        const sep = document.createElement('div');
-        sep.style.cssText = 'display:flex;align-items:center;gap:10px;margin:14px 0 10px;user-select:none;flex-shrink:0';
-        sep.innerHTML = `<div style="flex:1;height:1px;background:#1E2D45"></div><span style="font-size:10px;padding:2px 12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;white-space:nowrap;background:#06080F;border-radius:20px;border:1px solid #1E2D45">${ds}</span><div style="flex:1;height:1px;background:#1E2D45"></div>`;
-        frag.appendChild(sep);
+        frag.appendChild(_dateSep(ds));
       }
       frag.appendChild(buildEl(msg, users, highlight));
       if (msg.destruct_at && msg.destruct_at > Date.now()) startDestructTimer(msg, convId);
@@ -54,33 +92,75 @@ const Messages = (() => {
 
     container.innerHTML = '';
     container.appendChild(frag);
+    store.lastRenderedCount = msgs.length;
 
+    // Scroll
     if (atBottom || msgs.length <= 5) {
       container.scrollTop = container.scrollHeight;
     } else {
-      // Maintain scroll position
       container.scrollTop = container.scrollHeight - prevScrollHeight + container.scrollTop;
     }
+  }
+
+  // Append only new messages (no full rebuild)
+  function _appendNewMessages(newMsgs, users, convId) {
+    if (!newMsgs.length) return;
+    const container = document.getElementById('messages');
+    if (!container) return;
+    const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 120;
+
+    const frag = document.createDocumentFragment();
+    // Check last date separator
+    const lastSep = container.querySelector('[data-date-sep]:last-of-type');
+    let lastDate = lastSep?.dataset.dateSep || '';
+
+    for (const msg of newMsgs) {
+      const ds = _dateStr(msg.created_at);
+      if (ds !== lastDate) { lastDate = ds; frag.appendChild(_dateSep(ds)); }
+      frag.appendChild(buildEl(msg, users));
+      if (msg.destruct_at && msg.destruct_at > Date.now()) startDestructTimer(msg, convId);
+    }
+    container.appendChild(frag);
+    if (atBottom) container.scrollTop = container.scrollHeight;
+  }
+
+  function _dateStr(ts) {
+    const d = _normTs(ts);
+    return new Date(d).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
+  }
+
+  function _dateSep(ds) {
+    const sep = document.createElement('div');
+    sep.dataset.dateSep = ds;
+    sep.style.cssText = 'display:flex;align-items:center;gap:10px;margin:14px 0 10px;user-select:none;flex-shrink:0';
+    sep.innerHTML = `<div style="flex:1;height:1px;background:#1E2D45"></div><span style="font-size:10px;padding:2px 12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;white-space:nowrap;background:#06080F;border-radius:20px;border:1px solid #1E2D45">${ds}</span><div style="flex:1;height:1px;background:#1E2D45"></div>`;
+    return sep;
+  }
+
+  function _normTs(ts) {
+    if (!ts) return Date.now();
+    if (typeof ts === 'string') { const n = new Date(ts).getTime(); return isNaN(n) ? Date.now() : n; }
+    return ts < 1e12 ? ts * 1000 : ts;
   }
 
   // ── Build message element ─────────────────────────────────────
   function buildEl(msg, users, highlight = '') {
     const cu = window._currentUser;
     const isMine = msg.from === cu?.username;
-    const sender = users[msg.from] || { username: msg.from, display_name: msg.from };
+    const sender = (users || _allUsersRef())[msg.from] || { username: msg.from, display_name: msg.from };
     const color = UI.avatarColor(sender.username);
     const recalled = !!msg.recalled;
 
     let text = recalled ? '↩ Bu mesaj geri çekildi.' : (msg.text || '');
     if (highlight && text && !recalled) {
-      const re = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      const re = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
       text = text.replace(re, '<mark style="background:rgba(0,255,179,.3);border-radius:2px;padding:0 1px">$1</mark>');
     }
 
     const avatarHtml = !isMine
       ? (sender.avatar_url
-        ? `<img src="${sender.avatar_url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;cursor:pointer;flex-shrink:0;align-self:flex-end" onclick="window.showProfile?.('${sender.username}')">`
-        : `<div onclick="window.showProfile?.('${sender.username}')" style="width:28px;height:28px;min-width:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;align-self:flex-end;cursor:pointer;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(sender.display_name || sender.username)}</div>`)
+          ? `<img src="${sender.avatar_url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;cursor:pointer;flex-shrink:0;align-self:flex-end" onclick="window.showProfile?.('${sender.username}')">`
+          : `<div onclick="window.showProfile?.('${sender.username}')" style="width:28px;height:28px;min-width:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;align-self:flex-end;cursor:pointer;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(sender.display_name || sender.username)}</div>`)
       : '';
 
     let contentHtml = '';
@@ -93,22 +173,14 @@ const Messages = (() => {
         if (msg.file_type?.startsWith('image/')) {
           contentHtml = `<img src="${msg.file_data}" style="max-width:220px;max-height:180px;border-radius:10px;display:block;margin-top:4px;cursor:pointer" onclick="Messages._lightbox('${msg.file_data}')">`;
         } else {
-          contentHtml = `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid #1E2D45">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <span style="font-size:12px;color:#DDE8F8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${msg.file_name || 'Dosya'}</span>
-            <a href="${msg.file_data}" download="${msg.file_name || 'file'}" style="font-size:12px;color:#00FFB3;text-decoration:none;flex-shrink:0">↓ İndir</a>
-          </div>`;
+          contentHtml = `<div style="display:flex;align-items:center;gap:8px;margin-top:6px;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid #1E2D45"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span style="font-size:12px;color:#DDE8F8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${msg.file_name||'Dosya'}</span><a href="${msg.file_data}" download="${msg.file_name||'file'}" style="font-size:12px;color:#00FFB3;text-decoration:none;flex-shrink:0">↓</a></div>`;
         }
       } else if (msg.type === 'voice' && msg.audio_data) {
-        contentHtml = `<div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:8px 12px;border-radius:10px;background:rgba(0,255,179,.07);border:1px solid rgba(0,255,179,.18)">
-          <span style="color:#00FFB3;font-size:16px">🎙</span>
-          <audio controls src="${msg.audio_data}" style="height:28px;flex:1;min-width:100px;accent-color:#00FFB3"></audio>
-          <span style="font-size:10px;color:#00FFB3;font-family:'JetBrains Mono',monospace">${msg.duration || '0:00'}</span>
-        </div>`;
+        contentHtml = `<div style="display:flex;align-items:center;gap:8px;margin-top:4px;padding:8px 12px;border-radius:10px;background:rgba(0,255,179,.07);border:1px solid rgba(0,255,179,.18)"><span style="color:#00FFB3;font-size:16px">🎙</span><audio controls src="${msg.audio_data}" style="height:28px;flex:1;min-width:100px;accent-color:#00FFB3"></audio><span style="font-size:10px;color:#00FFB3;font-family:'JetBrains Mono',monospace">${msg.duration||'0:00'}</span></div>`;
       }
     }
 
-    const textHtml = text ? `<div style="font-size:14px;line-height:1.55;color:${recalled ? '#7A8FA8' : '#DDE8F8'};word-break:break-word${recalled ? ';font-style:italic' : ''}">${text}</div>` : '';
+    const textHtml = text ? `<div style="font-size:14px;line-height:1.55;color:${recalled?'#7A8FA8':'#DDE8F8'};word-break:break-word${recalled?';font-style:italic':''}">${text}</div>` : '';
     const replyHtml = msg.reply_to_text ? `<div style="margin-bottom:5px;padding:4px 8px;border-radius:7px;border-left:2px solid #00FFB3;background:rgba(0,0,0,.22);font-size:11px;color:#7A8FA8;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${msg.reply_to_text}</div>` : '';
 
     let reactHtml = '';
@@ -117,37 +189,28 @@ const Messages = (() => {
       for (const [emoji, uids] of Object.entries(msg.reactions)) {
         if (!uids?.length) continue;
         const active = uids.includes(cu?.username);
-        reactHtml += `<button class="reaction-pill${active ? ' active' : ''}" data-msgid="${msg.id}" data-emoji="${emoji}">${emoji} ${uids.length}</button>`;
+        reactHtml += `<button class="reaction-pill${active?' active':''}" data-msgid="${msg.id}" data-emoji="${emoji}">${emoji} ${uids.length}</button>`;
       }
       reactHtml += '</div>';
     }
 
     const timeStr = UI.fmtTime(msg.created_at);
-    const metaHtml = `<div style="display:flex;align-items:center;gap:1px;margin-top:4px;${isMine ? 'justify-content:flex-end' : ''}">
-      <span style="font-size:9px;color:#3A4A5A">🔒</span>
-      <span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${timeStr}</span>
-      ${msg.edited ? '<span style="font-size:9px;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace"> (düz)</span>' : ''}
-      ${msg.destruct_at && msg.destruct_at > Date.now() ? `<span id="dtimer-${msg.id}" style="font-size:10px;color:#FF3D6B;font-family:'JetBrains Mono',monospace"> ⏱</span>` : ''}
-      ${isMine ? `<span style="font-size:10px;color:${msg.status === 'read' ? '#00FFB3' : '#7A8FA8'}">${msg.status === 'read' ? ' ✓✓' : ' ✓'}</span>` : ''}
-    </div>`;
+    const metaHtml = `<div style="display:flex;align-items:center;gap:1px;margin-top:4px;${isMine?'justify-content:flex-end':''}"><span style="font-size:9px;color:#3A4A5A">🔒</span><span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${timeStr}</span>${msg.edited?'<span style="font-size:9px;color:#7A8FA8"> (düz)</span>':''}${msg.destruct_at&&msg.destruct_at>Date.now()?`<span id="dtimer-${msg.id}" style="font-size:10px;color:#FF3D6B;font-family:'JetBrains Mono',monospace"> ⏱</span>`:''}${isMine?`<span style="font-size:10px;color:${msg.status==='read'?'#00FFB3':'#7A8FA8'}">${msg.status==='read'?' ✓✓':' ✓'}</span>`:''}</div>`;
 
     const noBubble = msg.type === 'sticker' && !recalled;
-    const bubbleStyle = noBubble
-      ? 'background:transparent;border:none;padding:4px 8px'
-      : `padding:9px 13px;border-radius:${isMine ? '18px 18px 4px 18px' : '18px 18px 18px 4px'}`;
-    const senderName = !isMine && window._isGroup
-      ? `<div style="font-size:11px;font-weight:600;color:${color};margin-bottom:2px;cursor:pointer;font-family:'Syne',sans-serif" onclick="window.showProfile?.('${sender.username}')">${sender.display_name || sender.username}</div>` : '';
+    const bubStyle = noBubble ? 'background:transparent;border:none;padding:4px 8px' : `padding:9px 13px;border-radius:${isMine?'18px 18px 4px 18px':'18px 18px 18px 4px'}`;
+    const senderName = !isMine && window._isGroup ? `<div style="font-size:11px;font-weight:600;color:${color};margin-bottom:2px;cursor:pointer;font-family:'Syne',sans-serif" onclick="window.showProfile?.('${sender.username}')">${sender.display_name||sender.username}</div>` : '';
 
     const w = document.createElement('div');
     w.id = 'msg-' + msg.id;
     w.dataset.msgId = msg.id;
     w.dataset.isMine = isMine ? '1' : '0';
-    w.style.cssText = `display:flex;${isMine ? 'justify-content:flex-end' : 'justify-content:flex-start'};margin-bottom:3px;flex-shrink:0`;
-    w.innerHTML = `<div style="display:flex;align-items:flex-end;gap:6px;max-width:78%;${isMine ? 'flex-direction:row-reverse' : ''}">
-      ${!isMine ? avatarHtml : ''}
+    w.style.cssText = `display:flex;${isMine?'justify-content:flex-end':'justify-content:flex-start'};margin-bottom:3px;flex-shrink:0`;
+    w.innerHTML = `<div style="display:flex;align-items:flex-end;gap:6px;max-width:78%;${isMine?'flex-direction:row-reverse':''}">
+      ${!isMine?avatarHtml:''}
       <div style="min-width:0">
         ${senderName}
-        <div class="${noBubble ? '' : 'msg-bubble ' + (isMine ? 'sent' : 'recv')}" style="${bubbleStyle};cursor:pointer" data-msgid="${msg.id}" data-ismine="${isMine ? '1' : '0'}">
+        <div class="${noBubble?'':'msg-bubble '+(isMine?'sent':'recv')}" style="${bubStyle};cursor:pointer" data-msgid="${msg.id}" data-ismine="${isMine?'1':'0'}">
           ${replyHtml}${textHtml}${contentHtml}${metaHtml}
         </div>
         ${reactHtml}
@@ -156,12 +219,7 @@ const Messages = (() => {
     return w;
   }
 
-  // Normalize timestamp (ms or seconds → ms)
-  function _normTs(ts) {
-    if (!ts) return Date.now();
-    if (typeof ts === 'string') { const n = new Date(ts).getTime(); return isNaN(n) ? Date.now() : n; }
-    return ts < 1e12 ? ts * 1000 : ts;
-  }
+  function _allUsersRef() { return window._allUsers || {}; }
 
   // ── Lightbox ──────────────────────────────────────────────────
   function _lightbox(src) {
@@ -170,12 +228,11 @@ const Messages = (() => {
     lb.id = 'cipher-lightbox';
     lb.style.cssText = 'position:fixed;inset:0;z-index:9000;background:rgba(6,8,15,.96);display:flex;align-items:center;justify-content:center;cursor:zoom-out';
     lb.onclick = e => { if (e.target === lb) lb.remove(); };
-    lb.innerHTML = `<img src="${src}" style="max-width:92vw;max-height:92vh;border-radius:12px;object-fit:contain">
-      <button style="position:fixed;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:#1E2D45;color:#DDE8F8;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById('cipher-lightbox')?.remove()">✕</button>`;
+    lb.innerHTML = `<img src="${src}" style="max-width:92vw;max-height:92vh;border-radius:12px;object-fit:contain"><button style="position:fixed;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:#1E2D45;color:#DDE8F8;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById('cipher-lightbox')?.remove()">✕</button>`;
     document.body.appendChild(lb);
   }
 
-  // ── Send ──────────────────────────────────────────────────────
+  // ── Send (optimistic) ─────────────────────────────────────────
   async function send(convId) {
     const input = document.getElementById('msg-input');
     const text = (input?.value || '').trim();
@@ -185,34 +242,76 @@ const Messages = (() => {
 
     const cu = window._currentUser;
     const now = Date.now();
-    const base = { conv_id: convId, from: cu.username, status: 'sent', created_at: now };
+    const tempId = 'tmp_' + now;
+    const base = { id: tempId, conv_id: convId, from: cu.username, status: 'sent', created_at: now };
     if (_replyTo) { base.reply_to = _replyTo.id; base.reply_to_text = _replyTo.text || '📎'; clearReply(); }
     if (_destruct) base.destruct_at = now + _destructSecs * 1000;
 
+    // Optimistic: add to store + DOM immediately
+    const optMsg = { ...base, type: _files.length ? 'file' : 'text', text: _files.length ? (_files[0].name) : text };
+    _getStore(convId).msgs.push(optMsg);
+    const container = document.getElementById('messages');
+    if (container && window._currentConvId === convId) {
+      container.appendChild(buildEl(optMsg, _allUsersRef()));
+      container.scrollTop = container.scrollHeight;
+    }
+
     try {
+      let dbMsg;
+      const msgData = { ...base };
+      delete msgData.id; // let DB generate id
+      const convUpdate = { last_msg: text || '📎', last_time: now, last_from: cu.username };
+
       if (_files.length) {
         const f = _files[0];
-        await DB.createMessage({ ...base, type: 'file', text: text || '', file_name: f.name, file_type: f.type, file_data: f.data });
+        [dbMsg] = await Promise.all([
+          DB.createMessage({ ...msgData, type:'file', text:text||'', file_name:f.name, file_type:f.type, file_data:f.data }),
+          DB.updateConversation(convId, convUpdate),
+        ]);
         clearFiles();
       } else {
-        await DB.createMessage({ ...base, type: 'text', text });
+        [dbMsg] = await Promise.all([
+          DB.createMessage({ ...msgData, type:'text', text }),
+          DB.updateConversation(convId, convUpdate),
+        ]);
       }
-      // Update conv in memory immediately (no flicker)
-      _updateConvMemory(convId, { last_msg: text || '📎', last_time: now, last_from: cu.username });
-      await DB.updateConversation(convId, { last_msg: text || '📎', last_time: now, last_from: cu.username });
-      window._onNewMessage?.();
+
+      // Replace temp message with real one
+      const store = _getStore(convId);
+      const idx = store.msgs.findIndex(m => m.id === tempId);
+      if (idx >= 0) { store.msgs[idx] = dbMsg; }
+
+      // Update temp DOM element
+      const tempEl = document.getElementById('msg-' + tempId);
+      if (tempEl && dbMsg) {
+        const realEl = buildEl(dbMsg, _allUsersRef());
+        tempEl.replaceWith(realEl);
+      }
+
+      // Update conv in memory
+      if (window._convs) {
+        const ci = window._convs.findIndex(c => c.id === convId);
+        if (ci >= 0) Object.assign(window._convs[ci], convUpdate);
+        window._renderChatListTimer ? null : renderChatList?.();
+      }
     } catch(e) {
-      UI.toast('Mesaj gönderilemedi: ' + e.message, 'error');
-      if (input) { input.value = text; autoResize(input); } // restore
+      UI.toast('Gönderilemedi: ' + e.message, 'error');
+      // Remove optimistic message
+      const store = _getStore(convId);
+      store.msgs = store.msgs.filter(m => m.id !== tempId);
+      document.getElementById('msg-' + tempId)?.remove();
+      if (input) { input.value = text; autoResize(input); }
     }
   }
 
   async function sendGif(convId, gifUrl, gifTitle) {
     const cu = window._currentUser; const now = Date.now();
     try {
-      await DB.createMessage({ conv_id: convId, from: cu.username, type: 'gif', text: '', gif_url: gifUrl, gif_title: gifTitle || 'GIF', status: 'sent', created_at: now });
-      _updateConvMemory(convId, { last_msg: '🎬 GIF', last_time: now, last_from: cu.username });
-      await DB.updateConversation(convId, { last_msg: '🎬 GIF', last_time: now, last_from: cu.username });
+      const [msg] = await Promise.all([
+        DB.createMessage({ conv_id:convId, from:cu.username, type:'gif', text:'', gif_url:gifUrl, gif_title:gifTitle||'GIF', status:'sent', created_at:now }),
+        DB.updateConversation(convId, { last_msg:'🎬 GIF', last_time:now, last_from:cu.username }),
+      ]);
+      const store = _getStore(convId); store.msgs.push(msg);
       closeAllPickers();
       window._onNewMessage?.();
     } catch(e) { UI.toast('GIF gönderilemedi', 'error'); }
@@ -221,19 +320,14 @@ const Messages = (() => {
   async function sendSticker(convId, sticker) {
     const cu = window._currentUser; const now = Date.now();
     try {
-      await DB.createMessage({ conv_id: convId, from: cu.username, type: 'sticker', text: '', sticker, status: 'sent', created_at: now });
-      _updateConvMemory(convId, { last_msg: sticker + ' Sticker', last_time: now, last_from: cu.username });
-      await DB.updateConversation(convId, { last_msg: sticker + ' Sticker', last_time: now, last_from: cu.username });
+      const [msg] = await Promise.all([
+        DB.createMessage({ conv_id:convId, from:cu.username, type:'sticker', text:'', sticker, status:'sent', created_at:now }),
+        DB.updateConversation(convId, { last_msg:sticker+' Sticker', last_time:now, last_from:cu.username }),
+      ]);
+      const store = _getStore(convId); store.msgs.push(msg);
       closeAllPickers();
       window._onNewMessage?.();
     } catch(e) { UI.toast('Sticker gönderilemedi', 'error'); }
-  }
-
-  // Update conversation in _convs array in memory (instant UI update)
-  function _updateConvMemory(convId, fields) {
-    if (!window._convs) return;
-    const idx = window._convs.findIndex(c => c.id === convId);
-    if (idx >= 0) Object.assign(window._convs[idx], fields);
   }
 
   // ── GIF Picker ────────────────────────────────────────────────
@@ -241,10 +335,7 @@ const Messages = (() => {
     _gifOpen = !_gifOpen; _stickerOpen = false;
     document.getElementById('gif-picker')?.classList.toggle('open', _gifOpen);
     document.getElementById('sticker-picker')?.classList.remove('open');
-    if (_gifOpen) {
-      if (_gifCache) { _gifResults = _gifCache; renderGifs(); }
-      else searchGifs('');
-    }
+    if (_gifOpen) { if (_gifCache) { _gifResults = _gifCache; renderGifs(); } else searchGifs(''); }
   }
 
   async function searchGifs(q = '') {
@@ -252,9 +343,8 @@ const Messages = (() => {
     _gifLoading = true;
     const grid = document.getElementById('gif-grid');
     if (!grid) { _gifLoading = false; return; }
-    // Skeleton placeholders
     grid.innerHTML = Array(6).fill(0).map(() =>
-      `<div style="border-radius:10px;background:#0C1220;aspect-ratio:1;animation:shimmer 1.4s ease-in-out infinite;background:linear-gradient(90deg,#0C1220 0%,#1A2535 50%,#0C1220 100%);background-size:200% 100%"></div>`
+      `<div style="border-radius:10px;aspect-ratio:1;background:linear-gradient(90deg,#0C1220 0%,#1A2535 50%,#0C1220 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite"></div>`
     ).join('');
     try {
       const url = q
@@ -264,13 +354,10 @@ const Messages = (() => {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const json = await res.json();
       _gifResults = json.data || [];
-      if (!q) _gifCache = _gifResults; // cache trending for instant reopen
+      if (!q) _gifCache = _gifResults;
       renderGifs();
     } catch(err) {
-      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px">
-        <div style="font-size:28px;margin-bottom:8px">😵</div>
-        GIF yüklenemedi<br><small style="color:#7A8FA8">${err.message}</small>
-      </div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px"><div style="font-size:28px;margin-bottom:8px">😵</div>GIF yüklenemedi</div>`;
     }
     _gifLoading = false;
   }
@@ -278,27 +365,19 @@ const Messages = (() => {
   function renderGifs() {
     const grid = document.getElementById('gif-grid');
     if (!grid) return;
-    if (!_gifResults.length) {
-      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8">Sonuç bulunamadı</div>';
-      return;
-    }
+    if (!_gifResults.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8">Sonuç bulunamadı</div>'; return; }
     const frag = document.createDocumentFragment();
     _gifResults.forEach(g => {
       const url = g.images?.fixed_height_small?.url || g.images?.downsized?.url || g.images?.original?.url;
       if (!url) return;
-      const div = document.createElement('div');
-      div.className = 'gif-item';
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = (g.title || 'GIF').replace(/"/g, '');
-      img.loading = 'lazy';
-      img.decoding = 'async';
+      const div = document.createElement('div'); div.className = 'gif-item';
+      const img = document.createElement('img'); img.src = url; img.loading = 'lazy'; img.decoding = 'async';
+      img.alt = (g.title||'GIF').replace(/"/g,'');
       div.appendChild(img);
       div.onclick = () => { if (!window._currentConvId) return; sendGif(window._currentConvId, url, g.title); };
       frag.appendChild(div);
     });
-    grid.innerHTML = '';
-    grid.appendChild(frag);
+    grid.innerHTML = ''; grid.appendChild(frag);
   }
 
   // ── Sticker Picker ────────────────────────────────────────────
@@ -306,29 +385,21 @@ const Messages = (() => {
     _stickerOpen = !_stickerOpen; _gifOpen = false;
     document.getElementById('sticker-picker')?.classList.toggle('open', _stickerOpen);
     document.getElementById('gif-picker')?.classList.remove('open');
-    if (_stickerOpen) {
-      if (!_activePack) _activePack = Object.keys(CONFIG.STICKER_PACKS)[0];
-      renderStickerPack(_activePack);
-    }
+    if (_stickerOpen) { if (!_activePack) _activePack = Object.keys(CONFIG.STICKER_PACKS)[0]; renderStickerPack(_activePack); }
   }
 
   function renderStickerPack(pack) {
     _activePack = pack;
-    document.querySelectorAll('.sticker-pack-tab').forEach(t => {
-      t.classList.toggle('active', t.textContent.trim() === pack);
-    });
+    document.querySelectorAll('.sticker-pack-tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === pack));
     const grid = document.getElementById('sticker-grid');
     if (!grid) return;
     const frag = document.createDocumentFragment();
     (CONFIG.STICKER_PACKS[pack] || []).forEach(s => {
-      const btn = document.createElement('button');
-      btn.className = 'sticker-btn';
-      btn.textContent = s;
+      const btn = document.createElement('button'); btn.className = 'sticker-btn'; btn.textContent = s;
       btn.onclick = () => { if (!window._currentConvId) return; sendSticker(window._currentConvId, s); };
       frag.appendChild(btn);
     });
-    grid.innerHTML = '';
-    grid.appendChild(frag);
+    grid.innerHTML = ''; grid.appendChild(frag);
   }
 
   function closeAllPickers() {
@@ -348,30 +419,25 @@ const Messages = (() => {
       _recMR.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         const blob = new Blob(chunks, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.readAsDataURL(blob);
+        const reader = new FileReader(); reader.readAsDataURL(blob);
         reader.onload = async () => {
           const convId = window._currentConvId; if (!convId) return;
-          const dur = `0:${String(_recSecs).padStart(2, '0')}`;
+          const dur = `0:${String(_recSecs).padStart(2,'0')}`;
           const cu = window._currentUser; const now = Date.now();
           try {
-            await DB.createMessage({ conv_id: convId, from: cu.username, type: 'voice', text: '', duration: dur, audio_data: reader.result, status: 'sent', created_at: now });
-            _updateConvMemory(convId, { last_msg: `🎙 ${dur}`, last_time: now, last_from: cu.username });
-            await DB.updateConversation(convId, { last_msg: `🎙 ${dur}`, last_time: now, last_from: cu.username });
+            const [msg] = await Promise.all([
+              DB.createMessage({ conv_id:convId, from:cu.username, type:'voice', text:'', duration:dur, audio_data:reader.result, status:'sent', created_at:now }),
+              DB.updateConversation(convId, { last_msg:`🎙 ${dur}`, last_time:now, last_from:cu.username }),
+            ]);
+            _getStore(convId).msgs.push(msg);
             window._onNewMessage?.();
           } catch(e) { UI.toast('Ses gönderilemedi', 'error'); }
         };
       };
       _recMR.start(); _recSecs = 0;
-      const vi = document.getElementById('voice-indicator');
-      if (vi) vi.style.display = 'flex';
-      const vb = document.getElementById('voice-btn');
-      if (vb) vb.style.color = '#FF3D6B';
-      _recInt = setInterval(() => {
-        _recSecs++;
-        const e = document.getElementById('rec-timer');
-        if (e) e.textContent = `0:${String(_recSecs).padStart(2, '0')}`;
-      }, 1000);
+      const vi = document.getElementById('voice-indicator'); if (vi) vi.style.display = 'flex';
+      const vb = document.getElementById('voice-btn'); if (vb) vb.style.color = '#FF3D6B';
+      _recInt = setInterval(() => { _recSecs++; const e=document.getElementById('rec-timer'); if(e) e.textContent=`0:${String(_recSecs).padStart(2,'0')}`; }, 1000);
     } catch { UI.toast('Mikrofon erişimi reddedildi', 'error'); }
   }
 
@@ -384,142 +450,129 @@ const Messages = (() => {
 
   function toggleDestruct() {
     _destruct = !_destruct;
-    const bar = document.getElementById('destruct-bar');
-    if (bar) bar.style.display = _destruct ? 'flex' : 'none';
-    const btn = document.getElementById('destruct-btn');
-    if (btn) btn.style.color = _destruct ? '#FF3D6B' : '#7A8FA8';
+    const bar = document.getElementById('destruct-bar'); if (bar) bar.style.display = _destruct ? 'flex' : 'none';
+    const btn = document.getElementById('destruct-btn'); if (btn) btn.style.color = _destruct ? '#FF3D6B' : '#7A8FA8';
     if (_destruct) UI.toast('İmha modu aktif 💣', 'warn');
   }
 
   function startDestructTimer(msg, convId) {
     const iv = setInterval(async () => {
       const rem = Math.max(0, Math.floor((msg.destruct_at - Date.now()) / 1000));
-      const el = document.getElementById('dtimer-' + msg.id);
-      if (el) el.textContent = ` ⏱${rem}s`;
+      const el = document.getElementById('dtimer-' + msg.id); if (el) el.textContent = ` ⏱${rem}s`;
       if (rem <= 0) {
         clearInterval(iv);
         const me = document.getElementById('msg-' + msg.id);
-        if (me) { me.style.opacity = '0'; me.style.transition = 'opacity .4s'; setTimeout(() => { me.remove(); DB.deleteMessage(convId, msg.id).catch(()=>{}); }, 400); }
+        if (me) { me.style.opacity='0'; me.style.transition='opacity .4s'; setTimeout(()=>{ me.remove(); DB.deleteMessage(convId,msg.id).catch(()=>{}); },400); }
       }
     }, 1000);
   }
 
-  // ── Reactions ─────────────────────────────────────────────────
+  // ── Reactions (use in-memory store) ──────────────────────────
   async function _toggleReaction(msgId, emoji) {
     UI.hideReactionPicker();
     const convId = window._currentConvId; if (!convId) return;
-    // Optimistic update: update DOM first
-    const el = document.getElementById('msg-' + msgId);
-    if (!el) return;
-    // Fetch only this message's current reactions
+    // Use store instead of DB.getMessages
+    const msg = _findMsg(convId, msgId);
+    if (!msg) return;
+    const reactions = { ...(msg.reactions || {}) };
+    if (!reactions[emoji]) reactions[emoji] = [];
+    const idx = reactions[emoji].indexOf(window._currentUser.username);
+    if (idx >= 0) reactions[emoji].splice(idx, 1); else reactions[emoji].push(window._currentUser.username);
+    if (!reactions[emoji].length) delete reactions[emoji];
+    // Optimistic update DOM
+    msg.reactions = reactions;
     try {
-      const msgs = await DB.getMessages(convId);
-      const msg = msgs.find(m => m.id === msgId); if (!msg) return;
-      const reactions = { ...(msg.reactions || {}) };
-      if (!reactions[emoji]) reactions[emoji] = [];
-      const idx = reactions[emoji].indexOf(window._currentUser.username);
-      if (idx >= 0) reactions[emoji].splice(idx, 1);
-      else reactions[emoji].push(window._currentUser.username);
-      if (!reactions[emoji].length) delete reactions[emoji];
       await DB.updateMessage(convId, msgId, { reactions });
       window._onNewMessage?.();
-    } catch(e) { console.warn('reaction error:', e); }
+    } catch(e) { console.warn('reaction:', e); }
   }
 
   // ── Context menu ──────────────────────────────────────────────
   function _ctxMenu(e, msgId, isMine) {
     e.preventDefault();
     const items = [
-      { icon: '↩', label: 'Yanıtla',   action: `Messages._setReply('${msgId}')` },
-      { icon: '📋', label: 'Kopyala',   action: `Messages._copy('${msgId}')` },
-      { icon: '↪', label: 'İlet',       action: `openForwardModal('${msgId}')` },
-      { icon: '😊', label: 'Reaksiyon', action: `UI.showReactionPicker(${e.clientX},${e.clientY},em=>Messages._toggleReaction('${msgId}',em))` },
+      { icon:'↩', label:'Yanıtla',   action:`Messages._setReply('${msgId}')` },
+      { icon:'📋', label:'Kopyala',   action:`Messages._copy('${msgId}')` },
+      { icon:'↪', label:'İlet',       action:`openForwardModal('${msgId}')` },
+      { icon:'😊', label:'Reaksiyon', action:`UI.showReactionPicker(${e.clientX},${e.clientY},em=>Messages._toggleReaction('${msgId}',em))` },
     ];
     if (isMine) {
       items.push('divider');
-      items.push({ icon: '✏️', label: 'Düzenle',  action: `Messages._openEdit('${msgId}')` });
-      items.push({ icon: '↩', label: 'Geri Çek', action: `Messages._recall('${msgId}')`, danger: true });
-      items.push({ icon: '🗑', label: 'Sil',      action: `Messages._delete('${msgId}')`, danger: true });
+      items.push({ icon:'✏️', label:'Düzenle',  action:`Messages._openEdit('${msgId}')` });
+      items.push({ icon:'↩', label:'Geri Çek', action:`Messages._recall('${msgId}')`, danger:true });
+      items.push({ icon:'🗑', label:'Sil',      action:`Messages._delete('${msgId}')`, danger:true });
     }
     UI.showCtxMenu(e.clientX, e.clientY, items);
   }
 
+  // Use in-memory store for reply/copy
   async function _setReply(msgId) {
-    const msgs = await DB.getMessages(window._currentConvId);
-    _replyTo = msgs.find(m => m.id === msgId); if (!_replyTo) return;
-    const bar = document.getElementById('reply-preview');
-    if (bar) bar.style.display = 'flex';
-    const rt = document.getElementById('reply-text');
-    if (rt) rt.textContent = _replyTo.text || (_replyTo.type === 'gif' ? '🎬 GIF' : _replyTo.sticker || '📎');
+    _replyTo = _findMsg(window._currentConvId, msgId);
+    if (!_replyTo) { const msgs = await DB.getMessages(window._currentConvId); _replyTo = msgs.find(m=>m.id===msgId); }
+    if (!_replyTo) return;
+    const bar = document.getElementById('reply-preview'); if (bar) bar.style.display = 'flex';
+    const rt = document.getElementById('reply-text'); if (rt) rt.textContent = _replyTo.text || (_replyTo.type==='gif'?'🎬 GIF':_replyTo.sticker||'📎');
     document.getElementById('msg-input')?.focus();
   }
 
-  function clearReply() {
-    _replyTo = null;
-    const bar = document.getElementById('reply-preview');
-    if (bar) bar.style.display = 'none';
-  }
+  function clearReply() { _replyTo = null; const bar=document.getElementById('reply-preview'); if(bar)bar.style.display='none'; }
 
   async function _copy(msgId) {
-    const msgs = await DB.getMessages(window._currentConvId);
-    const m = msgs.find(x => x.id === msgId);
-    if (m?.text) { navigator.clipboard.writeText(m.text).catch(()=>{}); UI.toast('Kopyalandı ✓', 'success'); }
+    const msg = _findMsg(window._currentConvId, msgId) || (await DB.getMessages(window._currentConvId)).find(m=>m.id===msgId);
+    if (msg?.text) { navigator.clipboard.writeText(msg.text).catch(()=>{}); UI.toast('Kopyalandı ✓','success'); }
   }
 
   function _openEdit(msgId) {
+    const msg = _findMsg(window._currentConvId, msgId);
+    if (msg) { window._editingMsgId = msgId; const i=document.getElementById('edit-input'); if(i)i.value=msg.text||''; UI.openModal('edit-modal'); return; }
     DB.getMessages(window._currentConvId).then(msgs => {
-      const m = msgs.find(x => x.id === msgId); if (!m) return;
-      window._editingMsgId = msgId;
-      const i = document.getElementById('edit-input');
-      if (i) i.value = m.text || '';
-      UI.openModal('edit-modal');
+      const m = msgs.find(x=>x.id===msgId); if(!m)return;
+      window._editingMsgId=msgId; const i=document.getElementById('edit-input'); if(i)i.value=m.text||''; UI.openModal('edit-modal');
     });
   }
 
   async function saveEdit() {
-    const mid = window._editingMsgId, cid = window._currentConvId;
-    if (!mid || !cid) return;
-    const t = document.getElementById('edit-input')?.value.trim();
-    if (!t) return;
+    const mid=window._editingMsgId, cid=window._currentConvId;
+    if (!mid||!cid) return;
+    const t = document.getElementById('edit-input')?.value.trim(); if (!t) return;
     try {
-      await DB.updateMessage(cid, mid, { text: t, edited: true });
-      UI.closeModal('edit-modal');
-      window._onNewMessage?.();
-    } catch(e) { UI.toast('Düzenlenemedi', 'error'); }
+      await DB.updateMessage(cid, mid, { text:t, edited:true });
+      const msg = _findMsg(cid, mid); if (msg) msg.text = t;
+      UI.closeModal('edit-modal'); window._onNewMessage?.();
+    } catch(e) { UI.toast('Düzenlenemedi','error'); }
   }
 
   async function _recall(msgId) {
     try {
-      await DB.updateMessage(window._currentConvId, msgId, { recalled: true });
-      window._onNewMessage?.();
-      UI.toast('Mesaj geri çekildi', 'info');
-    } catch(e) { UI.toast('Geri çekilemedi', 'error'); }
+      await DB.updateMessage(window._currentConvId, msgId, { recalled:true });
+      const msg = _findMsg(window._currentConvId, msgId); if (msg) msg.recalled = true;
+      window._onNewMessage?.(); UI.toast('Geri çekildi','info');
+    } catch(e) { UI.toast('Geri çekilemedi','error'); }
   }
 
   async function _delete(msgId) {
     try {
       await DB.deleteMessage(window._currentConvId, msgId);
-      document.getElementById('msg-' + msgId)?.remove();
-      UI.toast('Silindi', 'info');
-    } catch(e) { UI.toast('Silinemedi', 'error'); }
+      const store = _getStore(window._currentConvId);
+      store.msgs = store.msgs.filter(m=>m.id!==msgId);
+      document.getElementById('msg-'+msgId)?.remove();
+      UI.toast('Silindi','info');
+    } catch(e) { UI.toast('Silinemedi','error'); }
   }
 
   // ── Files ─────────────────────────────────────────────────────
   function handleFiles(fileList) {
     _files = [];
-    const bar = document.getElementById('file-preview-bar');
-    if (!bar) return;
+    const bar = document.getElementById('file-preview-bar'); if (!bar) return;
     bar.innerHTML = ''; bar.style.display = 'block';
     Array.from(fileList).forEach(file => {
-      if (file.size > CONFIG.MAX_FILE_SIZE_MB * 1024 * 1024) { UI.toast(`Maks. ${CONFIG.MAX_FILE_SIZE_MB}MB`, 'error'); return; }
+      if (file.size > CONFIG.MAX_FILE_SIZE_MB*1024*1024) { UI.toast(`Maks. ${CONFIG.MAX_FILE_SIZE_MB}MB`,'error'); return; }
       const r = new FileReader(); r.readAsDataURL(file);
       r.onload = () => {
-        _files.push({ name: file.name, type: file.type, data: r.result });
+        _files.push({ name:file.name, type:file.type, data:r.result });
         const div = document.createElement('div');
         div.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;background:#0A1018;border:1px solid #1E2D45;margin-bottom:4px';
-        div.innerHTML = `${file.type.startsWith('image/') ? `<img src="${r.result}" style="width:32px;height:32px;border-radius:6px;object-fit:cover">` : '<span style="font-size:20px">📄</span>'}
-          <span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#DDE8F8">${file.name}</span>
-          <button onclick="Messages.clearFiles()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:14px">✕</button>`;
+        div.innerHTML = `${file.type.startsWith('image/')?`<img src="${r.result}" style="width:32px;height:32px;border-radius:6px;object-fit:cover">`:'<span style="font-size:20px">📄</span>'}<span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#DDE8F8">${file.name}</span><button onclick="Messages.clearFiles()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:14px">✕</button>`;
         bar.appendChild(div);
       };
     });
@@ -527,55 +580,46 @@ const Messages = (() => {
 
   function clearFiles() {
     _files = [];
-    const b = document.getElementById('file-preview-bar');
-    if (b) { b.innerHTML = ''; b.style.display = 'none'; }
-    const fi = document.getElementById('file-input'); if (fi) fi.value = '';
+    const b=document.getElementById('file-preview-bar'); if(b){b.innerHTML='';b.style.display='none';}
+    const fi=document.getElementById('file-input'); if(fi)fi.value='';
   }
 
-  function autoResize(el) {
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-  }
+  function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
 
   // ── Event delegation ──────────────────────────────────────────
   function initEvents() {
     document.addEventListener('click', e => {
       const pill = e.target.closest('.reaction-pill');
-      if (pill) {
-        _toggleReaction(pill.dataset.msgid, pill.dataset.emoji);
-        return;
-      }
+      if (pill) { _toggleReaction(pill.dataset.msgid, pill.dataset.emoji); return; }
     });
-
     const msgArea = document.getElementById('messages');
     if (msgArea) {
       msgArea.addEventListener('contextmenu', e => {
-        const bubble = e.target.closest('[data-msgid]');
-        if (!bubble) return;
-        e.preventDefault();
-        _ctxMenu(e, bubble.dataset.msgid, bubble.dataset.ismine === '1');
+        const bubble = e.target.closest('[data-msgid]'); if (!bubble) return;
+        e.preventDefault(); _ctxMenu(e, bubble.dataset.msgid, bubble.dataset.ismine==='1');
       });
       msgArea.addEventListener('dblclick', e => {
-        const bubble = e.target.closest('[data-msgid]');
-        if (!bubble) return;
+        const bubble = e.target.closest('[data-msgid]'); if (!bubble) return;
         UI.showReactionPicker(e.clientX, e.clientY, em => _toggleReaction(bubble.dataset.msgid, em));
       });
     }
   }
 
   return {
-    subscribeConv, renderAll, buildEl, send, sendGif, sendSticker,
-    toggleGif, toggleGifPicker: function() { toggleGif(); },
+    subscribeConv, renderAll,
+    buildEl, send, sendGif, sendSticker,
+    toggleGif, toggleGifPicker: ()=>toggleGif(),
     searchGifs, renderGifs,
-    toggleSticker, toggleStickerPicker: function() { toggleSticker(); },
+    toggleSticker, toggleStickerPicker: ()=>toggleSticker(),
     renderStickerPack, closeAllPickers,
     startVoice, stopVoice, toggleDestruct, startDestructTimer,
     handleFiles, clearFiles, clearReply, saveEdit, initEvents,
     _toggleReaction, _ctxMenu, _setReply, _copy, _openEdit, _recall, _delete,
     _lightbox, autoResize,
+    getMsgs: convId => _getMsgs(convId),
     hasFiles: () => _files.length > 0,
     _setDestructSecs: v => { _destructSecs = v; },
-    get _gifOpen()   { return _gifOpen; },   set _gifOpen(v)   { _gifOpen = v; },
+    get _gifOpen()    { return _gifOpen; },    set _gifOpen(v)    { _gifOpen = v; },
     get _stickerOpen(){ return _stickerOpen; }, set _stickerOpen(v){ _stickerOpen = v; },
   };
 })();
