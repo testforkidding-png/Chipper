@@ -170,8 +170,18 @@ function _parseMarkdown(text) {
     if (highlight && text && !recalled) {
       const re = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
       text = text.replace(re, '<mark style="background:rgba(0,255,179,.3);border-radius:2px;padding:0 1px">$1</mark>');
+      
     }
-
+// messages.js -> buildEl fonksiyonu içinde sticker kontrolü ekle
+if (m.type === 'sticker' || (m.text && m.text.startsWith('http') && m.text.includes('sticker'))) {
+    const img = document.createElement('img');
+    img.src = m.text;
+    img.style.cssText = 'width:140px; height:140px; object-fit:contain; display:block; margin:5px 0;';
+    bubble.style.background = 'transparent'; // Sticker arkası boş olsun
+    bubble.style.border = 'none';
+    bubble.appendChild(img);
+}
+    
     const avatarHtml = !isMine
       ? (sender.avatar_url
           ? `<img src="${sender.avatar_url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;cursor:pointer;flex-shrink:0;align-self:flex-end" onclick="window.showProfile?.('${sender.username}')">`
@@ -450,19 +460,43 @@ function renderGifs() {
     if (_stickerOpen) { if (!_activePack) _activePack = Object.keys(CONFIG.STICKER_PACKS)[0]; renderStickerPack(_activePack); }
   }
 
-  function renderStickerPack(pack) {
-    _activePack = pack;
-    document.querySelectorAll('.sticker-pack-tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === pack));
-    const grid = document.getElementById('sticker-grid');
-    if (!grid) return;
-    const frag = document.createDocumentFragment();
-    (CONFIG.STICKER_PACKS[pack] || []).forEach(s => {
-      const btn = document.createElement('button'); btn.className = 'sticker-btn'; btn.textContent = s;
-      btn.onclick = () => { if (!window._currentConvId) return; sendSticker(window._currentConvId, s); };
-      frag.appendChild(btn);
-    });
-    grid.innerHTML = ''; grid.appendChild(frag);
-  }
+  // messages.js içindeki renderStickerPack fonksiyonunu bul ve değiştir
+function renderStickerPack(packId) {
+  const grid = document.getElementById('sticker-grid');
+  if (!grid) return;
+  
+  // Paket verisini bul
+  const pack = STICKER_PACKS.find(p => p.id === packId);
+  if (!pack) return;
+
+  grid.innerHTML = '';
+  grid.style.cssText = 'display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; padding:15px;';
+
+  pack.stickers.forEach(url => {
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = `
+      width: 100%;
+      aspect-ratio: 1/1;
+      object-fit: contain;
+      cursor: pointer;
+      transition: transform 0.2s;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    `;
+    
+    img.onmouseenter = () => img.style.transform = 'scale(1.15) rotate(3deg)';
+    img.onmouseleave = () => img.style.transform = 'scale(1) rotate(0deg)';
+    
+    img.onclick = () => {
+      if (window._currentConvId) {
+        Messages.sendSticker(window._currentConvId, url);
+        Messages.closeAllPickers();
+      }
+    };
+    
+    grid.appendChild(img);
+  });
+}
 
   function closeAllPickers() {
     _gifOpen = false; _stickerOpen = false;
