@@ -359,8 +359,8 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
       const srv = CONFIG.SERVERS[serverId];
       UI.toast(`@${username} → ${srv?.icon || ''} ${srv?.label || serverId}: ${roles[serverId] ? '✅ Eklendi' : '❌ Kaldırıldı'}`, roles[serverId] ? 'success' : 'info');
     } catch(e) {
-      // server_roles column may not exist yet — show helpful message
-      UI.toast(`Hata: ${e.message} (SQL şemasını admin panelinden çalıştırın)`, 'error');
+      console.error('toggleServerRole:', e);
+      UI.toast('Hata: ' + (e.message || 'Bilinmeyen hata'), 'error');
     }
     await loadUsers();
   }
@@ -387,11 +387,13 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
         password_hash: hash,
         display_name: displayName,
         bio,
+        locked: false,
         is_admin: role === 'admin',
-        badges: role === 'admin' ? ['admin', 'verified', 'early'] : ['verified'],
+        badges: role === 'admin' ? ['admin', 'verified', 'early'] : ['early'],
         banner_color: '#0A1628',
         status: '', status_emoji: '', avatar_url: null,
-        created_at: Date.now()
+        server_roles: { friends: false, private: false, public: true, family: false },
+        created_at: Date.now(),
       });
       ['new-username','new-displayname','new-password','new-bio'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('new-role').value = 'user';
@@ -403,13 +405,14 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
   }
 
   async function deleteUser(username) {
-    if (!confirm(`@${username} kullanıcısını sil?`)) return;
+    if (!confirm(`@${username} kullanıcısını kalıcı olarak sil?`)) return;
     try {
       await DB.deleteUser(username);
       await loadUsers();
-      UI.toast(`@${username} silindi`, 'info');
+      UI.toast(`@${username} silindi ✓`, 'info');
     } catch(e) {
-      UI.toast('Silinemedi: ' + e.message, 'error');
+      console.error('deleteUser:', e);
+      UI.toast('Silinemedi: ' + (e.message || e), 'error');
     }
   }
 
