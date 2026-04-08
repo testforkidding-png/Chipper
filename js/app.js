@@ -3,29 +3,6 @@
  * Tüm bilinen buglar düzeltildi
  */
 
-// app.js dosyasının en başına ekle
-const STICKER_PACKS = [
-  {
-    id: 'cyber_pack',
-    name: 'CYBER',
-    icon: '⚡',
-    stickers: [
-      'https://cdn.pixabay.com/photo/2021/09/14/08/18/bitcoin-6623393_1280.png',
-      'https://cdn-icons-png.flaticon.com/512/3593/3593368.png',
-      'https://cdn-icons-png.flaticon.com/512/3593/3593387.png'
-    ]
-  },
-  {
-    id: 'bozkir_pack',
-    name: 'BOZKIR',
-    icon: '🐺',
-    stickers: [
-      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/G%C3%B6kt%C3%BCrk_Ka%C4%9Fanl%C4%B1%C4%9F%C4%B1_bayra%C4%9F%C4%B1.svg/1200px-G%C3%B6kt%C3%BCrk_Ka%C4%9Fanl%C4%B1%C4%9F%C4%B1_bayra%C4%9F%C4%B1.svg.png',
-      'https://cdn-icons-png.flaticon.com/512/2619/2619245.png'
-    ]
-  }
-];
-
 // ── State ──────────────────────────────────────────────────────────
 let _allUsers = {}, _convs = [], _chatFilter = 'all', _searchQuery = '';
 let _activeTab = 'messages', _activeServer = 'all';
