@@ -356,11 +356,68 @@ const Messages = (() => {
       const json = await res.json();
       _gifResults = json.data || [];
       if (!q) _gifCache = _gifResults;
-      renderGifs();
-    } catch(err) {
-      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px"><div style="font-size:28px;margin-bottom:8px">😵</div>GIF yüklenemedi</div>`;
-    }
-    _gifLoading = false;
+     function renderGifs() {
+  const grid = document.getElementById('gif-grid');
+  if (!grid) return;
+  if (!_gifResults.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Sonuç bulunamadı</div>';
+    return;
+  }
+  
+  const frag = document.createDocumentFragment();
+  
+  _gifResults.forEach(g => {
+    // En uygun GIF URL'sini seç (hareketli ve çok büyük olmayan)
+    const url = g.images?.fixed_height?.url || g.images?.downsized?.url || g.images?.original?.url;
+    if (!url) return;
+
+    // Ana konteyner (GIF kartı)
+    const div = document.createElement('div');
+    div.className = 'gif-item';
+    // Burası Kritik: GIF'lerin iç içe girmesini engelleyen stil.
+    // Sabit kare en boy oranı (1/1) ve yükseklik ayarı.
+    div.style.cssText = `
+      position: relative;
+      width: 100%;
+      height: 0;
+      padding-bottom: 100%; /* Kare en-boy oranı (1:1) */
+      border-radius: 12px;
+      overflow: hidden;
+      background-color: #0C1220; /* GIF yüklenirken arka plan */
+      border: 1px solid #1E2D45;
+      cursor: pointer;
+      transition: transform 0.1s ease, border-color 0.1s ease;
+    `;
+    
+    // Hover efekti (JS ile ekliyoruz çünkü CSS sınıfı bazen Tailwind ile çakışıyor)
+    div.onmouseenter = () => { div.style.transform = 'scale(1.03)'; div.style.borderColor = '#00FFB3'; };
+    div.onmouseleave = () => { div.style.transform = 'scale(1)'; div.style.borderColor = '#1E2D45'; };
+
+    // GIF Resim Etiketi
+    const img = document.createElement('img');
+    img.src = url;
+    img.alt = (g.title || 'GIF').replace(/"/g, '');
+    img.loading = 'lazy'; // Performans için önemli
+    
+    // Resmin kartın içine sığmasını sağlayan stil
+    img.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover; /* Resmi en-boy oranını bozmadan sığdır */
+      display: block;
+    `;
+    
+    div.appendChild(img);
+    div.onclick = () => { if (!window._currentConvId) return; sendGif(window._currentConvId, url, g.title); };
+    
+    frag.appendChild(div);
+  });
+  
+  grid.innerHTML = ''; // Önceki sonuçları temizle
+  grid.appendChild(frag);
   }
 
   function renderGifs() {
