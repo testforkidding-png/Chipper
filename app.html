@@ -220,52 +220,7 @@
           <input type="text" placeholder="GIF ara… (Giphy)" id="gif-search-input" style="flex:1;background:transparent;border:none;outline:none;font-size:14px;color:#DDE8F8;font-family:'DM Sans',sans-serif" oninput="clearTimeout(this._t);this._t=setTimeout(()=>Messages.searchGifs(this.value),500)">
           <button onclick="Messages.toggleGif()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;-webkit-tap-highlight-color:transparent">✕</button>
         </div>
-<head>
-  ... diğer meta etiketleri ...
-  <style>
-    /* ... mevcut diğer kodların ... */
-
-    /* BURAYA YAPIŞTIRIYORSUN */
-    #gif-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      padding: 10px;
-      overflow-y: auto;
-      max-height: 240px;
-      grid-auto-rows: min-content; 
-      align-items: start;
-    }
-
-    .gif-item {
-      box-sizing: border-box;
-    }
-
-    #gif-picker {
-      display: none;
-      flex-direction: column;
-      background: #0C1220;
-      border-top: 1px solid #1E2D45;
-      position: absolute;
-      bottom: 100%;
-      left: 0;
-      right: 0;
-      z-index: 100;
-      animation: slideUp 0.2s ease-out;
-    }
-
-    #gif-picker.open {
-      display: flex;
-    }
-
-    @keyframes slideUp {
-      from { transform: translateY(10px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    /* YAPIŞTIRMA BİTTİ */
-
-  </style>
-</head>
+        <div id="gif-grid" class="gif-grid"></div>
       </div>
 
       <div id="sticker-picker">
