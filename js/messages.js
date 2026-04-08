@@ -295,12 +295,13 @@ const Messages = (() => {
         window._renderChatListTimer ? null : renderChatList?.();
       }
     } catch(e) {
-      UI.toast('Gönderilemedi: ' + e.message, 'error');
+      console.error('send() error:', e);
+      UI.toast('Gönderilemedi: ' + (e.message || String(e)), 'error');
       // Remove optimistic message
       const store = _getStore(convId);
       store.msgs = store.msgs.filter(m => m.id !== tempId);
       document.getElementById('msg-' + tempId)?.remove();
-      if (input) { input.value = text; autoResize(input); }
+      if (input && text) { input.value = text; autoResize(input); }
     }
   }
 
