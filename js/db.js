@@ -80,7 +80,7 @@ const DB = (() => {
   // Conversation list — no heavy fields
   const CONV_COLS = 'id,type,name,participants,avatar,banner_color,last_msg,last_time,last_from,unread_for,admin,server,created_at';
   // Message columns
-  const MSG_COLS = 'id,conv_id,from,text,type,gif_url,gif_title,sticker,file_name,file_type,file_data,audio_data,duration,reply_to,reply_to_text,reactions,recalled,edited,destruct_at,status,created_at';
+  const MSG_COLS = '*'; // messages table - use all cols, 'from' handled by PostgREST
 
   // ── Supabase impl ──────────────────────────────────────────────
   const Supa = {
@@ -121,38 +121,62 @@ const DB = (() => {
     },
 
     async createUser(d) {
-      const { data, error } = await sb().from('users').insert(d).select(USER_COLS).single();
+      // Always include locked:false (NOT NULL in schema)
+      const payload = { locked: false, ...d };
+      let { data, error } = await sb().from('users').insert(payload).select(USER_SAFE).single();
       if (!error) { if (!_cache.users) _cache.users = new Map(); _cache.users.set(d.username, data); return data; }
-      console.warn('createUser full failed:', error.message);
-      const basic = { username:d.username, password_hash:d.password_hash, display_name:d.display_name||'', bio:d.bio||'', avatar_url:d.avatar_url||null, banner_color:d.banner_color||'#0A1628', status:d.status||'', status_emoji:d.status_emoji||'', is_admin:false, locked:false, badges:d.badges||[], created_at:d.created_at||Date.now() };
-      const { data:d2, error:e2 } = await sb().from('users').insert(basic).select(USER_COLS).single();
-      if (e2) throw new Error(e2.message + ' — Admin panelindeki SQL şemasını çalıştırın.');
-      if (!_cache.users) _cache.users = new Map(); _cache.users.set(d.username, d2);
-      return d2;
+      // Extended cols may not exist — retry with only safe cols
+      console.warn('createUser full failed, retrying basic:', error.message);
+      const basic = {
+        username: d.username, password_hash: d.password_hash,
+        display_name: d.display_name||'', bio: d.bio||'',
+        avatar_url: d.avatar_url||null, banner_color: d.banner_color||'#0A1628',
+        status: d.status||'', status_emoji: d.status_emoji||'',
+        is_admin: d.is_admin||false, locked: false,
+        badges: d.badges||[], created_at: d.created_at||Date.now(),
+      };
+      ({ data, error } = await sb().from('users').insert(basic).select(USER_SAFE).single());
+      if (error) throw new Error(error.message + ' — SQL şemasını admin panelinden çalıştırın.');
+      if (!_cache.users) _cache.users = new Map(); _cache.users.set(d.username, data);
+      return data;
     },
 
     async updateUser(u, d) {
-      const { data, error } = await sb().from('users').update(d).eq('username', u).select(USER_COLS).single();
-      if (!error) { if (_cache.users) _cache.users.set(u, { ..._cache.users.get(u), ...data }); return data; }
-      // Column missing fallback
-      if (error.message?.includes('column') || error.message?.includes('schema')) {
-        console.warn('updateUser column error, retrying safe cols:', error.message);
-        const safe = {}; const safeKeys = ['display_name','bio','avatar_url','banner_color','status','status_emoji','is_admin','locked','badges','password_hash'];
+      // Try full update first
+      let { data, error } = await sb().from('users').update(d).eq('username', u).select(USER_SAFE).single();
+      if (!error) {
+        if (_cache.users) _cache.users.set(u, { ..._cache.users.get(u), ...data });
+        return { ..._cache.users?.get(u), ...data };
+      }
+      // Column error fallback: split into safe + ext and update separately
+      if (error.message?.includes('column') || error.message?.includes('schema') || error.message?.includes('does not exist')) {
+        const safeKeys = ['display_name','bio','avatar_url','banner_color','status','status_emoji','is_admin','locked','badges','password_hash'];
+        const extKeys  = ['server_roles','last_seen','online','stale_hash'];
+        const safe = {}, ext = {};
         for (const k of safeKeys) if (k in d) safe[k] = d[k];
+        for (const k of extKeys)  if (k in d) ext[k]  = d[k];
+
+        let result = _cache.users?.get(u) || null;
+
         if (Object.keys(safe).length) {
-          const { data:d2, error:e2 } = await sb().from('users').update(safe).eq('username', u).select(USER_COLS).single();
-          if (!e2) { if (_cache.users) _cache.users.set(u, { ..._cache.users.get(u), ...d2 }); return d2; }
+          const { data:d2, error:e2 } = await sb().from('users').update(safe).eq('username', u).select(USER_SAFE).single();
+          if (!e2) { result = { ...result, ...d2 }; if (_cache.users) _cache.users.set(u, result); }
         }
-        // Try extended cols silently
-        const ext = {}; const extKeys = ['server_roles','last_seen','online','stale_hash'];
-        for (const k of extKeys) if (k in d) ext[k] = d[k];
-        if (Object.keys(ext).length) await sb().from('users').update(ext).eq('username', u).catch(() => {});
-        return _cache.users?.get(u) || null;
+        if (Object.keys(ext).length) {
+          const { data:d3, error:e3 } = await sb().from('users').update(ext).eq('username', u).select(USER_SAFE).single();
+          if (e3) throw new Error('Kolon eksik: ' + e3.message + ' — Admin panelindeki SQL\'i çalıştırın.');
+          result = { ...result, ...d3 };
+          if (_cache.users) _cache.users.set(u, result);
+        }
+        return result;
       }
       throw error;
     },
 
     async deleteUser(u) {
+      // First delete related conversations (cascade)
+      await sb().from('conversations').delete().contains('participants', [u]).catch(() => {});
+      await sb().from('messages').delete().eq('from', u).catch(() => {});
       const { error } = await sb().from('users').delete().eq('username', u);
       if (error) throw error;
       _cache.users?.delete(u);
