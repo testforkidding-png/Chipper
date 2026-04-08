@@ -33,6 +33,21 @@ const Messages = (() => {
   let _gifCache = null, _gifLoading = false, _gifResults = [];
 
   // ── Subscribe ─────────────────────────────────────────────────
+  // messages.js içine eklenecek yardımcı fonksiyon
+function _parseMarkdown(text) {
+  if (!text) return '';
+  return text
+    // Güvenlik için HTML etiketlerini temizle (XSS önlemi)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    // Kod Bloğu: `kod` -> <code>kod</code>
+    .replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,0.3);padding:2px 4px;border-radius:4px;font-family:monospace;font-size:0.9em">$1</code>')
+    // Kalın: **metin** -> <b>metin</b>
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+    // İtalik: *metin* -> <i>metin</i>
+    .replace(/\*([^*]+)\*/g, '<i>$1</i>')
+    // Üstü Çizili: ~~metin~~ -> <strike>metin</strike>
+    .replace(/~~([^~]+)~~/g, '<strike>$1</strike>');
+}
   function subscribeConv(convId) {
     if (window._realtimeSub) { try { DB.unsubscribe(window._realtimeSub); } catch {} window._realtimeSub = null; }
     if (window._pollInterval)  { clearInterval(window._pollInterval); window._pollInterval = null; }
@@ -356,7 +371,15 @@ const Messages = (() => {
       const json = await res.json();
       _gifResults = json.data || [];
       if (!q) _gifCache = _gifResults;
-     function renderGifs() {
+      renderGifs();
+    } catch(err) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px"><div style="font-size:28px;margin-bottom:8px">😵</div>GIF yüklenemedi</div>`;
+    }
+    _gifLoading = false;
+  }
+
+// messages.js dosyasındaki renderGifs fonksiyonunu bul ve bununla değiştir:
+function renderGifs() {
   const grid = document.getElementById('gif-grid');
   if (!grid) return;
   if (!_gifResults.length) {
@@ -418,26 +441,7 @@ const Messages = (() => {
   
   grid.innerHTML = ''; // Önceki sonuçları temizle
   grid.appendChild(frag);
-  }
-
-  function renderGifs() {
-    const grid = document.getElementById('gif-grid');
-    if (!grid) return;
-    if (!_gifResults.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8">Sonuç bulunamadı</div>'; return; }
-    const frag = document.createDocumentFragment();
-    _gifResults.forEach(g => {
-      const url = g.images?.fixed_height_small?.url || g.images?.downsized?.url || g.images?.original?.url;
-      if (!url) return;
-      const div = document.createElement('div'); div.className = 'gif-item';
-      const img = document.createElement('img'); img.src = url; img.loading = 'lazy'; img.decoding = 'async';
-      img.alt = (g.title||'GIF').replace(/"/g,'');
-      div.appendChild(img);
-      div.onclick = () => { if (!window._currentConvId) return; sendGif(window._currentConvId, url, g.title); };
-      frag.appendChild(div);
-    });
-    grid.innerHTML = ''; grid.appendChild(frag);
-  }
-
+}
   // ── Sticker Picker ────────────────────────────────────────────
   function toggleSticker() {
     _stickerOpen = !_stickerOpen; _gifOpen = false;
