@@ -152,7 +152,7 @@
       </div>
       <div style="position:relative">
         <pre id="sql-block" style="background:#06080F;border:1px solid #1E2D45;border-radius:10px;padding:14px;font-size:11px;color:#00FFB3;font-family:'JetBrains Mono',monospace;max-height:400px;overflow-y:auto;line-height:1.6">-- CIPHER v6 — Supabase kurulum SQL
--- SQL Editor'da çalıştırın (mevcut tablo varsa ALTER kullanın)
+-- SQL Editor'da çalıştırın. Tablolar zaten varsa CREATE IF NOT EXISTS hata vermez.
 
 CREATE TABLE IF NOT EXISTS users (
   username      TEXT PRIMARY KEY,
@@ -232,8 +232,15 @@ CREATE TABLE IF NOT EXISTS stories (
   expires_at TIMESTAMPTZ DEFAULT NOW() + INTERVAL '24 hours'
 );
 
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
+-- Realtime (hata verirse ignore edin - tablo zaten ekli demektir)
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE messages;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Row Level Security kapat (gerekli!)
 ALTER TABLE users         DISABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations DISABLE ROW LEVEL SECURITY;
 ALTER TABLE messages      DISABLE ROW LEVEL SECURITY;
