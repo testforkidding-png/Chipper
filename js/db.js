@@ -78,6 +78,9 @@ const DB = (() => {
   const USER_LIGHT = 'username,display_name,avatar_url,bio,status,status_emoji,is_admin,badges,server_roles,last_seen,online,banner_color,created_at';
   const USER_LIGHT_SAFE = 'username,display_name,avatar_url,bio,status,status_emoji,is_admin,badges,banner_color,created_at';
   // Conversation list — no heavy fields
+  // Safe conv cols — always exist
+  const CONV_SAFE = 'id,type,name,participants,avatar,banner_color,last_msg,last_time,unread_for,admin,created_at';
+  // Extended conv cols — added via ALTER TABLE
   const CONV_COLS = 'id,type,name,participants,avatar,banner_color,last_msg,last_time,last_from,unread_for,admin,server,created_at';
   // Message columns
   const MSG_COLS = '*'; // messages table - use all cols, 'from' handled by PostgREST
@@ -142,35 +145,43 @@ const DB = (() => {
     },
 
     async updateUser(u, d) {
-      // Try full update first
+      // Try full update
       let { data, error } = await sb().from('users').update(d).eq('username', u).select(USER_SAFE).single();
       if (!error) {
-        if (_cache.users) _cache.users.set(u, { ..._cache.users.get(u), ...data });
-        return { ..._cache.users?.get(u), ...data };
+        const merged = { ..._cache.users?.get(u), ...data };
+        if (_cache.users) _cache.users.set(u, merged);
+        return merged;
       }
-      // Column error fallback: split into safe + ext and update separately
-      if (error.message?.includes('column') || error.message?.includes('schema') || error.message?.includes('does not exist')) {
-        const safeKeys = ['display_name','bio','avatar_url','banner_color','status','status_emoji','is_admin','locked','badges','password_hash'];
-        const extKeys  = ['server_roles','last_seen','online','stale_hash'];
-        const safe = {}, ext = {};
-        for (const k of safeKeys) if (k in d) safe[k] = d[k];
-        for (const k of extKeys)  if (k in d) ext[k]  = d[k];
 
-        let result = _cache.users?.get(u) || null;
+      const isColError = error.message?.includes('column') || error.message?.includes('schema') || error.message?.includes('does not exist');
+      if (!isColError) throw error;
 
-        if (Object.keys(safe).length) {
-          const { data:d2, error:e2 } = await sb().from('users').update(safe).eq('username', u).select(USER_SAFE).single();
-          if (!e2) { result = { ...result, ...d2 }; if (_cache.users) _cache.users.set(u, result); }
-        }
-        if (Object.keys(ext).length) {
-          const { data:d3, error:e3 } = await sb().from('users').update(ext).eq('username', u).select(USER_SAFE).single();
-          if (e3) throw new Error('Kolon eksik: ' + e3.message + ' — Admin panelindeki SQL\'i çalıştırın.');
-          result = { ...result, ...d3 };
-          if (_cache.users) _cache.users.set(u, result);
-        }
-        return result;
+      // Split payload into safe cols + ext cols, update each separately
+      const safeKeys = ['display_name','bio','avatar_url','banner_color','status','status_emoji','is_admin','locked','badges','password_hash'];
+      const extKeys  = ['server_roles','last_seen','online','stale_hash'];
+      const safe = {}, ext = {};
+      for (const k of safeKeys) if (k in d) safe[k] = d[k];
+      for (const k of extKeys)  if (k in d) ext[k]  = d[k];
+
+      let result = { ..._cache.users?.get(u) };
+
+      if (Object.keys(safe).length) {
+        const { data:d2, error:e2 } = await sb().from('users').update(safe).eq('username', u).select(USER_SAFE).single();
+        if (!e2) { Object.assign(result, d2); }
       }
-      throw error;
+
+      if (Object.keys(ext).length) {
+        // Use raw update without select to avoid column list issues
+        const { error:e3 } = await sb().from('users').update(ext).eq('username', u);
+        if (e3) {
+          // Column truly doesn't exist — give clear instruction
+          throw new Error('Şema eksik: ' + e3.message + '\nAdmin panelindeki SQL\'ı çalıştırın.');
+        }
+        Object.assign(result, ext);
+      }
+
+      if (_cache.users) _cache.users.set(u, result);
+      return result;
     },
 
     async deleteUser(u) {
@@ -183,8 +194,13 @@ const DB = (() => {
     },
 
     async getConversations(uid) {
-      const { data, error } = await sb().from('conversations').select(CONV_COLS)
+      let { data, error } = await sb().from('conversations').select(CONV_COLS)
         .contains('participants', [uid]).order('last_time', { ascending: false });
+      if (error && (error.message?.includes('column') || error.message?.includes('does not exist'))) {
+        console.warn('getConversations fallback to safe cols:', error.message);
+        ({ data, error } = await sb().from('conversations').select(CONV_SAFE)
+          .contains('participants', [uid]).order('last_time', { ascending: false }));
+      }
       if (error) throw error;
       const result = data || [];
       _cache.convs = result; _cache.convUser = uid;
@@ -192,32 +208,49 @@ const DB = (() => {
     },
 
     async getConversation(id) {
-      // Check conv cache
       const cached = _cache.convs?.find(c => c.id === id);
       if (cached) return cached;
-      const { data, error } = await sb().from('conversations').select(CONV_COLS).eq('id', id).maybeSingle();
+      let { data, error } = await sb().from('conversations').select(CONV_COLS).eq('id', id).maybeSingle();
+      if (error && (error.message?.includes('column') || error.message?.includes('does not exist'))) {
+        ({ data, error } = await sb().from('conversations').select(CONV_SAFE).eq('id', id).maybeSingle());
+      }
       if (error) throw error;
       return data || null;
     },
 
     async createConversation(d) {
-      const { data, error } = await sb().from('conversations').upsert(d).select(CONV_COLS).single();
+      let { data, error } = await sb().from('conversations').upsert(d).select(CONV_SAFE).single();
       if (!error) { if (_cache.convs) _cache.convs.push(data); return data; }
-      console.warn('createConversation failed:', error.message);
-      const minimal = { id:d.id, type:d.type, participants:d.participants, last_msg:d.last_msg||'', last_time:d.last_time||0, unread_for:d.unread_for||{} };
-      if (d.name) minimal.name=d.name; if (d.admin) minimal.admin=d.admin;
-      const { data:d2, error:e2 } = await sb().from('conversations').upsert(minimal).select(CONV_COLS).single();
-      if (e2) throw new Error(e2.message);
-      if (_cache.convs) _cache.convs.push(d2);
-      return d2;
+      // Extended cols may not exist — strip them and retry
+      console.warn('createConversation fallback:', error.message);
+      const safe = {
+        id: d.id, type: d.type, participants: d.participants,
+        last_msg: d.last_msg || '', last_time: d.last_time || 0,
+        unread_for: d.unread_for || {}, banner_color: d.banner_color || '#0A1628',
+      };
+      if (d.name)   safe.name   = d.name;
+      if (d.avatar) safe.avatar = d.avatar;
+      if (d.admin)  safe.admin  = d.admin;
+      ({ data, error } = await sb().from('conversations').upsert(safe).select(CONV_SAFE).single());
+      if (error) throw new Error(error.message);
+      if (_cache.convs) _cache.convs.push(data);
+      return data;
     },
 
     async updateConversation(id, d) {
       // Optimistic cache update immediately
       if (_cache.convs) { const i = _cache.convs.findIndex(c=>c.id===id); if (i>=0) Object.assign(_cache.convs[i], d); }
-      const { data, error } = await sb().from('conversations').update(d).eq('id', id).select(CONV_COLS).single();
+      let { data, error } = await sb().from('conversations').update(d).eq('id', id).select(CONV_SAFE).single();
+      if (error && (error.message?.includes('column') || error.message?.includes('does not exist'))) {
+        // Strip ext cols and retry
+        const safe = {}; const safeKeys = ['last_msg','last_time','unread_for','name','avatar','banner_color','admin'];
+        for (const k of safeKeys) if (k in d) safe[k] = d[k];
+        if (Object.keys(safe).length) {
+          ({ data, error } = await sb().from('conversations').update(safe).eq('id', id).select(CONV_SAFE).single());
+        }
+      }
       if (error) throw error;
-      if (_cache.convs) { const i = _cache.convs.findIndex(c=>c.id===id); if (i>=0) _cache.convs[i]=data; }
+      if (_cache.convs && data) { const i = _cache.convs.findIndex(c=>c.id===id); if (i>=0) _cache.convs[i] = { ..._cache.convs[i], ...data }; }
       return data;
     },
 
