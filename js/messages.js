@@ -33,21 +33,6 @@ const Messages = (() => {
   let _gifCache = null, _gifLoading = false, _gifResults = [];
 
   // ── Subscribe ─────────────────────────────────────────────────
-  // messages.js içine eklenecek yardımcı fonksiyon
-function _parseMarkdown(text) {
-  if (!text) return '';
-  return text
-    // Güvenlik için HTML etiketlerini temizle (XSS önlemi)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    // Kod Bloğu: `kod` -> <code>kod</code>
-    .replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,0.3);padding:2px 4px;border-radius:4px;font-family:monospace;font-size:0.9em">$1</code>')
-    // Kalın: **metin** -> <b>metin</b>
-    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
-    // İtalik: *metin* -> <i>metin</i>
-    .replace(/\*([^*]+)\*/g, '<i>$1</i>')
-    // Üstü Çizili: ~~metin~~ -> <strike>metin</strike>
-    .replace(/~~([^~]+)~~/g, '<strike>$1</strike>');
-}
   function subscribeConv(convId) {
     if (window._realtimeSub) { try { DB.unsubscribe(window._realtimeSub); } catch {} window._realtimeSub = null; }
     if (window._pollInterval)  { clearInterval(window._pollInterval); window._pollInterval = null; }
@@ -170,18 +155,8 @@ function _parseMarkdown(text) {
     if (highlight && text && !recalled) {
       const re = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi');
       text = text.replace(re, '<mark style="background:rgba(0,255,179,.3);border-radius:2px;padding:0 1px">$1</mark>');
-      
     }
-// messages.js -> buildEl fonksiyonu içinde sticker kontrolü ekle
-if (m.type === 'sticker' || (m.text && m.text.startsWith('http') && m.text.includes('sticker'))) {
-    const img = document.createElement('img');
-    img.src = m.text;
-    img.style.cssText = 'width:140px; height:140px; object-fit:contain; display:block; margin:5px 0;';
-    bubble.style.background = 'transparent'; // Sticker arkası boş olsun
-    bubble.style.border = 'none';
-    bubble.appendChild(img);
-}
-    
+
     const avatarHtml = !isMine
       ? (sender.avatar_url
           ? `<img src="${sender.avatar_url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;cursor:pointer;flex-shrink:0;align-self:flex-end" onclick="window.showProfile?.('${sender.username}')">`
@@ -388,70 +363,24 @@ if (m.type === 'sticker' || (m.text && m.text.startsWith('http') && m.text.inclu
     _gifLoading = false;
   }
 
-// messages.js dosyasındaki renderGifs fonksiyonunu bul ve bununla değiştir:
-function renderGifs() {
-  const grid = document.getElementById('gif-grid');
-  if (!grid) return;
-  if (!_gifResults.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Sonuç bulunamadı</div>';
-    return;
+  function renderGifs() {
+    const grid = document.getElementById('gif-grid');
+    if (!grid) return;
+    if (!_gifResults.length) { grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8">Sonuç bulunamadı</div>'; return; }
+    const frag = document.createDocumentFragment();
+    _gifResults.forEach(g => {
+      const url = g.images?.fixed_height_small?.url || g.images?.downsized?.url || g.images?.original?.url;
+      if (!url) return;
+      const div = document.createElement('div'); div.className = 'gif-item';
+      const img = document.createElement('img'); img.src = url; img.loading = 'lazy'; img.decoding = 'async';
+      img.alt = (g.title||'GIF').replace(/"/g,'');
+      div.appendChild(img);
+      div.onclick = () => { if (!window._currentConvId) return; sendGif(window._currentConvId, url, g.title); };
+      frag.appendChild(div);
+    });
+    grid.innerHTML = ''; grid.appendChild(frag);
   }
-  
-  const frag = document.createDocumentFragment();
-  
-  _gifResults.forEach(g => {
-    // En uygun GIF URL'sini seç (hareketli ve çok büyük olmayan)
-    const url = g.images?.fixed_height?.url || g.images?.downsized?.url || g.images?.original?.url;
-    if (!url) return;
 
-    // Ana konteyner (GIF kartı)
-    const div = document.createElement('div');
-    div.className = 'gif-item';
-    // Burası Kritik: GIF'lerin iç içe girmesini engelleyen stil.
-    // Sabit kare en boy oranı (1/1) ve yükseklik ayarı.
-    div.style.cssText = `
-      position: relative;
-      width: 100%;
-      height: 0;
-      padding-bottom: 100%; /* Kare en-boy oranı (1:1) */
-      border-radius: 12px;
-      overflow: hidden;
-      background-color: #0C1220; /* GIF yüklenirken arka plan */
-      border: 1px solid #1E2D45;
-      cursor: pointer;
-      transition: transform 0.1s ease, border-color 0.1s ease;
-    `;
-    
-    // Hover efekti (JS ile ekliyoruz çünkü CSS sınıfı bazen Tailwind ile çakışıyor)
-    div.onmouseenter = () => { div.style.transform = 'scale(1.03)'; div.style.borderColor = '#00FFB3'; };
-    div.onmouseleave = () => { div.style.transform = 'scale(1)'; div.style.borderColor = '#1E2D45'; };
-
-    // GIF Resim Etiketi
-    const img = document.createElement('img');
-    img.src = url;
-    img.alt = (g.title || 'GIF').replace(/"/g, '');
-    img.loading = 'lazy'; // Performans için önemli
-    
-    // Resmin kartın içine sığmasını sağlayan stil
-    img.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover; /* Resmi en-boy oranını bozmadan sığdır */
-      display: block;
-    `;
-    
-    div.appendChild(img);
-    div.onclick = () => { if (!window._currentConvId) return; sendGif(window._currentConvId, url, g.title); };
-    
-    frag.appendChild(div);
-  });
-  
-  grid.innerHTML = ''; // Önceki sonuçları temizle
-  grid.appendChild(frag);
-}
   // ── Sticker Picker ────────────────────────────────────────────
   function toggleSticker() {
     _stickerOpen = !_stickerOpen; _gifOpen = false;
@@ -460,43 +389,19 @@ function renderGifs() {
     if (_stickerOpen) { if (!_activePack) _activePack = Object.keys(CONFIG.STICKER_PACKS)[0]; renderStickerPack(_activePack); }
   }
 
-  // messages.js içindeki renderStickerPack fonksiyonunu bul ve değiştir
-function renderStickerPack(packId) {
-  const grid = document.getElementById('sticker-grid');
-  if (!grid) return;
-  
-  // Paket verisini bul
-  const pack = STICKER_PACKS.find(p => p.id === packId);
-  if (!pack) return;
-
-  grid.innerHTML = '';
-  grid.style.cssText = 'display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; padding:15px;';
-
-  pack.stickers.forEach(url => {
-    const img = document.createElement('img');
-    img.src = url;
-    img.style.cssText = `
-      width: 100%;
-      aspect-ratio: 1/1;
-      object-fit: contain;
-      cursor: pointer;
-      transition: transform 0.2s;
-      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
-    `;
-    
-    img.onmouseenter = () => img.style.transform = 'scale(1.15) rotate(3deg)';
-    img.onmouseleave = () => img.style.transform = 'scale(1) rotate(0deg)';
-    
-    img.onclick = () => {
-      if (window._currentConvId) {
-        Messages.sendSticker(window._currentConvId, url);
-        Messages.closeAllPickers();
-      }
-    };
-    
-    grid.appendChild(img);
-  });
-}
+  function renderStickerPack(pack) {
+    _activePack = pack;
+    document.querySelectorAll('.sticker-pack-tab').forEach(t => t.classList.toggle('active', t.textContent.trim() === pack));
+    const grid = document.getElementById('sticker-grid');
+    if (!grid) return;
+    const frag = document.createDocumentFragment();
+    (CONFIG.STICKER_PACKS[pack] || []).forEach(s => {
+      const btn = document.createElement('button'); btn.className = 'sticker-btn'; btn.textContent = s;
+      btn.onclick = () => { if (!window._currentConvId) return; sendSticker(window._currentConvId, s); };
+      frag.appendChild(btn);
+    });
+    grid.innerHTML = ''; grid.appendChild(frag);
+  }
 
   function closeAllPickers() {
     _gifOpen = false; _stickerOpen = false;
