@@ -94,9 +94,6 @@ const Messages = (() => {
     container.appendChild(frag);
     store.lastRenderedCount = msgs.length;
 
-    // Apply pin indicators
-    setTimeout(() => _applyPins(convId), 50);
-
     // Scroll
     if (atBottom || msgs.length <= 5) {
       container.scrollTop = container.scrollHeight;
@@ -187,15 +184,6 @@ const Messages = (() => {
           }).join('');
           contentHtml = `<div style="margin-top:4px"><div style="font-size:13px;font-weight:600;color:#DDE8F8;margin-bottom:8px">${poll.question}</div>${opts}<div style="font-size:10px;color:#5A6E88;font-family:'JetBrains Mono',monospace;margin-top:4px">${totalVotes} oy</div></div>`;
         } catch(e) { contentHtml = '<div style="color:#FF3D6B;font-size:12px">Anket yüklenemedi</div>'; }
-      } else if (msg.type === 'doc' && msg.doc_html) {
-        contentHtml = `<div style="margin-top:6px;border-radius:10px;overflow:hidden;border:1px solid #1E2D45">
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#06080F;border-bottom:1px solid #1E2D45">
-            <span style="font-size:18px">📄</span>
-            <span style="font-size:13px;font-weight:600;color:#DDE8F8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${msg.text||'Döküman'}</span>
-            <button onclick="openDocViewer('${msg.id}')" style="padding:4px 10px;border-radius:6px;background:rgba(0,255,179,.1);border:1px solid rgba(0,255,179,.2);color:var(--accent,#00FFB3);font-size:11px;cursor:pointer">Aç</button>
-          </div>
-          <div style="max-height:120px;overflow:hidden;padding:10px 12px;font-size:12px;color:#9AB0C8;line-height:1.5;background:#080D18;pointer-events:none">${msg.doc_html?.slice(0,500)||''}</div>
-        </div>`;
       } else if (msg.type === 'gif' && msg.gif_url) {
         contentHtml = `<img src="${msg.gif_url}" alt="GIF" style="max-width:220px;max-height:180px;border-radius:10px;display:block;margin-top:4px;cursor:pointer" onclick="Messages._lightbox('${msg.gif_url}')">`;
       } else if (msg.type === 'sticker' && msg.sticker) {
@@ -553,8 +541,6 @@ const Messages = (() => {
       { icon:'↪', label:'İlet',       action:`openForwardModal('${msgId}')` },
       { icon:'😊', label:'Reaksiyon', action:`UI.showReactionPicker(${e.clientX},${e.clientY},em=>Messages._toggleReaction('${msgId}',em))` },
     ];
-    items.push({ icon:'🌐', label:'Çevir', action:`Messages._translate('${msgId}')` });
-    items.push({ icon:'📌', label:'Sabitle', action:`Messages._pinMsg('${msgId}')` });
     if (isMine) {
       items.push('divider');
       items.push({ icon:'✏️', label:'Düzenle',  action:`Messages._openEdit('${msgId}')` });
@@ -664,113 +650,6 @@ const Messages = (() => {
     }
   }
 
-
-  // ── Çeviri (LibreTranslate) ────────────────────────────────────
-  async function _translate(msgId) {
-    const msg = _findMsg(window._currentConvId, msgId);
-    if (!msg?.text) { UI.toast('Çevrilecek metin yok', 'error'); return; }
-    // Show loading on the message
-    const el = document.getElementById('msg-' + msgId);
-    const existingTr = el?.querySelector('.msg-translation');
-    if (existingTr) { existingTr.remove(); return; } // toggle off
-    UI.toast('Çevriliyor…', 'info', 1500);
-    try {
-      // Try LibreTranslate public instance
-      const res = await fetch('https://libretranslate.de/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ q: msg.text, source: 'auto', target: 'tr', format: 'text' })
-      });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const translated = data.translatedText;
-      if (!translated || translated === msg.text) { UI.toast('Çeviri bulunamadı', 'info'); return; }
-      // Inject translation below message bubble
-      if (el) {
-        const tr = document.createElement('div');
-        tr.className = 'msg-translation';
-        tr.style.cssText = 'font-size:12px;color:#B0D4FF;margin-top:4px;padding:6px 10px;border-radius:8px;background:rgba(0,100,255,.1);border:1px solid rgba(0,100,255,.2);line-height:1.5';
-        tr.innerHTML = `<span style="font-size:10px;color:#5A7A9A;font-family:'JetBrains Mono',monospace;display:block;margin-bottom:2px">🌐 Çeviri</span>${translated}`;
-        el.querySelector('[data-msgid]')?.after(tr);
-      }
-    } catch(e) {
-      // Fallback: Google Translate open redirect
-      const url = `https://translate.google.com/?sl=auto&tl=tr&text=${encodeURIComponent(msg.text)}&op=translate`;
-      window.open(url, '_blank');
-    }
-  }
-
-  // ── Mesaj sabitleme ────────────────────────────────────────────
-  function _pinMsg(msgId) {
-    const convId = window._currentConvId;
-    if (!convId) return;
-    const key = 'cipher_pinned_msgs_' + convId;
-    const pinned = JSON.parse(localStorage.getItem(key) || '[]');
-    const idx = pinned.indexOf(msgId);
-    if (idx >= 0) {
-      pinned.splice(idx, 1);
-      localStorage.setItem(key, JSON.stringify(pinned));
-      document.getElementById('msg-' + msgId)?.querySelector('.pin-indicator')?.remove();
-      UI.toast('Sabitleme kaldırıldı', 'info');
-    } else {
-      pinned.push(msgId);
-      localStorage.setItem(key, JSON.stringify(pinned));
-      // Add pin indicator to message
-      const el = document.getElementById('msg-' + msgId);
-      if (el && !el.querySelector('.pin-indicator')) {
-        const pi = document.createElement('div');
-        pi.className = 'pin-indicator';
-        pi.style.cssText = "font-size:10px;color:#FFB830;margin-bottom:2px;font-family:'JetBrains Mono',monospace";
-        pi.textContent = '📌 Sabitlendi';
-        el.prepend(pi);
-      }
-      UI.toast('📌 Mesaj sabitlendi', 'success');
-      _showPinnedBanner(convId);
-    }
-  }
-
-  function _showPinnedBanner(convId) {
-    const key = 'cipher_pinned_msgs_' + convId;
-    const pinned = JSON.parse(localStorage.getItem(key) || '[]');
-    let banner = document.getElementById('pinned-banner');
-    if (!pinned.length) { banner?.remove(); return; }
-    if (!banner) {
-      banner = document.createElement('div');
-      banner.id = 'pinned-banner';
-      banner.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 14px;background:#1A1400;border-bottom:1px solid rgba(255,184,48,.2);cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent';
-      const msgs = document.getElementById('messages');
-      msgs?.parentElement?.insertBefore(banner, msgs);
-    }
-    const last = pinned[pinned.length - 1];
-    const msg = _findMsg(convId, last);
-    const preview = msg?.text?.slice(0, 50) || 'Sabitlenmiş mesaj';
-    banner.innerHTML = `<span style="font-size:14px;flex-shrink:0">📌</span><div style="flex:1;min-width:0"><div style="font-size:10px;color:#FFB830;font-family:'JetBrains Mono',monospace">${pinned.length} sabitlenmiş mesaj</div><div style="font-size:12px;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${preview}</div></div><button onclick="document.getElementById('pinned-banner').remove()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;padding:4px;font-size:14px">✕</button>`;
-    banner.onclick = e => {
-      if (e.target.tagName === 'BUTTON') return;
-      const el = document.getElementById('msg-' + last);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      el.style.background = 'rgba(255,184,48,.1)';
-      setTimeout(() => { el.style.background = ''; }, 1500);
-    };
-  }
-
-  // Apply pin indicators when rendering
-  function _applyPins(convId) {
-    const key = 'cipher_pinned_msgs_' + convId;
-    const pinned = JSON.parse(localStorage.getItem(key) || '[]');
-    pinned.forEach(msgId => {
-      const el = document.getElementById('msg-' + msgId);
-      if (el && !el.querySelector('.pin-indicator')) {
-        const pi = document.createElement('div');
-        pi.className = 'pin-indicator';
-        pi.style.cssText = "font-size:10px;color:#FFB830;margin-bottom:2px;font-family:'JetBrains Mono',monospace";
-        pi.textContent = '📌 Sabitlendi';
-        el.prepend(pi);
-      }
-    });
-    if (pinned.length) _showPinnedBanner(convId);
-  }
-
   return {
     subscribeConv, renderAll,
     buildEl, send, sendGif, sendSticker,
@@ -780,7 +659,7 @@ const Messages = (() => {
     renderStickerPack, closeAllPickers,
     startVoice, stopVoice, toggleDestruct, startDestructTimer,
     handleFiles, clearFiles, clearReply, saveEdit, initEvents,
-    _toggleReaction, _ctxMenu, _setReply, _copy, _openEdit, _recall, _delete, _translate, _pinMsg,
+    _toggleReaction, _ctxMenu, _setReply, _copy, _openEdit, _recall, _delete,
     _lightbox, autoResize,
     getMsgs: convId => _getMsgs(convId),
     hasFiles: () => _files.length > 0,
