@@ -53,32 +53,33 @@ const UI = (() => {
     return Math.floor(d/604800000) + ' hafta önce';
   }
 
-  // ── Online status with duration ──────────────────────────────
+  // ── Online status: 3 modes + last seen ──────────────────────────
   function onlineStatus(user) {
     if (!user) return { text: 'Bilinmiyor', color: '#7A8FA8', dot: '#7A8FA8' };
     const now = Date.now();
 
-    // Try DB value first, then localStorage fallback
+    // Custom status mode: dnd=Rahatsız Etmeyin, away=Uzakta
+    const mode = user.status_mode || user._statusMode;
+    if (mode === 'dnd')  return { text: '🔴 Rahatsız Etmeyin', color: '#FF3D6B', dot: '#FF3D6B' };
+    if (mode === 'away') return { text: '🟡 Uzakta', color: '#FFA535', dot: '#FFA535' };
+
     let lastSeen = _ms(user.last_seen);
     let isOnline = !!user.online;
 
-    // If DB has no last_seen, check localStorage fallback (stored by heartbeat)
     if (!lastSeen && typeof Auth !== 'undefined' && Auth.getLastSeenLocal) {
       const local = Auth.getLastSeenLocal(user.username);
       if (local) { lastSeen = local.ts || 0; isOnline = local.online || false; }
     }
 
-    // Still no data
     if (!lastSeen) {
       if (isOnline) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
       return { text: '⚫ Bilinmiyor', color: '#7A8FA8', dot: '#7A8FA8' };
     }
 
     const diff = now - lastSeen;
-    if (diff < 0)      return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
-    if (diff < 120000) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
-    if (diff < 600000) return { text: `🟡 ${Math.floor(diff/60000)} dk önce`, color: '#FFA535', dot: '#FFA535' };
-    if (diff < 3600000) return { text: `⚫ ${Math.floor(diff/60000)} dk önce`, color: '#7A8FA8', dot: '#7A8FA8' };
+    if (diff < 0 || diff < 120000) return { text: '🟢 Çevrimiçi', color: '#00E676', dot: '#00E676' };
+    if (diff < 600000)   return { text: `🟡 ${Math.floor(diff/60000)} dk önce`, color: '#FFA535', dot: '#FFA535' };
+    if (diff < 3600000)  return { text: `⚫ ${Math.floor(diff/60000)} dk önce`, color: '#7A8FA8', dot: '#7A8FA8' };
     if (diff < 86400000) return { text: `⚫ ${Math.floor(diff/3600000)} sa önce`, color: '#7A8FA8', dot: '#7A8FA8' };
     return { text: `⚫ ${Math.floor(diff/86400000)} gün önce`, color: '#7A8FA8', dot: '#7A8FA8' };
   }
@@ -117,7 +118,9 @@ const UI = (() => {
       <div style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">${user.display_name||user.username}</div>
       <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${user.username}</div>
       <div style="font-size:11px;color:${st.color};margin:4px 0">${st.text}</div>
-      ${user.status?`<div style="font-size:12px;color:#B0C4D8;margin-bottom:6px">${user.status_emoji||''} ${user.status}</div>`:''}
+      ${user.status?`<div style="font-size:12px;color:#B0C4D8;margin:4px 0">${user.status_emoji||''} ${user.status}</div>`:''}
+      ${user.bio?`<div style="font-size:12px;color:#9AB0C8;line-height:1.5;margin:6px 0;padding:8px 10px;background:#06080F;border-radius:8px;border:1px solid #1E2D45">${user.bio}</div>`:''}
+      <div style="font-size:10px;color:#5A6E88;font-family:'JetBrains Mono',monospace;margin-top:6px">Katıldı: ${user.created_at ? new Date(_ms(user.created_at)).toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}) : '—'}</div>
       ${badges?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${badges}</div>`:''}
     </div>`;
     if(anchorEl){ const r=anchorEl.getBoundingClientRect(); card.style.top=Math.max(8,Math.min(r.top,window.innerHeight-400))+'px'; card.style.left=Math.max(8,(r.right+10<window.innerWidth-290?r.right+10:r.left-290))+'px'; }
