@@ -122,7 +122,11 @@ function setTab(tab) {
   document.querySelectorAll('.bottom-tab').forEach(el => {
     el.classList.toggle('active', el.dataset.tab === tab);
   });
-  if (tab === 'contacts') refreshAllUsers().then(renderContactsList).catch(console.warn);
+  if (tab === 'contacts') {
+    const si = document.getElementById('contact-search-input');
+    if (si) si.value = '';
+    refreshAllUsers().then(() => renderContactsList()).catch(console.warn);
+  }
   if (tab === 'updates') renderUpdatesTab();
 }
 
@@ -171,7 +175,18 @@ function setServer(id) {
 
 function convMatchesServer(conv) {
   if (_activeServer === 'all') return true;
-  return (conv.server || 'public') === _activeServer;
+  // Check conv.server field first (if it exists in schema)
+  if (conv.server) return conv.server === _activeServer;
+  // Fallback: check participants' server_roles
+  const cu = window._currentUser;
+  if (!cu) return true;
+  const other = conv.participants?.find(p => p !== cu.username);
+  if (!other) return true;
+  const otherUser = _allUsers[other];
+  if (!otherUser) return true;
+  const roles = otherUser.server_roles;
+  if (!roles || typeof roles !== 'object') return _activeServer === 'public';
+  return !!roles[_activeServer];
 }
 
 // ── Push notifications ─────────────────────────────────────────────
@@ -261,8 +276,11 @@ function _doRenderChatList() {
     items = items.filter(c => getConvName(c).toLowerCase().includes(q) || (c.last_msg || '').toLowerCase().includes(q));
   }
 
-  // Sort by last_time descending — handle both number and string timestamps
+  // Pinned chats first, then sort by last_time descending
+  const _pinnedSet = new Set(JSON.parse(localStorage.getItem('cipher_pinned') || '[]'));
   items.sort((a, b) => {
+    const ap = _pinnedSet.has(a.id) ? 1 : 0, bp = _pinnedSet.has(b.id) ? 1 : 0;
+    if (ap !== bp) return bp - ap; // pinned first
     const ta = typeof a.last_time === 'string' ? new Date(a.last_time).getTime() : (a.last_time || 0);
     const tb = typeof b.last_time === 'string' ? new Date(b.last_time).getTime() : (b.last_time || 0);
     return tb - ta;
@@ -294,6 +312,11 @@ function _doRenderChatList() {
     div.addEventListener('mouseenter', () => { if (!isActive) div.style.background = '#0C1220'; });
     div.addEventListener('mouseleave', () => { div.style.background = isActive ? '#151E30' : 'transparent'; });
     div.addEventListener('click', () => openConv(conv.id));
+    // Long press = pin/unpin
+    let _pressTimer = null;
+    div.addEventListener('pointerdown', () => { _pressTimer = setTimeout(() => { togglePinChat(conv.id); renderChatList(); }, 600); });
+    div.addEventListener('pointerup',   () => clearTimeout(_pressTimer));
+    div.addEventListener('pointerleave',() => clearTimeout(_pressTimer));
 
     // Avatar
     let avHtml;
@@ -314,7 +337,8 @@ function _doRenderChatList() {
     div.innerHTML = `${avHtml}
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-          <span style="font-weight:600;font-size:13px;font-family:Syne,sans-serif;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px">${name}</span>
+          <span style="font-weight:600;font-size:13px;font-family:Syne,sans-serif;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:4px">${name}</span>
+          ${_pinnedSet.has(conv.id) ? '<span style="font-size:10px;color:#FFB830;margin-right:4px">📌</span>' : ''}
           <span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;flex-shrink:0">${conv.last_time ? UI.fmtTime(conv.last_time) : ''}</span>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between">
@@ -637,28 +661,41 @@ async function leaveGroup(convId) {
 }
 
 // ── Contacts tab ────────────────────────────────────────────────────
-function renderContactsList() {
+function renderContactsList(searchQ) {
   const list = document.getElementById('contacts-tab-list');
   if (!list) return;
   const cu = window._currentUser;
 
+  // ALL users except self — no server_roles filtering
+  // Users see everyone (server filtering is for chat list, not contacts)
   let users = Object.values(_allUsers).filter(u => u.username !== cu.username);
 
-  if (!cu.is_admin) {
-    const myServers = new Set(Object.entries(cu.server_roles || {}).filter(([,v])=>v).map(([k])=>k));
-    myServers.add('public');
+  // Filter by active server if set (not 'all')
+  if (_activeServer && _activeServer !== 'all') {
     users = users.filter(u => {
-      if (u.is_admin) return false;
-      const theirServers = new Set(Object.entries(u.server_roles || {}).filter(([,v])=>v).map(([k])=>k));
-      for (const s of myServers) if (theirServers.has(s) || s === 'public') return true;
-      return false;
+      // Admin sees everyone
+      if (cu.is_admin) return true;
+      const roles = u.server_roles;
+      // If roles not loaded yet, show user anyway
+      if (!roles || typeof roles !== 'object') return true;
+      return !!roles[_activeServer] || _activeServer === 'public';
     });
+  }
+
+  // Search filter
+  const q = (searchQ || document.getElementById('contact-search-input')?.value || '').toLowerCase().trim();
+  if (q) {
+    users = users.filter(u =>
+      (u.display_name || '').toLowerCase().includes(q) ||
+      u.username.toLowerCase().includes(q) ||
+      (u.bio || '').toLowerCase().includes(q)
+    );
   }
 
   users.sort((a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username, 'tr'));
 
   if (!users.length) {
-    list.innerHTML = '<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">Henüz kullanıcı yok</div>';
+    list.innerHTML = `<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">${q ? `"${q}" için sonuç yok` : 'Henüz kullanıcı yok'}</div>`;
     return;
   }
 
@@ -666,24 +703,35 @@ function renderContactsList() {
   const frag = document.createDocumentFragment();
 
   users.forEach(u => {
-    const c = UI.avatarColor(u.username);
+    const color = UI.avatarColor(u.username);
     const hasChatted = chattedSet.has(u.username);
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:13px;cursor:pointer;margin:1px 5px;transition:background .12s';
     div.onmouseenter = () => div.style.background = '#0C1220';
     div.onmouseleave = () => div.style.background = 'transparent';
 
-    const av = hasChatted && u.avatar_url
-      ? `<img src="${u.avatar_url}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover">`
-      : `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>`;
+    const av = u.avatar_url
+      ? `<img src="${u.avatar_url}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+      : `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(u.display_name || u.username)}</div>`;
 
     const st = UI.onlineStatus(u);
+
+    // Server role badges
+    let serverBadges = '';
+    if (u.server_roles && typeof u.server_roles === 'object') {
+      const activeSrvs = Object.entries(CONFIG.SERVERS)
+        .filter(([id]) => u.server_roles[id])
+        .map(([,srv]) => `<span style="font-size:10px" title="${srv.label}">${srv.icon}</span>`);
+      if (activeSrvs.length) serverBadges = `<div style="display:flex;gap:2px;margin-top:2px">${activeSrvs.join('')}</div>`;
+    }
+
     div.innerHTML = `${av}
       <div style="flex:1;min-width:0">
         <div style="font-size:13px;font-weight:600;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.display_name || u.username}</div>
         <div style="font-size:11px;color:${st.color}">${st.text}</div>
+        ${serverBadges}
       </div>
-      <button data-uid="${u.username}" class="contact-msg-btn" style="padding:6px 12px;border-radius:8px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:12px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent">Mesaj</button>`;
+      <button data-uid="${u.username}" class="contact-msg-btn" style="padding:6px 12px;border-radius:8px;background:#131D30;color:var(--accent,#00FFB3);border:1px solid rgba(0,255,179,.2);font-size:12px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;font-weight:600">Mesaj</button>`;
 
     div.querySelector('.contact-msg-btn').addEventListener('click', e => {
       e.stopPropagation();
@@ -696,6 +744,10 @@ function renderContactsList() {
 
   list.innerHTML = '';
   list.appendChild(frag);
+
+  // Update count badge
+  const countEl = document.getElementById('contacts-count');
+  if (countEl) countEl.textContent = users.length + ' kullanıcı';
 }
 
 // ── Updates tab ─────────────────────────────────────────────────────
@@ -1504,50 +1556,195 @@ function _renderCustomizeModal() {
     }
   }
 
-  // ── ARKAPLANLAR ──────────────────────────────────────────────
+  // ── ARKAPLANLAR — kategorili ─────────────────────────────────
   const bgGrid = document.getElementById('cust-bg-grid');
   if (bgGrid) {
-    if (!cfg.backgrounds?.length) {
-      bgGrid.innerHTML = '<div style="font-size:12px;color:#5A6E88">Arkaplan seçeneği yok. customize/config.json dosyasına ekleyin.</div>';
+    bgGrid.innerHTML = '';
+    const hasCats = cfg.backgrounds?.length && cfg.backgrounds[0]?.category;
+    const categories = hasCats
+      ? cfg.backgrounds
+      : [{ category: null, items: cfg.backgrounds || [] }];
+
+    const selectBg = (b, box) => {
+      bgGrid.querySelectorAll('[data-bg-box]').forEach(el => el.style.borderColor = '#1E2D45');
+      box.style.borderColor = 'var(--accent,#00FFB3)';
+      const msgEl = document.getElementById('messages');
+      if (b.file) {
+        _cSet({ bgFile: b.file });
+        if (msgEl) { msgEl.style.backgroundImage = `url('customize/${b.file}?v=1')`; msgEl.style.backgroundSize='cover'; msgEl.style.backgroundPosition='center'; msgEl.style.backgroundRepeat='no-repeat'; }
+      } else {
+        _cSet({ bgFile: '' });
+        if (msgEl) { msgEl.style.backgroundImage = 'none'; msgEl.style.backgroundColor = '#0D1424'; }
+      }
+      UI.toast(b.label + ' ✓', 'success');
+    };
+
+    // Category tabs
+    if (hasCats) {
+      const tabBar = document.createElement('div');
+      tabBar.style.cssText = 'display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch';
+      const itemsArea = document.createElement('div');
+      itemsArea.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
+
+      const showCat = catName => {
+        tabBar.querySelectorAll('button').forEach(b => {
+          const on = b.dataset.c === catName;
+          b.style.background  = on ? 'rgba(0,255,179,.12)' : 'transparent';
+          b.style.borderColor = on ? 'var(--accent,#00FFB3)' : '#1E2D45';
+          b.style.color       = on ? 'var(--accent,#00FFB3)' : '#7A8FA8';
+        });
+        itemsArea.innerHTML = '';
+        const cat = categories.find(c => c.category === catName);
+        const items = cat?.items || [];
+        if (!items.length) {
+          itemsArea.innerHTML = '<div style="font-size:11px;color:#3A4A5A;padding:8px">Bu kategoriye arkaplan eklenmemiş.</div>';
+          return;
+        }
+        items.forEach(b => {
+          const active = b.file ? saved.bgFile === b.file : !saved.bgFile;
+          const wrap = document.createElement('button');
+          wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent';
+          const box = document.createElement('div');
+          box.setAttribute('data-bg-box','1');
+          box.style.cssText = `width:60px;height:60px;border-radius:12px;overflow:hidden;border:2.5px solid ${active?'var(--accent,#00FFB3)':'#1E2D45'};background:#0D1424;flex-shrink:0;transition:border-color .15s`;
+          if (b.file) box.innerHTML = `<img src="customize/${b.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.background='#0D1424'">`;
+          else box.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2A3A50">∅</div>';
+          const lbl = document.createElement('span');
+          lbl.style.cssText = "font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace";
+          lbl.textContent = b.label;
+          wrap.appendChild(box); wrap.appendChild(lbl);
+          wrap.onclick = () => selectBg(b, box);
+          itemsArea.appendChild(wrap);
+        });
+      };
+
+      categories.forEach((cat, i) => {
+        const tab = document.createElement('button');
+        tab.dataset.c = cat.category;
+        tab.textContent = cat.category;
+        tab.style.cssText = "padding:5px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap;border:1px solid #1E2D45;color:#7A8FA8;background:transparent;flex-shrink:0";
+        tab.onclick = () => showCat(cat.category);
+        tabBar.appendChild(tab);
+      });
+
+      bgGrid.appendChild(tabBar);
+      bgGrid.appendChild(itemsArea);
+      showCat(categories[0].category);
     } else {
-      bgGrid.innerHTML = '';
-      cfg.backgrounds.forEach(b => {
+      // Flat list
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px';
+      (categories[0]?.items || []).forEach(b => {
         const active = b.file ? saved.bgFile === b.file : !saved.bgFile;
         const wrap = document.createElement('button');
-        wrap.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:6px;background:transparent;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent`;
+        wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:5px;background:transparent;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent';
         const box = document.createElement('div');
-        box.style.cssText = `width:56px;height:56px;border-radius:12px;overflow:hidden;border:2.5px solid ${active ? 'var(--accent)' : '#1E2D45'};background:#0D1424;transition:border-color .15s;flex-shrink:0`;
-        if (b.file) {
-          box.innerHTML = `<img src="customize/${b.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.background='#0D1424'">`;
-        } else {
-          box.style.background = '#0D1424';
-          box.innerHTML = `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px;color:#1E2D45">✕</div>`;
-        }
+        box.setAttribute('data-bg-box','1');
+        box.style.cssText = `width:60px;height:60px;border-radius:12px;overflow:hidden;border:2.5px solid ${active?'var(--accent,#00FFB3)':'#1E2D45'};background:#0D1424;flex-shrink:0;transition:border-color .15s`;
+        if (b.file) box.innerHTML = `<img src="customize/${b.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.background='#0D1424'">`;
+        else box.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2A3A50">∅</div>';
         const lbl = document.createElement('span');
-        lbl.style.cssText = 'font-size:10px;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace';
+        lbl.style.cssText = "font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace";
         lbl.textContent = b.label;
-        wrap.appendChild(box);
-        wrap.appendChild(lbl);
-        wrap.onclick = () => {
-          bgGrid.querySelectorAll('div[style*="border"]').forEach(el => el.style.borderColor = '#1E2D45');
-          box.style.borderColor = 'var(--accent)';
-          const msgEl = document.getElementById('messages');
-          if (b.file) {
-            _cSet({ bgFile: b.file });
-            if (msgEl) {
-              msgEl.style.backgroundImage    = `url('customize/${b.file}?v=1')`;
-              msgEl.style.backgroundSize     = 'cover';
-              msgEl.style.backgroundPosition = 'center';
-              msgEl.style.backgroundRepeat   = 'no-repeat';
-            }
-          } else {
-            _cSet({ bgFile: '' });
-            if (msgEl) { msgEl.style.backgroundImage = 'none'; msgEl.style.backgroundColor = '#0D1424'; }
-          }
-          UI.toast(b.label + ' arkaplan ✓', 'success');
-        };
-        bgGrid.appendChild(wrap);
+        wrap.appendChild(box); wrap.appendChild(lbl);
+        wrap.onclick = () => selectBg(b, box);
+        row.appendChild(wrap);
       });
+      bgGrid.appendChild(row);
     }
   }
+}
+
+// ── Pin / Unpin chat ──────────────────────────────────────────────
+function togglePinChat(convId) {
+  const pinned = JSON.parse(localStorage.getItem('cipher_pinned') || '[]');
+  const idx = pinned.indexOf(convId);
+  if (idx >= 0) pinned.splice(idx, 1);
+  else pinned.push(convId);
+  localStorage.setItem('cipher_pinned', JSON.stringify(pinned));
+  UI.toast(idx >= 0 ? 'Sohbet sabitlemesi kaldırıldı' : '📌 Sohbet sabitlendi', 'info');
+}
+
+// ── Status mode (Çevrimiçi / Uzakta / Rahatsız Etmeyin) ──────────
+function setStatusMode(mode) {
+  const cu = window._currentUser;
+  if (!cu) return;
+  cu._statusMode = mode;
+  // Persist in status_mode field (optional — may not exist in schema)
+  DB.updateUser(cu.username, { status_mode: mode }).catch(() => {});
+  localStorage.setItem('cipher_status_mode', mode);
+  // Update heartbeat
+  if (mode === 'dnd' || mode === 'away') {
+    DB.updateUser(cu.username, { online: mode === 'away' ? false : true }).catch(() => {});
+  }
+  UI.toast({ online: '🟢 Çevrimiçi', away: '🟡 Uzakta', dnd: '🔴 Rahatsız Etmeyin' }[mode], 'info');
+}
+
+// Load saved status mode on boot
+function _loadStatusMode() {
+  const mode = localStorage.getItem('cipher_status_mode') || 'online';
+  const sel = document.getElementById('status-mode-select');
+  if (sel) sel.value = mode;
+  if (window._currentUser) window._currentUser._statusMode = mode;
+}
+
+// ── Compose + menu ────────────────────────────────────────────────
+function toggleComposePlus() {
+  const m = document.getElementById('compose-plus-menu');
+  if (!m) return;
+  const open = m.style.display !== 'none';
+  m.style.display = open ? 'none' : 'block';
+  if (!open) {
+    const hide = e => { if (!m.contains(e.target) && e.target.id !== 'compose-plus-btn') { m.style.display='none'; document.removeEventListener('click',hide); } };
+    setTimeout(() => document.addEventListener('click', hide), 10);
+  }
+}
+function closeComposePlus() { const m=document.getElementById('compose-plus-menu'); if(m) m.style.display='none'; }
+
+// ── Poll (Anket) ──────────────────────────────────────────────────
+function openPollCreate() { UI.openModal('poll-modal'); }
+
+function addPollOption() {
+  const wrap = document.getElementById('poll-options-wrap');
+  if (!wrap || wrap.children.length >= 6) return;
+  const inp = document.createElement('input');
+  inp.className = 'poll-opt modal-inp';
+  inp.type = 'text';
+  inp.placeholder = `Seçenek ${wrap.children.length + 1}`;
+  wrap.appendChild(inp);
+}
+
+async function submitPoll() {
+  const question = document.getElementById('poll-question')?.value.trim();
+  if (!question) { UI.toast('Soru girin', 'error'); return; }
+  const opts = Array.from(document.querySelectorAll('.poll-opt')).map(i => i.value.trim()).filter(Boolean);
+  if (opts.length < 2) { UI.toast('En az 2 seçenek girin', 'error'); return; }
+  const convId = window._currentConvId;
+  if (!convId) return;
+  const poll = { question, options: opts, votes: Object.fromEntries(opts.map(o => [o, []])) };
+  try {
+    await DB.createMessage({ conv_id:convId, from:window._currentUser.username, type:'poll', text:question, poll_data:JSON.stringify(poll), status:'sent', created_at:Date.now() });
+    await DB.updateConversation(convId, { last_msg:`📊 ${question}`, last_time:Date.now(), last_from:window._currentUser.username });
+    UI.closeModal('poll-modal');
+    window._onNewMessage?.();
+    UI.toast('Anket gönderildi ✓', 'success');
+  } catch(e) { UI.toast('Gönderilemedi: ' + e.message, 'error'); }
+}
+
+async function votePoll(msgId, option) {
+  const convId = window._currentConvId;
+  const msgs = await DB.getMessages(convId);
+  const msg = msgs.find(m => m.id === msgId);
+  if (!msg || !msg.poll_data) return;
+  const poll = JSON.parse(msg.poll_data);
+  const username = window._currentUser.username;
+  // Remove previous vote
+  Object.values(poll.votes).forEach(voters => { const i = voters.indexOf(username); if (i >= 0) voters.splice(i, 1); });
+  // Add new vote
+  if (!poll.votes[option]) poll.votes[option] = [];
+  poll.votes[option].push(username);
+  try {
+    await DB.updateMessage(convId, msgId, { poll_data: JSON.stringify(poll) });
+    window._onNewMessage?.();
+  } catch(e) { UI.toast('Oy verilemedi', 'error'); }
 }
