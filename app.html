@@ -104,8 +104,18 @@
 
     <!-- TAB: Kişiler -->
     <div id="tab-contacts" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden">
-      <div style="padding:8px 12px;flex-shrink:0">
-        <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.08em;margin-bottom:4px">TÜM KULLANICILAR</div>
+      <div style="padding:8px 12px;flex-shrink:0;display:flex;flex-direction:column;gap:8px">
+        <!-- Arama -->
+        <div style="position:relative">
+          <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#DDE8F8" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <input id="contact-search-input" type="text" placeholder="İsim veya kullanıcı adı ara…"
+            style="width:100%;padding:9px 12px 9px 32px;border-radius:11px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;font-size:14px;outline:none;font-family:'DM Sans',sans-serif;transition:border-color .2s"
+            onfocus="this.style.borderColor='var(--accent,#00FFB3)'" onblur="this.style.borderColor='#1E2D45'"
+            oninput="renderContactsList(this.value)">
+        </div>
+        <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.08em" id="contacts-count"></div>
       </div>
       <div id="contacts-tab-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
     </div>
@@ -261,11 +271,23 @@
         <div style="display:flex;align-items:flex-end;gap:6px">
           <!-- Left actions -->
           <div style="display:flex;gap:4px;align-items:flex-end;flex-shrink:0">
-            <label style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:border-color .15s;flex-shrink:0"
-              onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              <input type="file" id="file-input" class="hidden" multiple onchange="Messages.handleFiles(this.files)">
-            </label>
+            <!-- + menu -->
+            <button id="compose-plus-btn" onclick="toggleComposePlus()" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:all .15s;flex-shrink:0" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+            <!-- Compose + popup -->
+            <div id="compose-plus-menu" style="display:none;position:absolute;bottom:60px;left:12px;background:#0C1220;border:1px solid #1E2D45;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:20;min-width:180px">
+              <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:13px;color:#DDE8F8;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
+                <span style="font-size:18px">📎</span> Dosya Ekle
+                <input type="file" id="file-input" class="hidden" multiple onchange="Messages.handleFiles(this.files);closeComposePlus()">
+              </label>
+              <button onclick="openScheduler();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
+                <span style="font-size:18px">⏰</span> Zamanlanmış Gönder
+              </button>
+              <button onclick="openPollCreate();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
+                <span style="font-size:18px">📊</span> Anket Oluştur
+              </button>
+            </div>
             <button onclick="Messages.toggleGifPicker()"
               style="height:36px;padding:0 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#7A8FA8;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:all .15s;flex-shrink:0"
               onmouseenter="this.style.borderColor='#00FFB3';this.style.color='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45';this.style.color='#7A8FA8'">GIF</button>
@@ -404,6 +426,16 @@
         <button onclick="UI.closeModal('settings-modal');openDeleteAccount()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid rgba(255,61,107,.3);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:10px" onmouseenter="this.style.borderColor='#FF3D6B'" onmouseleave="this.style.borderColor='rgba(255,61,107,.3)'">
           <span style="font-size:20px">🗑</span><div><div style="font-size:13px;color:#FF3D6B;font-weight:500">Hesabı Sil</div><div style="font-size:11px;color:#7A8FA8">Kalıcı olarak sil</div></div>
         </button>
+        <!-- Durum modu -->
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid #1E2D45;margin-bottom:8px">
+          <span style="font-size:20px">💬</span>
+          <div style="flex:1"><div style="font-size:13px;color:#DDE8F8;font-weight:500">Durum Modu</div></div>
+          <select id="status-mode-select" onchange="setStatusMode(this.value)" style="background:#131D30;border:1px solid #1E2D45;border-radius:8px;color:#DDE8F8;padding:5px 8px;font-size:12px;cursor:pointer;outline:none">
+            <option value="online">🟢 Çevrimiçi</option>
+            <option value="away">🟡 Uzakta</option>
+            <option value="dnd">🔴 Rahatsız Etmeyin</option>
+          </select>
+        </div>
         <button onclick="Auth.logout()" style="width:100%;padding:11px;border-radius:12px;background:rgba(255,61,107,.08);color:#FF3D6B;border:1px solid rgba(255,61,107,.2);font-weight:600;font-size:14px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,61,107,.15)'" onmouseleave="this.style.background='rgba(255,61,107,.08)'">
           Çıkış Yap
         </button>
@@ -746,6 +778,28 @@
         <div id="cust-bg-grid" style="display:flex;flex-wrap:wrap;gap:12px"></div>
       </div>
 
+    </div>
+  </div>
+</div>
+
+<!-- ── ANKET MODAL ───────────────────────────────────────────── -->
+<div id="poll-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
+  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45">
+      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">📊 Anket Oluştur</span>
+      <button onclick="UI.closeModal('poll-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
+      <div>
+        <label class="modal-lbl">SORU</label>
+        <input id="poll-question" type="text" class="modal-inp" placeholder="Soruyu yazın…">
+      </div>
+      <div id="poll-options-wrap" style="display:flex;flex-direction:column;gap:6px">
+        <input class="poll-opt modal-inp" type="text" placeholder="Seçenek 1">
+        <input class="poll-opt modal-inp" type="text" placeholder="Seçenek 2">
+      </div>
+      <button onclick="addPollOption()" style="padding:7px;border-radius:8px;background:#131D30;border:1px solid #1E2D45;color:#00FFB3;font-size:12px;cursor:pointer">+ Seçenek Ekle</button>
+      <button onclick="submitPoll()" class="modal-btn">Anketi Gönder</button>
     </div>
   </div>
 </div>
