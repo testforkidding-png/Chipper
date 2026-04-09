@@ -33,21 +33,6 @@ const Messages = (() => {
   let _gifCache = null, _gifLoading = false, _gifResults = [];
 
   // ── Subscribe ─────────────────────────────────────────────────
-  // messages.js içine eklenecek yardımcı fonksiyon
-function _parseMarkdown(text) {
-  if (!text) return '';
-  return text
-    // Güvenlik için HTML etiketlerini temizle (XSS önlemi)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    // Kod Bloğu: `kod` -> <code>kod</code>
-    .replace(/`([^`]+)`/g, '<code style="background:rgba(0,0,0,0.3);padding:2px 4px;border-radius:4px;font-family:monospace;font-size:0.9em">$1</code>')
-    // Kalın: **metin** -> <b>metin</b>
-    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
-    // İtalik: *metin* -> <i>metin</i>
-    .replace(/\*([^*]+)\*/g, '<i>$1</i>')
-    // Üstü Çizili: ~~metin~~ -> <strike>metin</strike>
-    .replace(/~~([^~]+)~~/g, '<strike>$1</strike>');
-}
   function subscribeConv(convId) {
     if (window._realtimeSub) { try { DB.unsubscribe(window._realtimeSub); } catch {} window._realtimeSub = null; }
     if (window._pollInterval)  { clearInterval(window._pollInterval); window._pollInterval = null; }
@@ -180,7 +165,26 @@ function _parseMarkdown(text) {
 
     let contentHtml = '';
     if (!recalled) {
-      if (msg.type === 'gif' && msg.gif_url) {
+      if (msg.type === 'poll' && msg.poll_data) {
+        try {
+          const poll = JSON.parse(msg.poll_data);
+          const totalVotes = Object.values(poll.votes).reduce((s,v) => s + v.length, 0);
+          const userVote = Object.entries(poll.votes).find(([,v]) => v.includes(window._currentUser?.username))?.[0];
+          const opts = poll.options.map(opt => {
+            const count = (poll.votes[opt] || []).length;
+            const pct = totalVotes ? Math.round(count / totalVotes * 100) : 0;
+            const chosen = userVote === opt;
+            return `<button onclick="votePoll('${msg.id}','${opt.replace(/'/g,'&#39;')}')" style="width:100%;margin-bottom:5px;padding:8px 12px;border-radius:8px;border:1.5px solid ${chosen?'var(--accent,#00FFB3)':'#1E2D45'};background:${chosen?'rgba(0,255,179,.08)':'transparent'};cursor:pointer;text-align:left;position:relative;overflow:hidden">
+              <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:rgba(0,255,179,.07);border-radius:6px"></div>
+              <div style="position:relative;display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px;color:${chosen?'var(--accent,#00FFB3)':'#DDE8F8'}">${opt}</span>
+                <span style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${pct}%</span>
+              </div>
+            </button>`;
+          }).join('');
+          contentHtml = `<div style="margin-top:4px"><div style="font-size:13px;font-weight:600;color:#DDE8F8;margin-bottom:8px">${poll.question}</div>${opts}<div style="font-size:10px;color:#5A6E88;font-family:'JetBrains Mono',monospace;margin-top:4px">${totalVotes} oy</div></div>`;
+        } catch(e) { contentHtml = '<div style="color:#FF3D6B;font-size:12px">Anket yüklenemedi</div>'; }
+      } else if (msg.type === 'gif' && msg.gif_url) {
         contentHtml = `<img src="${msg.gif_url}" alt="GIF" style="max-width:220px;max-height:180px;border-radius:10px;display:block;margin-top:4px;cursor:pointer" onclick="Messages._lightbox('${msg.gif_url}')">`;
       } else if (msg.type === 'sticker' && msg.sticker) {
         contentHtml = `<div style="font-size:52px;line-height:1;padding:4px 0">${msg.sticker}</div>`;
@@ -195,7 +199,21 @@ function _parseMarkdown(text) {
       }
     }
 
-    const textHtml = text ? `<div style="font-size:14px;line-height:1.55;color:${recalled?'#7A8FA8':'#DDE8F8'};word-break:break-word${recalled?';font-style:italic':''}">${text}</div>` : '';
+        // Markdown render
+    function _md(t) {
+      const esc = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const codeBlockStyle = 'display:block;background:#06080F;border:1px solid #1E2D45;border-radius:8px;padding:8px 12px;font-family:monospace;font-size:12px;white-space:pre-wrap;margin:4px 0';
+      const inlineCodeStyle = 'background:#06080F;border:1px solid #1E2D45;border-radius:4px;padding:1px 5px;font-family:monospace;font-size:12px';
+      return esc
+        .replace(/```([\s\S]*?)```/g, `<code style="${codeBlockStyle}">$1</code>`)
+        .replace(/`([^`]+)`/g,        `<code style="${inlineCodeStyle}">$1</code>`)
+        .replace(/\*\*([^*]+)\*\*/g,  '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g,      '<em>$1</em>')
+        .replace(/~~([^~]+)~~/g,      '<s>$1</s>')
+        .replace(/\n/g,              '<br>');
+    }
+    const safeText = recalled ? text : (text ? _md(text) : '');
+    const textHtml = safeText ? `<div style="font-size:14px;line-height:1.55;color:${recalled?'#7A8FA8':'#DDE8F8'};word-break:break-word${recalled?';font-style:italic':''}">${safeText}</div>` : '';
     const replyHtml = msg.reply_to_text ? `<div style="margin-bottom:5px;padding:4px 8px;border-radius:7px;border-left:2px solid #00FFB3;background:rgba(0,0,0,.22);font-size:11px;color:#7A8FA8;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${msg.reply_to_text}</div>` : '';
 
     let reactHtml = '';
@@ -378,70 +396,35 @@ function _parseMarkdown(text) {
     _gifLoading = false;
   }
 
-// messages.js dosyasındaki renderGifs fonksiyonunu bul ve bununla değiştir:
-function renderGifs() {
-  const grid = document.getElementById('gif-grid');
-  if (!grid) return;
-  if (!_gifResults.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Sonuç bulunamadı</div>';
-    return;
+  function renderGifs() {
+    const grid = document.getElementById('gif-grid');
+    if (!grid) return;
+    if (!_gifResults.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Sonuç bulunamadı</div>';
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    _gifResults.forEach(g => {
+      const url = g.images?.fixed_height?.url || g.images?.downsized?.url || g.images?.original?.url;
+      if (!url) return;
+      const div = document.createElement('div');
+      div.className = 'gif-item';
+      div.style.cssText = 'position:relative;width:100%;height:0;padding-bottom:100%;border-radius:12px;overflow:hidden;background:#0C1220;border:1px solid #1E2D45;cursor:pointer;transition:transform .1s,border-color .1s';
+      div.onmouseenter = () => { div.style.transform='scale(1.03)'; div.style.borderColor='var(--accent)'; };
+      div.onmouseleave = () => { div.style.transform='scale(1)'; div.style.borderColor='#1E2D45'; };
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = (g.title||'GIF').replace(/"/g,'');
+      img.loading = 'lazy';
+      img.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block';
+      div.appendChild(img);
+      div.onclick = () => { if (!window._currentConvId) return; sendGif(window._currentConvId, url, g.title); };
+      frag.appendChild(div);
+    });
+    grid.innerHTML = '';
+    grid.appendChild(frag);
   }
-  
-  const frag = document.createDocumentFragment();
-  
-  _gifResults.forEach(g => {
-    // En uygun GIF URL'sini seç (hareketli ve çok büyük olmayan)
-    const url = g.images?.fixed_height?.url || g.images?.downsized?.url || g.images?.original?.url;
-    if (!url) return;
 
-    // Ana konteyner (GIF kartı)
-    const div = document.createElement('div');
-    div.className = 'gif-item';
-    // Burası Kritik: GIF'lerin iç içe girmesini engelleyen stil.
-    // Sabit kare en boy oranı (1/1) ve yükseklik ayarı.
-    div.style.cssText = `
-      position: relative;
-      width: 100%;
-      height: 0;
-      padding-bottom: 100%; /* Kare en-boy oranı (1:1) */
-      border-radius: 12px;
-      overflow: hidden;
-      background-color: #0C1220; /* GIF yüklenirken arka plan */
-      border: 1px solid #1E2D45;
-      cursor: pointer;
-      transition: transform 0.1s ease, border-color 0.1s ease;
-    `;
-    
-    // Hover efekti (JS ile ekliyoruz çünkü CSS sınıfı bazen Tailwind ile çakışıyor)
-    div.onmouseenter = () => { div.style.transform = 'scale(1.03)'; div.style.borderColor = '#00FFB3'; };
-    div.onmouseleave = () => { div.style.transform = 'scale(1)'; div.style.borderColor = '#1E2D45'; };
-
-    // GIF Resim Etiketi
-    const img = document.createElement('img');
-    img.src = url;
-    img.alt = (g.title || 'GIF').replace(/"/g, '');
-    img.loading = 'lazy'; // Performans için önemli
-    
-    // Resmin kartın içine sığmasını sağlayan stil
-    img.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover; /* Resmi en-boy oranını bozmadan sığdır */
-      display: block;
-    `;
-    
-    div.appendChild(img);
-    div.onclick = () => { if (!window._currentConvId) return; sendGif(window._currentConvId, url, g.title); };
-    
-    frag.appendChild(div);
-  });
-  
-  grid.innerHTML = ''; // Önceki sonuçları temizle
-  grid.appendChild(frag);
-}
   // ── Sticker Picker ────────────────────────────────────────────
   function toggleSticker() {
     _stickerOpen = !_stickerOpen; _gifOpen = false;
@@ -685,3 +668,101 @@ function renderGifs() {
     get _stickerOpen(){ return _stickerOpen; }, set _stickerOpen(v){ _stickerOpen = v; },
   };
 })();
+
+// ══════════════════════════════════════════════════════════════════
+// ZAMANLANMIŞ MESAJ GÖNDERME
+// ══════════════════════════════════════════════════════════════════
+let _scheduledTimer = null;
+
+function openScheduler() {
+  const existing = document.getElementById('scheduler-bar');
+  if (existing) { existing.remove(); _clearScheduler(); return; }
+  const bar = document.createElement('div');
+  bar.id = 'scheduler-bar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;margin-bottom:8px;border-radius:10px;background:#071825;border:1px solid rgba(0,229,255,.25)';
+  bar.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00E5FF" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <span style="font-size:11px;color:#00E5FF;font-family:'JetBrains Mono',monospace">Zamanlanmış:</span>
+    <input type="datetime-local" id="schedule-dt" style="background:transparent;border:none;outline:none;font-size:11px;color:#DDE8F8;font-family:'JetBrains Mono',monospace;cursor:pointer;flex:1">
+    <button onclick="_clearScheduler()" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>`;
+  const compose = document.getElementById('compose');
+  if (compose) compose.insertBefore(bar, compose.firstChild);
+  // Set min to now
+  const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.getElementById('schedule-dt').min = now.toISOString().slice(0,16);
+}
+
+function _clearScheduler() {
+  document.getElementById('scheduler-bar')?.remove();
+  if (_scheduledTimer) { clearTimeout(_scheduledTimer); _scheduledTimer = null; }
+  window._scheduledSendAt = null;
+}
+
+function getScheduledTime() {
+  const dt = document.getElementById('schedule-dt')?.value;
+  if (!dt) return null;
+  const t = new Date(dt).getTime();
+  return t > Date.now() ? t : null;
+}
+
+// Patch send to support scheduled
+const _origSend = Messages.send.bind(Messages);
+Messages.sendScheduled = async function(convId) {
+  const sendAt = getScheduledTime();
+  if (!sendAt) { _origSend(convId); return; }
+  const input = document.getElementById('msg-input');
+  const text = (input?.value || '').trim();
+  if (!text) return;
+  // Store scheduled message in localStorage
+  const scheduled = JSON.parse(localStorage.getItem('cipher_scheduled') || '[]');
+  scheduled.push({ convId, text, sendAt, id: 'sched_' + Date.now() });
+  localStorage.setItem('cipher_scheduled', JSON.stringify(scheduled));
+  if (input) { input.value = ''; Messages.autoResize(input); }
+  _clearScheduler();
+  UI.toast(`⏰ ${new Date(sendAt).toLocaleString('tr-TR')} tarihinde gönderilecek`, 'info', 4000);
+};
+
+// Check scheduled messages periodically
+setInterval(() => {
+  const scheduled = JSON.parse(localStorage.getItem('cipher_scheduled') || '[]');
+  if (!scheduled.length) return;
+  const now = Date.now();
+  const pending = [], toSend = [];
+  scheduled.forEach(s => (s.sendAt <= now ? toSend : pending).push(s));
+  if (toSend.length) {
+    localStorage.setItem('cipher_scheduled', JSON.stringify(pending));
+    toSend.forEach(async s => {
+      try {
+        await DB.createMessage({ conv_id: s.convId, from: window._currentUser?.username, type: 'text', text: s.text, status: 'sent', created_at: Date.now() });
+        await DB.updateConversation(s.convId, { last_msg: s.text, last_time: Date.now(), last_from: window._currentUser?.username });
+        window._onNewMessage?.();
+      } catch(e) { console.warn('Scheduled send failed:', e); }
+    });
+  }
+}, 15000);
+
+// ══════════════════════════════════════════════════════════════════
+// OFFLİNE OUTBOX (Taslak & Kuyruğu)
+// ══════════════════════════════════════════════════════════════════
+const _OUTBOX_KEY = 'cipher_outbox';
+
+function _outboxAdd(convId, text) {
+  const q = JSON.parse(localStorage.getItem(_OUTBOX_KEY) || '[]');
+  q.push({ convId, text, ts: Date.now(), id: 'ob_' + Date.now() });
+  localStorage.setItem(_OUTBOX_KEY, JSON.stringify(q));
+}
+
+function _outboxFlush() {
+  if (!navigator.onLine) return;
+  const q = JSON.parse(localStorage.getItem(_OUTBOX_KEY) || '[]');
+  if (!q.length) return;
+  localStorage.setItem(_OUTBOX_KEY, '[]');
+  q.forEach(async item => {
+    try {
+      await DB.createMessage({ conv_id: item.convId, from: window._currentUser?.username, type: 'text', text: item.text, status: 'sent', created_at: item.ts });
+      await DB.updateConversation(item.convId, { last_msg: item.text, last_time: item.ts, last_from: window._currentUser?.username });
+      window._onNewMessage?.();
+      UI.toast('📤 Taslak gönderildi', 'success');
+    } catch(e) { _outboxAdd(item.convId, item.text); }
+  });
+}
+window.addEventListener('online', _outboxFlush);
