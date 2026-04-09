@@ -16,6 +16,7 @@
             align-items: center;
             height: 100vh;
             overflow: hidden;
+            user-select: none;
         }
 
         .container {
@@ -25,19 +26,23 @@
             border-radius: 15px;
             background: rgba(255, 255, 255, 0.02);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            transition: all 0.5s ease;
         }
 
+        /* Easter Egg için cursor değişimi */
         .cipher-icon {
             font-size: 50px;
             margin-bottom: 20px;
-            color: #00ff88; /* Neon yeşil dokunuşu */
+            color: #00ff88;
             animation: pulse 2s infinite;
+            cursor: help; 
         }
 
         h1 {
             font-size: 2.5rem;
             margin-bottom: 10px;
             letter-spacing: 2px;
+            transition: opacity 0.3s;
         }
 
         p {
@@ -61,21 +66,58 @@
         }
 
         @keyframes pulse {
-            0% { opacity: 0.5; }
-            50% { opacity: 1; }
-            100% { opacity: 0.5; }
+            0% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0.5; transform: scale(1); }
+        }
+
+        /* Gizli Stil */
+        .tesseract-mode {
+            color: #ff0055 !important;
+            text-shadow: 0 0 10px #ff0055;
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="cipher-icon">◈</div>
-    <h1>CIPHER SİSTEMLERİ</h1>
-    <p>Şu an sistem genelinde planlı bir bakım çalışması yapılıyor.</p>
+<div class="container" id="main-box">
+    <div class="cipher-icon" id="easter-egg-trigger">◈</div>
+    <h1 id="main-title">CIPHER SİSTEMLERİ</h1>
+    <p id="sub-text">Şu an sistem genelinde planlı bir bakım çalışması yapılıyor.</p>
     <div class="loader"></div>
-    <p><small>Kısa süre içinde tekrar online olacağız.</small></p>
+    <p><small id="small-text">Kısa süre içinde tekrar online olacağız.</small></p>
 </div>
+
+<script>
+    const icon = document.getElementById('easter-egg-trigger');
+    const title = document.getElementById('main-title');
+    const subText = document.getElementById('sub-text');
+    const smallText = document.getElementById('small-text');
+
+    // Konsol sürprizi
+    console.log("%c[SYSTEM]: %cDon't let me leave, Murph!", "color: #00ff88; font-weight: bold;", "color: #888;");
+
+    // Tıklama sürprizi
+    let clickCount = 0;
+    icon.addEventListener('click', () => {
+        clickCount++;
+        
+        if(clickCount === 5) {
+            title.innerText = "BİZ KENDİMİZİ SEÇTİK";
+            subText.innerText = "Geçmişi değiştirmek için değil, bir yol bulmak için buradayız.";
+            smallText.innerText = "Tesserakt senkronize ediliyor...";
+            icon.classList.add('tesseract-mode');
+            
+            setTimeout(() => {
+                title.innerText = "CIPHER SİSTEMLERİ";
+                subText.innerText = "Şu an sistem genelinde planlı bir bakım çalışması yapılıyor.";
+                smallText.innerText = "Kısa süre içinde tekrar online olacağız.";
+                icon.classList.remove('tesseract-mode');
+                clickCount = 0;
+            }, 4000);
+        }
+    });
+</script>
 
 </body>
 </html>
