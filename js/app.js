@@ -173,33 +173,20 @@ function setServer(id) {
   renderChatList();
 }
 
-function _hasServerAccess(user, serverId) {
-  // Admin always has access
-  if (!user) return false;
-  if (user.is_admin) return true;
-  const roles = user.server_roles;
-  // If no roles data yet, only allow 'public'
-  if (!roles || typeof roles !== 'object') return serverId === 'public';
-  return !!roles[serverId];
-}
-
 function convMatchesServer(conv) {
   if (_activeServer === 'all') return true;
+  // Check conv.server field first (if it exists in schema)
+  if (conv.server) return conv.server === _activeServer;
+  // Fallback: check participants' server_roles
   const cu = window._currentUser;
   if (!cu) return true;
-  // Current user must have access to this server
-  if (!_hasServerAccess(cu, _activeServer)) return false;
-  // For direct chats: other participant must also be in this server
-  if (conv.type === 'direct') {
-    const otherUsername = conv.participants?.find(p => p !== cu.username);
-    if (!otherUsername) return false;
-    const other = _allUsers[otherUsername];
-    if (!other) return false; // unknown user — hide
-    return _hasServerAccess(other, _activeServer);
-  }
-  // For groups: check conv.server tag
-  if (conv.server) return conv.server === _activeServer;
-  return true;
+  const other = conv.participants?.find(p => p !== cu.username);
+  if (!other) return true;
+  const otherUser = _allUsers[other];
+  if (!otherUser) return true;
+  const roles = otherUser.server_roles;
+  if (!roles || typeof roles !== 'object') return _activeServer === 'public';
+  return !!roles[_activeServer];
 }
 
 // ── Push notifications ─────────────────────────────────────────────
@@ -679,21 +666,21 @@ function renderContactsList(searchQ) {
   if (!list) return;
   const cu = window._currentUser;
 
+  // ALL users except self — no server_roles filtering
+  // Users see everyone (server filtering is for chat list, not contacts)
   let users = Object.values(_allUsers).filter(u => u.username !== cu.username);
 
-  // Strict server filter: only show users who share at least one server with me
-  // When a specific server is active: BOTH me AND them must be in that server
-  users = users.filter(u => {
-    if (cu.is_admin || u.is_admin) return true; // admin sees/is seen by everyone
-    if (_activeServer && _activeServer !== 'all') {
-      // Both must be in the active server
-      return _hasServerAccess(cu, _activeServer) && _hasServerAccess(u, _activeServer);
-    }
-    // 'all' view: show users who share at least one server with me
-    const myServers = Object.keys(CONFIG.SERVERS).filter(s => _hasServerAccess(cu, s));
-    const theirServers = Object.keys(CONFIG.SERVERS).filter(s => _hasServerAccess(u, s));
-    return myServers.some(s => theirServers.includes(s));
-  });
+  // Filter by active server if set (not 'all')
+  if (_activeServer && _activeServer !== 'all') {
+    users = users.filter(u => {
+      // Admin sees everyone
+      if (cu.is_admin) return true;
+      const roles = u.server_roles;
+      // If roles not loaded yet, show user anyway
+      if (!roles || typeof roles !== 'object') return true;
+      return !!roles[_activeServer] || _activeServer === 'public';
+    });
+  }
 
   // Search filter
   const q = (searchQ || document.getElementById('contact-search-input')?.value || '').toLowerCase().trim();
@@ -1760,250 +1747,4 @@ async function votePoll(msgId, option) {
     await DB.updateMessage(convId, msgId, { poll_data: JSON.stringify(poll) });
     window._onNewMessage?.();
   } catch(e) { UI.toast('Oy verilemedi', 'error'); }
-}
-
-// ── Offline Outbox ────────────────────────────────────────────────
-const _OUTBOX = 'cipher_outbox_v2';
-
-function outboxAdd(convId, text) {
-  const q = JSON.parse(localStorage.getItem(_OUTBOX) || '[]');
-  q.push({ convId, text, ts: Date.now(), id: 'ob_' + Date.now() });
-  localStorage.setItem(_OUTBOX, JSON.stringify(q));
-  UI.toast('📭 Çevrimdışı — mesaj kuyruğa alındı', 'warn');
-}
-
-async function outboxFlush() {
-  const q = JSON.parse(localStorage.getItem(_OUTBOX) || '[]');
-  if (!q.length || !navigator.onLine) return;
-  localStorage.setItem(_OUTBOX, '[]');
-  let sent = 0;
-  for (const item of q) {
-    try {
-      const now = item.ts || Date.now();
-      await DB.createMessage({ conv_id: item.convId, from: window._currentUser?.username, type: 'text', text: item.text, status: 'sent', created_at: now });
-      await DB.updateConversation(item.convId, { last_msg: item.text, last_time: now, last_from: window._currentUser?.username });
-      sent++;
-    } catch(e) {
-      // Re-queue failed items
-      const remaining = JSON.parse(localStorage.getItem(_OUTBOX) || '[]');
-      remaining.push(item);
-      localStorage.setItem(_OUTBOX, JSON.stringify(remaining));
-    }
-  }
-  if (sent > 0) {
-    window._onNewMessage?.();
-    UI.toast(`📤 ${sent} kuyruk mesajı gönderildi`, 'success');
-  }
-}
-
-// Hook into send: if offline, queue instead
-window.addEventListener('online', () => {
-  UI.toast('🌐 Bağlantı yeniden kuruldu', 'success');
-  outboxFlush();
-});
-window.addEventListener('offline', () => UI.toast('📡 Çevrimdışı mod', 'warn'));
-
-// Intercept sendMessage to use outbox when offline
-const _origSendMsg = window.sendMessage;
-window.sendMessage = function() {
-  if (!navigator.onLine && CONFIG.USE_SUPABASE) {
-    const input = document.getElementById('msg-input');
-    const text = (input?.value || '').trim();
-    if (text && window._currentConvId) {
-      outboxAdd(window._currentConvId, text);
-      if (input) { input.value = ''; Messages.autoResize(input); }
-      return;
-    }
-  }
-  (_origSendMsg || function(){})();
-};
-
-// ══════════════════════════════════════════════════════════════════
-// ORTAK DÖKÜMAN & GÖRSEL DÜZENLEYICI
-// ══════════════════════════════════════════════════════════════════
-let _drawTool = 'pen', _drawing = false, _drawStart = {x:0,y:0};
-let _canvasHistory = [], _canvasHistoryIdx = -1;
-
-function openDocEditor() {
-  switchDocTab('text');
-  document.getElementById('doc-title').value = '';
-  document.getElementById('doc-content').innerHTML = '';
-  UI.openModal('doc-editor-modal');
-  requestAnimationFrame(() => initCanvas());
-}
-
-function switchDocTab(tab) {
-  document.getElementById('doc-text-panel').style.display = tab === 'text' ? 'flex' : 'none';
-  document.getElementById('doc-draw-panel').style.display = tab === 'draw' ? 'flex' : 'none';
-  document.getElementById('doc-tab-text').style.cssText = tab === 'text'
-    ? 'padding:5px 14px;border-radius:8px;border:1px solid var(--accent,#00FFB3);background:rgba(0,255,179,.12);color:var(--accent,#00FFB3);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-weight:600'
-    : 'padding:5px 14px;border-radius:8px;border:1px solid #1E2D45;background:transparent;color:#7A8FA8;font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
-  document.getElementById('doc-tab-draw').style.cssText = tab === 'draw'
-    ? 'padding:5px 14px;border-radius:8px;border:1px solid var(--accent,#00FFB3);background:rgba(0,255,179,.12);color:var(--accent,#00FFB3);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-weight:600'
-    : 'padding:5px 14px;border-radius:8px;border:1px solid #1E2D45;background:transparent;color:#7A8FA8;font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
-  if (tab === 'draw') requestAnimationFrame(() => initCanvas());
-}
-
-function docCmd(cmd, val) {
-  document.getElementById('doc-content')?.focus();
-  document.execCommand(cmd, false, val || null);
-}
-
-// ── Canvas drawing ────────────────────────────────────────────────
-function initCanvas() {
-  const canvas = document.getElementById('draw-canvas');
-  if (!canvas || canvas._initialized) return;
-  canvas._initialized = true;
-  const panel = document.getElementById('doc-draw-panel');
-  const resize = () => {
-    const data = canvas.toDataURL();
-    canvas.width  = panel.offsetWidth;
-    canvas.height = panel.offsetHeight - 48;
-    // Restore
-    const img = new Image();
-    img.onload = () => canvas.getContext('2d').drawImage(img, 0, 0);
-    img.src = data;
-  };
-  resize();
-  new ResizeObserver(resize).observe(panel);
-  _saveCanvasState();
-
-  // Events
-  const getPos = e => {
-    const r = canvas.getBoundingClientRect();
-    const src = e.touches ? e.touches[0] : e;
-    return { x: src.clientX - r.left, y: src.clientY - r.top };
-  };
-
-  canvas.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    _drawing = true;
-    _drawStart = getPos(e);
-    const ctx = canvas.getContext('2d');
-    ctx.beginPath();
-    ctx.moveTo(_drawStart.x, _drawStart.y);
-  });
-
-  canvas.addEventListener('pointermove', e => {
-    e.preventDefault();
-    if (!_drawing) return;
-    const pos = getPos(e);
-    const ctx = canvas.getContext('2d');
-    const color = document.getElementById('draw-color')?.value || '#00FFB3';
-    const size  = +document.getElementById('draw-size')?.value || 4;
-
-    if (_drawTool === 'pen' || _drawTool === 'eraser') {
-      ctx.lineWidth   = _drawTool === 'eraser' ? size * 4 : size;
-      ctx.strokeStyle = _drawTool === 'eraser' ? '#06080F' : color;
-      ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-    }
-  });
-
-  canvas.addEventListener('pointerup', e => {
-    e.preventDefault();
-    if (!_drawing) return;
-    _drawing = false;
-    const pos = getPos(e);
-    const ctx = canvas.getContext('2d');
-    const color = document.getElementById('draw-color')?.value || '#00FFB3';
-    const size  = +document.getElementById('draw-size')?.value || 4;
-    ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = size;
-
-    if (_drawTool === 'line') {
-      ctx.beginPath(); ctx.moveTo(_drawStart.x, _drawStart.y);
-      ctx.lineTo(pos.x, pos.y); ctx.stroke();
-    } else if (_drawTool === 'rect') {
-      ctx.strokeRect(_drawStart.x, _drawStart.y, pos.x - _drawStart.x, pos.y - _drawStart.y);
-    } else if (_drawTool === 'circle') {
-      const rx = Math.abs(pos.x - _drawStart.x) / 2, ry = Math.abs(pos.y - _drawStart.y) / 2;
-      ctx.beginPath();
-      ctx.ellipse(_drawStart.x + (pos.x - _drawStart.x)/2, _drawStart.y + (pos.y - _drawStart.y)/2, rx, ry, 0, 0, Math.PI*2);
-      ctx.stroke();
-    } else if (_drawTool === 'text') {
-      const txt = prompt('Metin:'); if (!txt) return;
-      ctx.font = `${size * 4}px 'DM Sans', sans-serif`;
-      ctx.fillText(txt, _drawStart.x, _drawStart.y);
-    }
-    _saveCanvasState();
-  });
-}
-
-function setDrawTool(tool) {
-  _drawTool = tool;
-  document.querySelectorAll('[id^="dt-"]').forEach(b => b.classList.remove('active-tool'));
-  document.getElementById('dt-' + tool)?.classList.add('active-tool');
-}
-
-function _saveCanvasState() {
-  const canvas = document.getElementById('draw-canvas'); if (!canvas) return;
-  _canvasHistory = _canvasHistory.slice(0, _canvasHistoryIdx + 1);
-  _canvasHistory.push(canvas.toDataURL());
-  _canvasHistoryIdx = _canvasHistory.length - 1;
-}
-
-function undoCanvas() {
-  if (_canvasHistoryIdx <= 0) return;
-  _canvasHistoryIdx--;
-  const canvas = document.getElementById('draw-canvas'); if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const img = new Image();
-  img.onload = () => { ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(img,0,0); };
-  img.src = _canvasHistory[_canvasHistoryIdx];
-}
-
-function clearCanvas() {
-  const canvas = document.getElementById('draw-canvas'); if (!canvas) return;
-  canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-  _saveCanvasState();
-}
-
-// ── Save & send doc ───────────────────────────────────────────────
-async function saveDoc() {
-  const convId = window._currentConvId; if (!convId) { UI.toast('Önce bir sohbet seçin', 'error'); return; }
-  const title   = document.getElementById('doc-title')?.value.trim() || 'Döküman';
-  const textTab = document.getElementById('doc-text-panel').style.display !== 'none';
-
-  try {
-    let msgData;
-    if (textTab) {
-      const html = document.getElementById('doc-content')?.innerHTML || '';
-      if (!html.trim()) { UI.toast('Döküman boş', 'error'); return; }
-      msgData = { conv_id:convId, from:window._currentUser.username, type:'doc', text:title, doc_html:html, status:'sent', created_at:Date.now() };
-    } else {
-      const canvas = document.getElementById('draw-canvas');
-      const img64  = canvas.toDataURL('image/png');
-      msgData = { conv_id:convId, from:window._currentUser.username, type:'file', file_type:'image/png', file_name:title+'.png', file_data:img64, text:'', status:'sent', created_at:Date.now() };
-    }
-    await Promise.all([
-      DB.createMessage(msgData),
-      DB.updateConversation(convId, { last_msg:`📄 ${title}`, last_time:Date.now(), last_from:window._currentUser.username }),
-    ]);
-    UI.closeModal('doc-editor-modal');
-    window._onNewMessage?.();
-    UI.toast('📄 Döküman gönderildi ✓', 'success');
-  } catch(e) { UI.toast('Gönderilemedi: ' + e.message, 'error'); }
-}
-
-// ── Doc Viewer ────────────────────────────────────────────────────
-function openDocViewer(msgId) {
-  const convId = window._currentConvId;
-  const msgs = Messages.getMsgs(convId);
-  const msg = msgs.find(m => m.id === msgId);
-  if (!msg?.doc_html) return;
-  // Open in a simple overlay
-  const existing = document.getElementById('doc-viewer-overlay');
-  if (existing) existing.remove();
-  const overlay = document.createElement('div');
-  overlay.id = 'doc-viewer-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(6,8,15,.98);display:flex;flex-direction:column';
-  overlay.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #1E2D45;background:#0A1018;flex-shrink:0">
-      <span style="font-size:18px">📄</span>
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8;flex:1">${msg.text||'Döküman'}</span>
-      <button onclick="document.getElementById('doc-viewer-overlay').remove()" style="width:32px;height:32px;border-radius:8px;background:#131D30;border:1px solid #1E2D45;color:#7A8FA8;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
-    </div>
-    <div style="flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;color:#DDE8F8;font-size:15px;line-height:1.7;font-family:'DM Sans',sans-serif">${msg.doc_html}</div>`;
-  document.body.appendChild(overlay);
 }
