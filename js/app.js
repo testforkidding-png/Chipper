@@ -173,20 +173,33 @@ function setServer(id) {
   renderChatList();
 }
 
+function _hasServerAccess(user, serverId) {
+  // Admin always has access
+  if (!user) return false;
+  if (user.is_admin) return true;
+  const roles = user.server_roles;
+  // If no roles data yet, only allow 'public'
+  if (!roles || typeof roles !== 'object') return serverId === 'public';
+  return !!roles[serverId];
+}
+
 function convMatchesServer(conv) {
   if (_activeServer === 'all') return true;
-  // Check conv.server field first (if it exists in schema)
-  if (conv.server) return conv.server === _activeServer;
-  // Fallback: check participants' server_roles
   const cu = window._currentUser;
   if (!cu) return true;
-  const other = conv.participants?.find(p => p !== cu.username);
-  if (!other) return true;
-  const otherUser = _allUsers[other];
-  if (!otherUser) return true;
-  const roles = otherUser.server_roles;
-  if (!roles || typeof roles !== 'object') return _activeServer === 'public';
-  return !!roles[_activeServer];
+  // Current user must have access to this server
+  if (!_hasServerAccess(cu, _activeServer)) return false;
+  // For direct chats: other participant must also be in this server
+  if (conv.type === 'direct') {
+    const otherUsername = conv.participants?.find(p => p !== cu.username);
+    if (!otherUsername) return false;
+    const other = _allUsers[otherUsername];
+    if (!other) return false; // unknown user — hide
+    return _hasServerAccess(other, _activeServer);
+  }
+  // For groups: check conv.server tag
+  if (conv.server) return conv.server === _activeServer;
+  return true;
 }
 
 // ── Push notifications ─────────────────────────────────────────────
@@ -666,21 +679,21 @@ function renderContactsList(searchQ) {
   if (!list) return;
   const cu = window._currentUser;
 
-  // ALL users except self — no server_roles filtering
-  // Users see everyone (server filtering is for chat list, not contacts)
   let users = Object.values(_allUsers).filter(u => u.username !== cu.username);
 
-  // Filter by active server if set (not 'all')
-  if (_activeServer && _activeServer !== 'all') {
-    users = users.filter(u => {
-      // Admin sees everyone
-      if (cu.is_admin) return true;
-      const roles = u.server_roles;
-      // If roles not loaded yet, show user anyway
-      if (!roles || typeof roles !== 'object') return true;
-      return !!roles[_activeServer] || _activeServer === 'public';
-    });
-  }
+  // Strict server filter: only show users who share at least one server with me
+  // When a specific server is active: BOTH me AND them must be in that server
+  users = users.filter(u => {
+    if (cu.is_admin || u.is_admin) return true; // admin sees/is seen by everyone
+    if (_activeServer && _activeServer !== 'all') {
+      // Both must be in the active server
+      return _hasServerAccess(cu, _activeServer) && _hasServerAccess(u, _activeServer);
+    }
+    // 'all' view: show users who share at least one server with me
+    const myServers = Object.keys(CONFIG.SERVERS).filter(s => _hasServerAccess(cu, s));
+    const theirServers = Object.keys(CONFIG.SERVERS).filter(s => _hasServerAccess(u, s));
+    return myServers.some(s => theirServers.includes(s));
+  });
 
   // Search filter
   const q = (searchQ || document.getElementById('contact-search-input')?.value || '').toLowerCase().trim();
