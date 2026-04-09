@@ -1,0 +1,6 @@
+{
+  "appId": "com.nexus.cipher",
+  "appName": "CIPHER",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
