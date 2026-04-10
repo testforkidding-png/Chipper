@@ -34,16 +34,35 @@ async function bootApp() {
     DB.getAllUsers(),
   ]);
 
-  // Current user (fresh from DB)
+  // Current user: fresh from DB, fallback to session cache, NEVER auto-logout on DB error
   if (userRes.status === 'fulfilled' && userRes.value) {
     window._currentUser = userRes.value;
     renderMyAvatar();
-  } else if (!window._currentUser) {
-    Auth.logout(); return;
+  } else if (window._currentUser) {
+    // DB failed but we have session cache — continue with cached data
+    if (userRes.reason) console.warn('getUser failed (using cache):', userRes.reason?.message);
+  } else {
+    // No session cache AND DB failed — show error but don't logout
+    if (userRes.status === 'rejected') {
+      UI.toast('Sunucuya bağlanılamadı: ' + (userRes.reason?.message || 'Hata'), 'error', 6000);
+      // Create minimal user from session to allow offline use
+      window._currentUser = { username: session.username, display_name: session.username, is_admin: false, badges: [], server_roles: {} };
+      renderMyAvatar();
+    } else {
+      Auth.logout(); return; // Session truly invalid
+    }
   }
 
   // All users into memory
-  if (allUsersRes.status === 'fulfilled') allUsersRes.value.forEach(u => { _allUsers[u.username] = u; });
+  if (allUsersRes.status === 'fulfilled') {
+    allUsersRes.value.forEach(u => { _allUsers[u.username] = u; });
+    // Update current user's server_roles from DB (may be more accurate than session cache)
+    const freshCu = _allUsers[window._currentUser?.username];
+    if (freshCu && window._currentUser) {
+      window._currentUser.server_roles = freshCu.server_roles || window._currentUser.server_roles;
+      window._currentUser.is_admin     = freshCu.is_admin     ?? window._currentUser.is_admin;
+    }
+  }
 
   // Conversations
   _convs = convsRes.status === 'fulfilled' ? convsRes.value : [];
@@ -165,8 +184,11 @@ function hasServerAccess(user, serverId) {
   if (!user) return false;
   if (user.is_admin) return true;
   const roles = user.server_roles;
-  // If roles not loaded (schema column missing), only 'public' is allowed
+  // No roles data at all → default: public only
   if (!roles || typeof roles !== 'object') return serverId === 'public';
+  // Empty object {} → default: public only
+  if (Object.keys(roles).length === 0) return serverId === 'public';
+  // Check specific server
   return !!roles[serverId];
 }
 
@@ -674,18 +696,21 @@ function renderContactsList(searchQ) {
 
   let users = Object.values(_allUsers).filter(u => u.username !== cu.username);
 
-  // Strict server filter: only show users who share at least one server with me
-  // When a specific server is active: BOTH me AND them must be in that server
+  // Server filter
   users = users.filter(u => {
-    if (cu.is_admin || u.is_admin) return true; // admin sees/is seen by everyone
+    if (cu.is_admin || u.is_admin) return true;
+    // If MY server_roles not loaded yet (empty {}), show everyone temporarily
+    const myRoles = window._currentUser?.server_roles;
+    const myRolesLoaded = myRoles && Object.keys(myRoles).length > 0;
+    if (!myRolesLoaded) return true; // will re-filter after DB loads
+
     if (_activeServer && _activeServer !== 'all') {
-      // Both must be in the active server
       return hasServerAccess(cu, _activeServer) && hasServerAccess(u, _activeServer);
     }
-    // 'all' view: show users who share at least one server with me
-    const myServers = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s));
-    const theirServers = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(u, s));
-    return myServers.some(s => theirServers.includes(s));
+    // 'all': share at least one server
+    const myS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s));
+    const thS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(u, s));
+    return myS.some(s => thS.includes(s));
   });
 
   // Search filter
