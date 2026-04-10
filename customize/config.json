@@ -35,7 +35,18 @@
     {
       "category": "Uzay",
       "items": [
-        { "id": "bg-5", "file": "backgrounds/bg-5.png", "label": "Dünya Batışı" }
+        { "id": "bg-5", "file": "backgrounds/bg-5.png", "label": "Dünya Batışı" },
+        { "id": "nasa1", "file": "backgrounds/nasa1.png", "label": "Buzz Aldrin" },
+        { "id": "nasa2", "file": "backgrounds/nasa2.png", "label": "Buzz Aldrin" },
+        { "id": "nasa3", "file": "backgrounds/nasa3.png", "label": "McCandless" },
+        { "id": "nasa4", "file": "backgrounds/nasa4.png", "label": "Inflating" },
+        { "id": "nasa5", "file": "backgrounds/nasa5.png", "label": "Orion Nebula" },
+        { "id": "nasa6", "file": "backgrounds/nasa6.png", "label": "Whirlpool" },
+        { "id": "nasa7", "file": "backgrounds/nasa7.png", "label": "Planetary Nebula" },
+        { "id": "nasa8", "file": "backgrounds/nasa8.png", "label": "Andromeda" },
+        { "id": "nasa9", "file": "backgrounds/nasa9.png", "label": "Jupiter" },
+        { "id": "nasa10", "file": "backgrounds/nasa10.png", "label": "NGC 4013" },
+        { "id": "nasa11", "file": "backgrounds/nasa11.png", "label": "Cosmic Cliffs" },
       ]
     }
   ],
