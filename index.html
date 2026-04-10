@@ -1,8 +1,232 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#00FFB3">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CIPHER">
+  <title>CIPHER</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icons/icon-1024.png">
+  <link rel="apple-touch-icon" href="icons/icon-1024.png">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--a:#00FFB3;--ad:#00C48A;--bg:#06080F;--s:#0C1220;--b:#1E2D45;--t:#DDE8F8;--m:#7A8FA8;--d:#FF3D6B}
+    html{height:100%}
+    body{min-height:100%;background:var(--bg);color:var(--t);font-family:'DM Sans',sans-serif;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(0,255,179,.03)1px,transparent 1px),linear-gradient(90deg,rgba(0,255,179,.03)1px,transparent 1px);background-size:40px 40px}
+    .orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0;animation:pulse 6s infinite}
+    @keyframes pulse{0%,100%{opacity:.1}50%{opacity:.18}}
+    .wrap{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px 16px;padding-bottom:max(20px,env(safe-area-inset-bottom))}
+    .card{background:var(--s);border:1px solid var(--b);border-radius:22px;padding:32px 26px;width:100%;max-width:400px;box-shadow:0 32px 80px rgba(0,0,0,.6)}
+    .logo{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+    .logo-box{width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,var(--a),var(--ad));display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .tabs{display:flex;background:#06080F;border-radius:12px;padding:3px;margin-bottom:22px;border:1px solid var(--b)}
+    .tab{flex:1;padding:9px;border-radius:9px;font-size:13px;font-weight:600;font-family:Syne,sans-serif;cursor:pointer;border:none;background:transparent;color:var(--m);transition:all .2s;-webkit-tap-highlight-color:transparent}
+    .tab.active{background:var(--s);color:var(--t);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+    .field-wrap{display:flex;flex-direction:column;gap:12px}
+    .lbl{display:block;font-size:11px;font-weight:600;color:var(--m);font-family:'JetBrains Mono',monospace;margin-bottom:5px;letter-spacing:.06em}
+    .inp-w{position:relative}
+    .inp{width:100%;padding:13px 14px;border:1.5px solid var(--b);border-radius:12px;background:#050810;color:var(--t);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none;transition:border-color .2s}
+    .inp:focus{border-color:var(--a)}
+    .inp-ico{position:absolute;left:13px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.4;color:var(--m)}
+    .has-ico{padding-left:40px}
+    .eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;padding:9px;color:var(--m);opacity:.7;-webkit-tap-highlight-color:transparent}
+    .btn{width:100%;min-height:50px;border:none;border-radius:12px;cursor:pointer;font-family:Syne,sans-serif;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(135deg,var(--a),var(--ad));color:#062B1F;transition:transform .1s;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    .btn:active{transform:scale(.97)}
+    .btn:disabled{opacity:.6;pointer-events:none}
+    .err{display:none;padding:9px 12px;border-radius:9px;font-size:13px;line-height:1.4;border:1px solid rgba(255,61,107,.3);background:rgba(255,61,107,.08);color:var(--d)}
+    .info-box{padding:10px 12px;border-radius:9px;font-size:12px;line-height:1.6;border:1px solid rgba(255,165,53,.3);background:rgba(255,165,53,.07);color:#FFA535;margin-bottom:16px}
+    .sec{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin-top:20px;padding-top:14px;border-top:1px solid var(--b)}
+    .sec-i{display:flex;align-items:center;gap:4px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--m)}
+    .dot{width:4px;height:4px;border-radius:50%;background:var(--a)}
+    .spin{display:inline-block;width:17px;height:17px;border:2.5px solid rgba(6,43,31,.4);border-top-color:#062B1F;border-radius:50%;animation:sp .6s linear infinite}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    @media(max-width:400px){.card{padding:26px 18px;border-radius:18px}.wrap{padding-top:28px;align-items:flex-start}}
+  </style>
+</head>
 <body>
+<div class="orb" style="width:460px;height:460px;background:#00FFB3;top:-16%;left:-14%"></div>
+<div class="orb" style="width:320px;height:320px;background:#0055FF;bottom:-8%;right:-10%;animation-delay:3s"></div>
 
-<p>Anlamıyor musun Tars? Onlar bizi buraya getirmediler. Bizi seçmediler. Biz kendimizi seçtik. Geçmişi değiştirmek için getirmediler... Bir yol bulmamız için getirdiler. 'Onlar' biziz. Gelecekteki biziz.</p>
+<div class="wrap">
+  <div class="card">
+    <div class="logo">
+      <div class="logo-box">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div>
+        <div style="font-size:24px;font-weight:800;font-family:Syne,sans-serif;letter-spacing:-.02em">CIPHER</div>
+        <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--m);letter-spacing:.1em">ÖZEL · ŞİFRELİ · GÜVENLİ</div>
+      </div>
+    </div>
 
+    <div id="sb-warn" style="display:none" class="info-box">
+      Supabase ayarlanmamış. <code>js/config.js</code> dosyasını düzenleyin.
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-login" onclick="showTab('login')">Giriş Yap</button>
+      <button class="tab" id="tab-register" onclick="showTab('register')">Kayıt Ol</button>
+    </div>
+
+    <!-- GİRİŞ -->
+    <div id="login-form">
+      <div class="field-wrap">
+        <div>
+          <label class="lbl">KULLANICI ADI</label>
+          <div class="inp-w">
+            <span class="inp-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+            <input id="l-u" type="text" class="inp has-ico" placeholder="kullanici_adi" autocomplete="username" autocapitalize="none" autocorrect="off" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('l-p').focus()}">
+          </div>
+        </div>
+        <div>
+          <label class="lbl">SIFRE</label>
+          <div class="inp-w">
+            <span class="inp-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <input id="l-p" type="password" class="inp has-ico" placeholder="••••••••" autocomplete="current-password" enterkeyhint="go" onkeydown="if(event.key==='Enter'){event.preventDefault();doLogin()}">
+            <button class="eye" onclick="toggleEye('l-p')" type="button" tabindex="-1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+        <div id="l-err" class="err"></div>
+        <button id="l-btn" onclick="doLogin()" class="btn" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Güvenli Giris
+        </button>
+      </div>
+    </div>
+
+    <!-- KAYIT -->
+    <div id="register-form" style="display:none">
+      <div class="field-wrap">
+        <div>
+          <label class="lbl">GÖRÜNEN AD</label>
+          <div class="inp-w">
+            <span class="inp-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+            <input id="r-name" type="text" class="inp has-ico" placeholder="Adiniz Soyadiniz" autocomplete="name" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('r-u').focus()}">
+          </div>
+        </div>
+        <div>
+          <label class="lbl">KULLANICI ADI</label>
+          <div class="inp-w">
+            <span class="inp-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.2 20.4C5.2 17.4 8.4 15 12 15s6.8 2.4 6.8 5.4"/></svg></span>
+            <input id="r-u" type="text" class="inp has-ico" placeholder="kullanici_adi" autocomplete="username" autocapitalize="none" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('r-p').focus()}">
+          </div>
+        </div>
+        <div>
+          <label class="lbl">SIFRE</label>
+          <div class="inp-w">
+            <span class="inp-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <input id="r-p" type="password" class="inp has-ico" placeholder="En az 6 karakter" autocomplete="new-password" enterkeyhint="next" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('r-p2').focus()}">
+            <button class="eye" onclick="toggleEye('r-p')" type="button" tabindex="-1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+        <div>
+          <label class="lbl">SIFRE TEKRAR</label>
+          <div class="inp-w">
+            <span class="inp-ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <input id="r-p2" type="password" class="inp has-ico" placeholder="••••••••" autocomplete="new-password" enterkeyhint="go" onkeydown="if(event.key==='Enter'){event.preventDefault();doRegister()}">
+            <button class="eye" onclick="toggleEye('r-p2')" type="button" tabindex="-1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+        </div>
+        <div id="r-err" class="err"></div>
+        <button id="r-btn" onclick="doRegister()" class="btn" type="button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          Hesap Olustur
+        </button>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-i"><div class="dot"></div>AES-256</div>
+      <div class="sec-i"><div class="dot"></div>SHA-256</div>
+      <div class="sec-i"><div class="dot"></div>Sifir Kayit</div>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/db.js"></script>
+<script src="js/auth.js"></script>
+<script>
+// Boot
+(async function() {
+  try { await DB.init(); } catch(e) { console.warn('DB.init:', e); }
+  try {
+    if (Auth.getSession()) { window.location.replace('app.html'); return; }
+  } catch(e) { console.warn('session check:', e); }
+  if (typeof CONFIG !== 'undefined' && !CONFIG.ALLOW_REGISTER) {
+    document.getElementById('tab-register').style.display = 'none';
+  }
+  if (window.innerWidth > 768) document.getElementById('l-u').focus();
+  // Supabase warning
+  if (typeof CONFIG !== 'undefined' && CONFIG.USE_SUPABASE) {
+    const bad = !CONFIG.SUPABASE_URL || CONFIG.SUPABASE_URL.includes('YOUR_PROJECT');
+    document.getElementById('sb-warn').style.display = bad ? 'block' : 'none';
+  }
+})();
+
+function showTab(t) {
+  document.getElementById('login-form').style.display = t === 'login' ? '' : 'none';
+  document.getElementById('register-form').style.display = t === 'register' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('active', t === 'login');
+  document.getElementById('tab-register').classList.toggle('active', t === 'register');
+  if (t === 'register') setTimeout(function() { document.getElementById('r-name').focus(); }, 80);
+}
+
+function doLogin() {
+  var btn = document.getElementById('l-btn');
+  var u = document.getElementById('l-u').value.trim();
+  var p = document.getElementById('l-p').value;
+  if (!u || !p) { showErr('l-err', 'Kullanici adi ve sifre girin.'); return; }
+  setLoad(btn, true);
+  hideErr('l-err');
+  Auth.login(u, p).then(function() {
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Yonlendiriliyor...';
+    setTimeout(function() { window.location.replace('app.html'); }, 300);
+  }).catch(function(e) {
+    showErr('l-err', e.message || 'Giris basarisiz.');
+    setLoad(btn, false, 'login');
+    document.getElementById('l-p').value = '';
+    document.getElementById('l-p').focus();
+  });
+}
+
+function doRegister() {
+  var btn = document.getElementById('r-btn');
+  var name = document.getElementById('r-name').value.trim();
+  var u    = document.getElementById('r-u').value.trim();
+  var p    = document.getElementById('r-p').value;
+  var p2   = document.getElementById('r-p2').value;
+  if (!name || !u || !p || !p2) { showErr('r-err', 'Tum alanlari doldurun.'); return; }
+  if (p !== p2) { showErr('r-err', 'Sifreler eslesmiyor.'); return; }
+  setLoad(btn, true);
+  hideErr('r-err');
+  Auth.register(u, p, name).then(function() {
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg> Hesap olusturuldu!';
+    setTimeout(function() { window.location.replace('app.html'); }, 400);
+  }).catch(function(e) {
+    showErr('r-err', e.message || 'Kayit basarisiz.');
+    setLoad(btn, false, 'register');
+  });
+}
+
+function setLoad(btn, on, type) {
+  if (on) { btn.innerHTML = '<div class="spin"></div>'; btn.disabled = true; return; }
+  btn.disabled = false;
+  if (type === 'login') {
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Guvenli Giris';
+  } else {
+    btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg> Hesap Olustur';
+  }
+}
+function showErr(id, msg) { var e = document.getElementById(id); e.textContent = msg; e.style.display = 'block'; }
+function hideErr(id) { document.getElementById(id).style.display = 'none'; }
+function toggleEye(id) { var i = document.getElementById(id); i.type = i.type === 'password' ? 'text' : 'password'; i.focus(); }
+</script>
 </body>
 </html>
