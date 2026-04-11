@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#00FFB3">
+  <title>Yardım Merkezi — CIPHER</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--a:#00FFB3;--bg:#06080F;--s:#0C1220;--b:#1E2D45;--t:#DDE8F8;--m:#7A8FA8}
+    body{background:var(--bg);color:var(--t);font-family:'DM Sans',sans-serif;line-height:1.7;min-height:100vh}
+    body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(0,255,179,.025)1px,transparent 1px),linear-gradient(90deg,rgba(0,255,179,.025)1px,transparent 1px);background-size:40px 40px}
+    .wrap{max-width:760px;margin:0 auto;padding:40px 20px 80px;position:relative;z-index:1}
+    .back{display:inline-flex;align-items:center;gap:8px;color:var(--a);text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12px;margin-bottom:32px;opacity:.8;transition:opacity .2s}
+    .back:hover{opacity:1}
+    h1{font-family:Syne,sans-serif;font-size:clamp(24px,5vw,38px);font-weight:800;color:var(--t);margin-bottom:8px}
+    .subtitle{font-size:13px;color:var(--m);font-family:'JetBrains Mono',monospace;margin-bottom:40px}
+    /* Search */
+    .search-wrap{position:relative;margin-bottom:36px}
+    .search-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.4}
+    #help-search{width:100%;padding:13px 14px 13px 42px;border-radius:14px;border:1.5px solid var(--b);background:#050810;color:var(--t);font-size:15px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s}
+    #help-search:focus{border-color:var(--a)}
+    /* Category tabs */
+    .cat-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:28px}
+    .cat-tab{padding:6px 14px;border-radius:20px;font-size:12px;font-family:'JetBrains Mono',monospace;cursor:pointer;border:1px solid var(--b);background:transparent;color:var(--m);transition:all .15s}
+    .cat-tab.active{background:rgba(0,255,179,.1);border-color:var(--a);color:var(--a)}
+    /* FAQ */
+    .faq-item{background:var(--s);border:1px solid var(--b);border-radius:14px;margin-bottom:8px;overflow:hidden;transition:border-color .15s}
+    .faq-item:hover{border-color:#2A3D55}
+    .faq-q{width:100%;text-align:left;padding:16px 20px;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--t);font-size:14px;font-weight:600;-webkit-tap-highlight-color:transparent}
+    .faq-q svg{flex-shrink:0;transition:transform .2s;color:var(--m)}
+    .faq-q.open svg{transform:rotate(180deg)}
+    .faq-a{padding:0 20px;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s ease}
+    .faq-a.open{max-height:600px;padding:0 20px 16px}
+    .faq-a p{font-size:14px;color:#B8C8D8;line-height:1.7}
+    .faq-a ul{list-style:none;padding:0;margin-top:8px}
+    .faq-a ul li{font-size:13px;color:#B8C8D8;padding:3px 0;padding-left:16px;position:relative}
+    .faq-a ul li::before{content:'→';position:absolute;left:0;color:var(--a);font-family:'JetBrains Mono',monospace}
+    .faq-a code{background:#06080F;border:1px solid var(--b);border-radius:4px;padding:1px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--a)}
+    /* Shortcuts */
+    .shortcut-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;margin-top:8px}
+    .shortcut{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#06080F;border-radius:10px;border:1px solid var(--b)}
+    .shortcut kbd{background:#131D30;border:1px solid var(--b);border-radius:6px;padding:2px 8px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--a)}
+    .shortcut span{font-size:13px;color:#B8C8D8}
+    .section-label{font-size:10px;font-weight:700;color:var(--m);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin:32px 0 14px}
+    .highlight{color:var(--a);font-weight:600}
+    #no-results{display:none;text-align:center;padding:40px;color:var(--m);font-size:14px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <a href="index.html" class="back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    Geri Dön
+  </a>
+  <h1>Yardım Merkezi</h1>
+  <div class="subtitle">Sık sorulan sorular ve kullanım kılavuzu</div>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#DDE8F8" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input id="help-search" type="text" placeholder="Konu ara… (örn: şifre, grup, bildirim)">
+  </div>
+
+  <!-- Category tabs -->
+  <div class="cat-tabs">
+    <button class="cat-tab active" data-cat="all">Tümü</button>
+    <button class="cat-tab" data-cat="hesap">👤 Hesap</button>
+    <button class="cat-tab" data-cat="mesaj">💬 Mesajlaşma</button>
+    <button class="cat-tab" data-cat="guvenlik">🔒 Güvenlik</button>
+    <button class="cat-tab" data-cat="grup">👥 Gruplar</button>
+    <button class="cat-tab" data-cat="sunucu">🌐 Sunucular</button>
+    <button class="cat-tab" data-cat="sorun">🔧 Sorun Giderme</button>
+  </div>
+
+  <div id="faq-list">
+
+    <!-- HESAP -->
+    <div class="faq-item" data-cat="hesap">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Nasıl kayıt olurum?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Giriş sayfasında <span class="highlight">Kayıt Ol</span> sekmesine geç. Görünen adın, kullanıcı adın (3-20 karakter, harf/rakam/_) ve en az 6 karakterlik bir şifre gir. Kayıt butonu seni otomatik giriş yaptırır.</p>
+        <p>Not: Kayıt yalnızca admin izin verdiyse aktiftir.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="hesap">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Şifremi unuttum, ne yapabilirim?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>CIPHER sıfır bilgi mimarisi kullanır — şifrenizi biz de bilemeyiz. Şifre sıfırlaması yalnızca <span class="highlight">admin paneli</span> üzerinden yapılabilir. Admin ile iletişime geçin.</p>
+        <p>Giriş yapıyorsanız: Ayarlar → 🔑 Şifre Değiştir seçeneğini kullanabilirsiniz.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="hesap">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Profil fotoğrafımı nasıl değiştiririm?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Ayarlar → 👤 Profili Düzenle yolunu izle. Bitmoji veya herhangi bir resim URL'si yapıştırabilirsin.</p>
+        <p>Bitmoji için: Snapchat → Profil → Bitmoji → Paylaş → Linki kopyala → CIPHER'a yapıştır.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="hesap">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Hesabımı nasıl silerim?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Ayarlar → 🗑 Hesabı Sil. <code>SİL</code> yazıp şifreni girmeni gerekir. Tüm mesajlar ve sohbetler kalıcı olarak silinir.</p>
+      </div>
+    </div>
+
+    <!-- MESAJLAŞMA -->
+    <div class="faq-item" data-cat="mesaj">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Mesaj nasıl silinir veya geri çekilir?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Kendi mesajına uzun bas (veya sağ tıkla). Menüden:</p>
+        <ul>
+          <li><strong>Geri Çek</strong> — Mesaj içeriği her iki taraftan silinir, "geri çekildi" notu kalır</li>
+          <li><strong>Sil</strong> — Yalnızca senin tarafından silinir</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="mesaj">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Self-destruct (imha) modu nedir?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Yazma alanındaki ⏱ butonuna bas. 10 saniye ile 1 saat arasında süre seç. Bu modda gönderilen mesajlar belirlenen süre dolunca her iki taraftan otomatik silinir.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="mesaj">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Mesajları nasıl çevirebilirim?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Herhangi bir mesaja uzun bas → 🌐 Çevir. Türkçe'ye otomatik çeviri yapılır. Tekrar tıklayınca çeviri kapanır.</p>
+        <p>Çeviri servisi kullanılamıyorsa Google Translate yeni sekmede açılır.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="mesaj">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Mesajlarda Markdown kullanabilir miyim?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Evet. Desteklenen formatlar:</p>
+        <ul>
+          <li><code>**kalın**</code> → <strong>kalın</strong></li>
+          <li><code>*italik*</code> → <em>italik</em></li>
+          <li><code>~~üstü çizili~~</code></li>
+          <li><code>`inline kod`</code></li>
+          <li><code>```blok kod```</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="mesaj">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Zamanlanmış mesaj nedir?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>+ butonuna bas → ⏰ Zamanlanmış Gönder. Tarih ve saat seç, mesajı yaz ve gönder. Belirlenen zamanda otomatik iletilir. Tarayıcının açık olması gerekir.</p>
+      </div>
+    </div>
+
+    <!-- GÜVENLİK -->
+    <div class="faq-item" data-cat="guvenlik">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Mesajlarım gerçekten şifreli mi?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>HTTPS üzerinde <span class="highlight">AES-256-GCM</span> kullanılır. Şifre anahtarı cihazınızda PBKDF2 ile türetilir, sunucuya gönderilmez. Veritabanında yalnızca şifreli metin bulunur — sunucu operatörü dahil kimse okuyamaz.</p>
+        <p>Not: HTTP bağlantısında şifreleme devre dışı kalır; her zaman HTTPS kullanın.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="guvenlik">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Hesabımı geçici olarak nasıl kilitleyebilirim?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Ayarlar → 🔐 Hesabı Kilitle. Şifrenle kilitlenen hesaba tekrar giriş için şifre gerekir. Oturum verisi silinir ama hesap silinmez.</p>
+      </div>
+    </div>
+
+    <!-- GRUPLAR -->
+    <div class="faq-item" data-cat="grup">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Grup nasıl oluşturulur?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Üst sağdaki ✏️ (yeni sohbet) butonuna bas → Grup Oluştur seçeneğini seç. Grup adı gir, üye seç, oluştur.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="grup">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Gruptan nasıl çıkabilirim?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Grup sohbetinde üst sağdaki ℹ️ (bilgi) ikonuna bas → Gruptan Çık. Onayladıktan sonra sohbet listenden kaldırılırsın.</p>
+      </div>
+    </div>
+
+    <!-- SUNUCULAR -->
+    <div class="faq-item" data-cat="sunucu">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Sunucular nedir?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Sunucular kullanıcıları gruplayan erişim katmanlarıdır. 4 sunucu bulunur:</p>
+        <ul>
+          <li>👫 <strong>Arkadaşlar</strong> — Arkadaş grubuna özel</li>
+          <li>🔒 <strong>Bana Özel</strong> — Yalnızca sen</li>
+          <li>🌐 <strong>Herkese Açık</strong> — Tüm kullanıcılar</li>
+          <li>🏠 <strong>Aile</strong> — Aile üyelerine özel</li>
+        </ul>
+        <p>Bir sunucuya atanan kullanıcılar yalnızca aynı sunucudaki kişilerle görüşebilir.</p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="sunucu">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Sunuculara nasıl atanırım?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Sunucu atamaları yalnızca <span class="highlight">admin</span> tarafından yapılır. Yöneticiye başvurun. Admin panelinde her kullanıcının profili altında sunucu düğmeleri bulunur.</p>
+      </div>
+    </div>
+
+    <!-- SORUN GİDERME -->
+    <div class="faq-item" data-cat="sorun">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Giriş yapamıyorum / atıyor, ne yapmalıyım?
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Sırasıyla deneyin:</p>
+        <ul>
+          <li>Sayfayı zorla yenile: <code>Ctrl+Shift+R</code> (Mac: <code>Cmd+Shift+R</code>)</li>
+          <li>Kullanıcı adının küçük harf olduğundan emin olun</li>
+          <li>Tarayıcı önbelleğini temizleyin (Ayarlar → Geçmiş → Önbellek)</li>
+          <li>Farklı bir tarayıcı deneyin</li>
+          <li>Admin ile iletişime geçin — hesabınız kilitli olabilir</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="sorun">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Mesajlar gelmiyor / geç geliyor
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Supabase gerçek zamanlı bağlantısı kurulamamış olabilir. Çözümler:</p>
+        <ul>
+          <li>İnternet bağlantınızı kontrol edin</li>
+          <li>Sayfayı yenileyin — bağlantı otomatik yeniden kurulur</li>
+          <li>Supabase gerçek zamanlı plan limitlerinizi kontrol edin</li>
+          <li>Uygulama 30 saniyede bir sohbet listesini günceller (yedek mekanizma)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="sorun">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        "Şema eksik" hatası alıyorum
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Supabase veritabanınızda bazı kolonlar eksik. Admin paneline gidin ve <span class="highlight">SQL'i Çalıştır</span> bölümündeki sorguyu Supabase SQL Editor'da çalıştırın.</p>
+        <p>Gerekli kolonlar: <code>server_roles</code>, <code>last_seen</code>, <code>online</code>, <code>last_from</code></p>
+      </div>
+    </div>
+
+    <div class="faq-item" data-cat="sorun">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        Uygulama çok yavaş açılıyor
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+      <div class="faq-a">
+        <p>Uygulamayı ana ekrana ekleyin (PWA olarak kurun) — bu Service Worker önbelleği etkinleştirir ve açılış süresini önemli ölçüde kısaltır.</p>
+        <ul>
+          <li>iOS: Safari → Paylaş → Ana Ekrana Ekle</li>
+          <li>Android: Chrome → Menü → Uygulamayı Yükle</li>
+          <li>PC: Adres çubuğundaki ⊕ ikonu</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="no-results">
+    <div style="font-size:32px;margin-bottom:12px">🔍</div>
+    <div>Sonuç bulunamadı. Farklı bir arama terimi deneyin.</div>
+  </div>
+
+  <!-- Keyboard shortcuts -->
+  <div class="section-label">KLAVYE KISAYOLLARI</div>
+  <div class="shortcut-grid">
+    <div class="shortcut"><kbd>Enter</kbd><span>Mesaj gönder</span></div>
+    <div class="shortcut"><kbd>Shift+Enter</kbd><span>Yeni satır</span></div>
+    <div class="shortcut"><kbd>Esc</kbd><span>Modal/menü kapat</span></div>
+    <div class="shortcut"><kbd>Ctrl+Shift+R</kbd><span>Zorla yenile</span></div>
+    <div class="shortcut"><kbd>Çift tıkla</kbd><span>Reaksiyon ekle</span></div>
+    <div class="shortcut"><kbd>Sağ tıkla</kbd><span>Mesaj menüsü</span></div>
+  </div>
+</div>
+
+<script>
+function toggleFaq(btn) {
+  const item = btn.closest('.faq-item');
+  const ans  = item.querySelector('.faq-a');
+  const open = btn.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.faq-q.open').forEach(b => {
+    b.classList.remove('open');
+    b.closest('.faq-item').querySelector('.faq-a').classList.remove('open');
+  });
+  if (!open) { btn.classList.add('open'); ans.classList.add('open'); }
+}
+
+// Category filter
+document.querySelectorAll('.cat-tab').forEach(tab => {
+  tab.onclick = () => {
+    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const cat = tab.dataset.cat;
+    document.querySelectorAll('.faq-item').forEach(item => {
+      item.style.display = (cat === 'all' || item.dataset.cat === cat) ? '' : 'none';
+    });
+    checkEmpty();
+  };
+});
+
+// Search
+document.getElementById('help-search').addEventListener('input', function() {
+  const q = this.value.toLowerCase().trim();
+  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('[data-cat="all"]').classList.add('active');
+  document.querySelectorAll('.faq-item').forEach(item => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = (!q || text.includes(q)) ? '' : 'none';
+  });
+  checkEmpty();
+});
+
+function checkEmpty() {
+  const visible = [...document.querySelectorAll('.faq-item')].filter(i => i.style.display !== 'none');
+  document.getElementById('no-results').style.display = visible.length ? 'none' : 'block';
+}
+</script>
+</body>
+</html>
