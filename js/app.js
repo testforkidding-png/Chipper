@@ -13,44 +13,45 @@ async function bootApp() {
   const session = Auth.getSession();
   if (!session) { window.location.href = 'index.html'; return; }
 
-  // ── PHASE 1: Instant render from session cache ─────────────────
+  // ── PHASE 1: Immediate UI from session cache (zero wait) ────────
   loadSettings();
   buildStickerTabs();
   customizeApply();
 
-  // Use cached user from session for instant UI (no DB wait)
-  window._currentUser = session.user || null;
-  if (window._currentUser) {
-    renderMyAvatar();
-    // Show empty chat list with skeleton while loading
-    const chatList = document.getElementById('chat-list');
-    if (chatList) chatList.innerHTML = '<div style="padding:16px;display:flex;flex-direction:column;gap:8px">' + Array(4).fill(0).map(()=>'<div style="display:flex;gap:10px;align-items:center"><div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div style="height:12px;border-radius:6px;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;width:60%"></div><div style="height:10px;border-radius:5px;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;width:80%"></div></div></div>').join('') + '</div>';
-  }
+  // Always build a working user object — never block on DB
+  window._currentUser = session.user
+    ? { ...session.user }
+    : { username: session.username, display_name: session.username,
+        is_admin: false, badges: [], server_roles: {}, bio: '', status: '', status_emoji: '' };
+  renderMyAvatar();
+  renderServerBar();
 
-  // ── PHASE 2: DB load — all 3 requests in parallel ─────────────
+  // Skeleton chat list
+  const chatList = document.getElementById('chat-list');
+  if (chatList) chatList.innerHTML = '<div style="padding:16px;display:flex;flex-direction:column;gap:8px">' +
+    Array(4).fill(0).map(()=>'<div style="display:flex;gap:10px;align-items:center"><div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;flex-shrink:0"></div><div style="flex:1;display:flex;flex-direction:column;gap:6px"><div style="height:12px;border-radius:6px;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;width:60%"></div><div style="height:10px;border-radius:5px;background:linear-gradient(90deg,#0C1220 25%,#131D30 50%,#0C1220 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;width:80%"></div></div></div>').join('') + '</div>';
+
+  // ── PHASE 2: Parallel DB fetch ─────────────────────────────────
   const [userRes, convsRes, allUsersRes] = await Promise.allSettled([
     DB.getUser(session.username),
     DB.getConversations(session.username),
     DB.getAllUsers(),
   ]);
 
-  // Current user: fresh from DB, fallback to session cache, NEVER auto-logout on DB error
+  // Update user from DB if successful
   if (userRes.status === 'fulfilled' && userRes.value) {
     window._currentUser = userRes.value;
     renderMyAvatar();
-  } else if (window._currentUser) {
-    // DB failed but we have session cache — continue with cached data
-    if (userRes.reason) console.warn('getUser failed (using cache):', userRes.reason?.message);
+    renderServerBar();
+  } else if (userRes.status === 'rejected') {
+    // DB error — stay with cached user, show warning
+    console.warn('getUser failed:', userRes.reason?.message);
+    UI.toast('Sunucu hatası — önbellek kullanılıyor', 'warn', 4000);
   } else {
-    // No session cache AND DB failed — show error but don't logout
-    if (userRes.status === 'rejected') {
-      UI.toast('Sunucuya bağlanılamadı: ' + (userRes.reason?.message || 'Hata'), 'error', 6000);
-      // Create minimal user from session to allow offline use
-      window._currentUser = { username: session.username, display_name: session.username, is_admin: false, badges: [], server_roles: {} };
-      renderMyAvatar();
-    } else {
-      Auth.logout(); return; // Session truly invalid
-    }
+    // DB returned null = user deleted from DB
+    // Don't logout — maybe schema issue. Show warning.
+    console.warn('User not found in DB:', session.username);
+    UI.toast('Kullanıcı bulunamadı — giriş bilgilerinizi kontrol edin', 'warn', 5000);
   }
 
   // All users into memory
@@ -160,23 +161,42 @@ async function refreshAllUsers() {
 // ── Server bar ─────────────────────────────────────────────────────
 function renderServerBar() {
   const bar = document.getElementById('server-bar');
-  if (!bar) return; // server-bar removed from app.html - only in admin
+  if (!bar) return;
   const cu = window._currentUser;
-  bar.innerHTML = '';
+  if (!cu) { bar.style.display = 'none'; return; }
 
-  const makeBtn = (icon, label, id) => {
+  // Determine which servers this user can access
+  const accessible = [];
+  if (cu.is_admin) {
+    accessible.push({ id: 'all', icon: '🌐', label: 'Tümü' });
+    Object.values(CONFIG.SERVERS).forEach(s => accessible.push(s));
+  } else {
+    // Only show servers user is assigned to
+    const servers = Object.values(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s.id));
+    if (servers.length > 1) {
+      accessible.push({ id: 'all', icon: '🌐', label: 'Tümü' });
+    }
+    servers.forEach(s => accessible.push(s));
+  }
+
+  // Hide bar if only one (or zero) server
+  if (accessible.length <= 1) {
+    bar.style.display = 'none';
+    _activeServer = accessible[0]?.id || 'all';
+    return;
+  }
+
+  bar.style.display = 'flex';
+  const inner = bar.querySelector('div') || bar;
+  inner.innerHTML = '';
+
+  accessible.forEach(srv => {
+    const active = _activeServer === srv.id;
     const btn = document.createElement('button');
-    btn.className = 'server-btn' + (_activeServer === id ? ' active' : '');
-    btn.innerHTML = `${icon}<span class="srv-tip">${label}</span>`;
-    btn.onclick = () => setServer(id);
-    bar.appendChild(btn);
-  };
-
-  if (cu?.is_admin) makeBtn('🌐', 'Tüm Sunucular', 'all');
-
-  Object.values(CONFIG.SERVERS).forEach(srv => {
-    if (!cu?.is_admin && !hasServerAccess(cu, srv.id)) return;
-    makeBtn(srv.icon, `${srv.label} — ${srv.desc}`, srv.id);
+    btn.style.cssText = `display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:20px;font-size:12px;font-family:'JetBrains Mono',monospace;cursor:pointer;white-space:nowrap;border:1px solid ${active ? (CONFIG.SERVERS[srv.id]?.color || 'var(--accent,#00FFB3)') : '#1E2D45'};background:${active ? (CONFIG.SERVERS[srv.id]?.color || 'var(--accent,#00FFB3)') + '22' : 'transparent'};color:${active ? (CONFIG.SERVERS[srv.id]?.color || 'var(--accent,#00FFB3)') : '#7A8FA8'};transition:all .15s;-webkit-tap-highlight-color:transparent`;
+    btn.innerHTML = `<span>${srv.icon}</span><span>${srv.label}</span>`;
+    btn.onclick = () => setServer(srv.id);
+    inner.appendChild(btn);
   });
 }
 
@@ -213,6 +233,8 @@ function setServer(id) {
   _activeServer = id;
   renderServerBar();
   renderChatList();
+  // Also update contacts if active
+  if (_activeTab === 'contacts') renderContactsList();
 }
 
 
