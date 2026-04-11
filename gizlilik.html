@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#00FFB3">
+  <title>Gizlilik Politikası — CIPHER</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--a:#00FFB3;--bg:#06080F;--s:#0C1220;--b:#1E2D45;--t:#DDE8F8;--m:#7A8FA8}
+    body{background:var(--bg);color:var(--t);font-family:'DM Sans',sans-serif;line-height:1.7;min-height:100vh}
+    body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(0,255,179,.025)1px,transparent 1px),linear-gradient(90deg,rgba(0,255,179,.025)1px,transparent 1px);background-size:40px 40px}
+    .wrap{max-width:720px;margin:0 auto;padding:40px 20px 80px;position:relative;z-index:1}
+    .back{display:inline-flex;align-items:center;gap:8px;color:var(--a);text-decoration:none;font-family:'JetBrains Mono',monospace;font-size:12px;margin-bottom:32px;opacity:.8;transition:opacity .2s}
+    .back:hover{opacity:1}
+    .logo-row{display:flex;align-items:center;gap:14px;margin-bottom:40px}
+    .logo-box{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    h1{font-family:Syne,sans-serif;font-size:clamp(24px,5vw,38px);font-weight:800;color:var(--t);margin-bottom:8px}
+    .subtitle{font-size:13px;color:var(--m);font-family:'JetBrains Mono',monospace;margin-bottom:40px}
+    .badge{display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,179,.08);border:1px solid rgba(0,255,179,.2);border-radius:20px;padding:4px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--a);margin-bottom:32px}
+    .card{background:var(--s);border:1px solid var(--b);border-radius:16px;padding:28px;margin-bottom:16px}
+    .card-header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+    .card-icon{font-size:24px}
+    .card-title{font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:var(--t)}
+    p{color:#B8C8D8;margin-bottom:12px;font-size:15px}
+    ul{list-style:none;padding:0;display:flex;flex-direction:column;gap:8px}
+    ul li{display:flex;gap:10px;font-size:14px;color:#B8C8D8}
+    ul li::before{content:'→';color:var(--a);font-family:'JetBrains Mono',monospace;flex-shrink:0;margin-top:1px}
+    .highlight{color:var(--a);font-weight:600}
+    .section-label{font-size:10px;font-weight:700;color:var(--m);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:16px;margin-top:32px}
+    .divider{height:1px;background:var(--b);margin:32px 0}
+    .updated{font-size:11px;color:var(--m);font-family:'JetBrains Mono',monospace;margin-top:40px;text-align:center}
+    a.inline{color:var(--a);text-decoration:none}
+    a.inline:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <a href="index.html" class="back">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    Geri Dön
+  </a>
+
+  <div class="logo-row">
+    <div class="logo-box">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#062B1F" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div>
+      <h1>Gizlilik Politikası</h1>
+      <div class="subtitle">Son güncelleme: Nisan 2026</div>
+    </div>
+  </div>
+
+  <div class="badge">🔒 Sıfır Bilgi Mimarisi</div>
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-icon">🛡️</span>
+      <div class="card-title">Temel İlkemiz</div>
+    </div>
+    <p>CIPHER, <span class="highlight">sıfır bilgi (zero-knowledge)</span> mimarisi üzerine inşa edilmiştir. Mesajlarınız yalnızca cihazınızda şifrelenir ve yalnızca alıcı tarafından çözülebilir. Biz dahil hiç kimse mesajlarınızı okuyamaz.</p>
+  </div>
+
+  <div class="section-label">TOPLANAN VERİLER</div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-icon">✅</span><div class="card-title">Topladığımız Veriler</div></div>
+    <ul>
+      <li>Kullanıcı adı (sunucuda şifrelenmiş hash olarak saklanır)</li>
+      <li>Görünen ad, biyografi, profil fotoğrafı (isteğe bağlı)</li>
+      <li>Son çevrimiçi zamanı (yalnızca diğer kullanıcılara gösterilir)</li>
+      <li>Gönderilen mesajlar (şifreli biçimde — orijinaline erişimiz yoktur)</li>
+      <li>Grup üyelikleri ve sohbet meta verisi</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-icon">❌</span><div class="card-title">Toplamadığımız Veriler</div></div>
+    <ul>
+      <li>IP adresi veya konum bilgisi</li>
+      <li>Cihaz bilgisi veya tarayıcı parmak izi</li>
+      <li>Şifrenizin açık metni (yalnızca SHA-256 hash'i saklanır)</li>
+      <li>Reklamcılık veya pazarlama amacıyla herhangi bir veri</li>
+      <li>Mesaj içerikleri (sunucuya şifreli gelir, okuyamayız)</li>
+    </ul>
+  </div>
+
+  <div class="section-label">ŞİFRELEME</div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-icon">🔐</span><div class="card-title">Uçtan Uca Şifreleme</div></div>
+    <p>HTTPS bağlantısı üzerinde <span class="highlight">AES-256-GCM</span> ile şifreleme yapılır. Şifre anahtarı, cihazınızda <span class="highlight">PBKDF2</span> ile 100.000 iterasyon kullanılarak türetilir ve asla sunucuya gönderilmez.</p>
+    <p>Mesajlar Supabase veritabanına ulaşmadan önce cihazınızda şifrelenir. Veritabanında yalnızca şifreli metin (ciphertext) bulunur.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-icon">🗝️</span><div class="card-title">Şifre Güvenliği</div></div>
+    <ul>
+      <li>Şifreniz asla düz metin olarak saklanmaz</li>
+      <li>SHA-256 + tuz (salt) ile hash'lenir</li>
+      <li>Şifrenizi unuttunuz? Admin sıfırlaması gerekir — biz bile bilemeyiz</li>
+      <li>Şifre değişikliği anlık olarak tüm oturumları geçersiz kılar</li>
+    </ul>
+  </div>
+
+  <div class="section-label">VERİ SAKLAMA VE SİLME</div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-icon">🗑️</span><div class="card-title">Verileriniz Üzerindeki Haklarınız</div></div>
+    <ul>
+      <li>Hesabınızı istediğiniz zaman kalıcı olarak silebilirsiniz</li>
+      <li>Hesap silme işlemi tüm mesajlarınızı ve sohbetlerinizi kaldırır</li>
+      <li>Self-destruct (imha) özelliği ile tek tek mesajlar otomatik silinebilir</li>
+      <li>Geri çekilmiş mesajlar karşı taraftan da kaldırılır</li>
+    </ul>
+  </div>
+
+  <div class="section-label">ÜÇÜNCÜ TARAFLAR</div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-icon">🌐</span><div class="card-title">Kullandığımız Servisler</div></div>
+    <ul>
+      <li><span class="highlight">Supabase</span> — Veritabanı altyapısı (ABD/AB sunucuları). GDPR uyumlu.</li>
+      <li><span class="highlight">Giphy API</span> — GIF arama (anonim, Giphy gizlilik politikası geçerlidir)</li>
+      <li><span class="highlight">Google Fonts</span> — Yazı tipleri (tarayıcı isteği, IP adresi gönderilir)</li>
+      <li>Reklam ağı, izleme pikseli veya analitik kodu kullanılmaz</li>
+    </ul>
+  </div>
+
+  <div class="divider"></div>
+
+  <p style="color:var(--m);font-size:14px;text-align:center">Sorularınız için: <a href="mailto:nexus.dev.tr@gmail.com" class="inline">nexus.dev.tr@gmail.com</a></p>
+  <div class="updated">Bu politika herhangi bir zamanda güncellenebilir. Önemli değişiklikler uygulama içinden duyurulur.</div>
+</div>
+</body>
+</html>
