@@ -94,6 +94,10 @@
 
     <!-- TAB: Mesajlar -->
     <div id="tab-messages" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
+      <!-- Server filter bar — populated by renderServerBar() -->
+      <div id="server-bar" style="display:none;flex-shrink:0;padding:6px 10px;border-bottom:1px solid #1E2D45;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
+        <div style="display:flex;gap:5px;min-width:max-content"></div>
+      </div>
       <!-- Stories -->
       <div style="padding:0 12px 8px;flex-shrink:0">
         <div id="stories-strip" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;-webkit-overflow-scrolling:touch"></div>
@@ -287,6 +291,9 @@
               <button onclick="openPollCreate();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
                 <span style="font-size:18px">📊</span> Anket Oluştur
               </button>
+              <button onclick="openDocEditor();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
+                <span style="font-size:18px">📄</span> Döküman / Çizim
+              </button>
             </div>
             <button onclick="Messages.toggleGifPicker()"
               style="height:36px;padding:0 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#7A8FA8;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:all .15s;flex-shrink:0"
@@ -435,6 +442,12 @@
             <option value="away">🟡 Uzakta</option>
             <option value="dnd">🔴 Rahatsız Etmeyin</option>
           </select>
+        </div>
+        <!-- Info links -->
+        <div style="display:flex;justify-content:center;gap:16px;padding:10px 0;border-top:1px solid #1E2D45;margin-bottom:8px">
+          <a href="hakkinda.html" target="_blank" style="font-size:11px;color:#7A8FA8;text-decoration:none;font-family:'JetBrains Mono',monospace">Hakkında</a>
+          <a href="gizlilik.html" target="_blank" style="font-size:11px;color:#7A8FA8;text-decoration:none;font-family:'JetBrains Mono',monospace">Gizlilik</a>
+          <a href="yardim.html"  target="_blank" style="font-size:11px;color:#7A8FA8;text-decoration:none;font-family:'JetBrains Mono',monospace">Yardım</a>
         </div>
         <button onclick="Auth.logout()" style="width:100%;padding:11px;border-radius:12px;background:rgba(255,61,107,.08);color:#FF3D6B;border:1px solid rgba(255,61,107,.2);font-weight:600;font-size:14px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,61,107,.15)'" onmouseleave="this.style.background='rgba(255,61,107,.08)'">
           Çıkış Yap
@@ -803,3 +816,100 @@
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     ORTAK DÖKÜMAN & GÖRSEL DÜZENLEYICI
+     ══════════════════════════════════════════════════════════════ -->
+<div id="doc-editor-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.96)">
+  <div style="width:100%;height:100%;max-width:900px;margin:0 auto;display:flex;flex-direction:column;background:#0C1220;border:1px solid #1E2D45">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0;background:#0A1018">
+      <div style="display:flex;gap:4px">
+        <button id="doc-tab-text" onclick="switchDocTab('text')" style="padding:5px 14px;border-radius:8px;border:1px solid var(--accent,#00FFB3);background:rgba(0,255,179,.12);color:var(--accent,#00FFB3);font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-weight:600">📝 Metin</button>
+        <button id="doc-tab-draw" onclick="switchDocTab('draw')" style="padding:5px 14px;border-radius:8px;border:1px solid #1E2D45;background:transparent;color:#7A8FA8;font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace">🎨 Çizim</button>
+      </div>
+      <input id="doc-title" type="text" placeholder="Döküman adı…" style="flex:1;background:transparent;border:none;outline:none;font-size:14px;font-weight:600;color:#DDE8F8;font-family:Syne,sans-serif">
+      <div style="display:flex;gap:6px">
+        <button onclick="saveDoc()" style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,var(--accent,#00FFB3),var(--accent-d,#00C48A));color:#062B1F;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:Syne,sans-serif">Gönder</button>
+        <button onclick="UI.closeModal('doc-editor-modal')" style="width:32px;height:32px;border-radius:8px;background:#131D30;border:1px solid #1E2D45;color:#7A8FA8;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+    </div>
+
+    <!-- Text Editor -->
+    <div id="doc-text-panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <!-- Toolbar -->
+      <div style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-bottom:1px solid #1E2D45;flex-shrink:0;flex-wrap:wrap">
+        <button onclick="docCmd('bold')"          class="doc-tool-btn" title="Kalın"><b>B</b></button>
+        <button onclick="docCmd('italic')"        class="doc-tool-btn" title="İtalik"><i>I</i></button>
+        <button onclick="docCmd('underline')"     class="doc-tool-btn" title="Altçizgi"><u>U</u></button>
+        <button onclick="docCmd('strikeThrough')" class="doc-tool-btn" title="Üstü çizili"><s>S</s></button>
+        <div style="width:1px;height:20px;background:#1E2D45;margin:0 4px"></div>
+        <button onclick="docCmd('insertUnorderedList')" class="doc-tool-btn" title="Liste">☰</button>
+        <button onclick="docCmd('insertOrderedList')"   class="doc-tool-btn" title="Numaralı">№</button>
+        <button onclick="docCmd('indent')"  class="doc-tool-btn" title="Girinti">→</button>
+        <button onclick="docCmd('outdent')" class="doc-tool-btn" title="Geri">←</button>
+        <div style="width:1px;height:20px;background:#1E2D45;margin:0 4px"></div>
+        <select onchange="docCmd('formatBlock',this.value)" style="background:#131D30;border:1px solid #1E2D45;border-radius:6px;color:#DDE8F8;padding:3px 6px;font-size:11px;cursor:pointer;outline:none">
+          <option value="p">Paragraf</option>
+          <option value="h1">Başlık 1</option>
+          <option value="h2">Başlık 2</option>
+          <option value="h3">Başlık 3</option>
+          <option value="pre">Kod</option>
+        </select>
+        <input type="color" onchange="docCmd('foreColor',this.value)" value="#DDE8F8" title="Renk" style="width:28px;height:28px;border-radius:6px;border:1px solid #1E2D45;background:#131D30;cursor:pointer;padding:2px">
+        <div style="width:1px;height:20px;background:#1E2D45;margin:0 4px"></div>
+        <button onclick="docCmd('undo')" class="doc-tool-btn" title="Geri Al">↩</button>
+        <button onclick="docCmd('redo')" class="doc-tool-btn" title="Yinele">↪</button>
+      </div>
+      <!-- Editable area -->
+      <div id="doc-content" contenteditable="true"
+        style="flex:1;padding:20px 24px;overflow-y:auto;color:#DDE8F8;font-size:15px;line-height:1.7;outline:none;font-family:'DM Sans',sans-serif;background:#06080F;-webkit-overflow-scrolling:touch"
+        placeholder="Yazmaya başlayın…">
+      </div>
+    </div>
+
+    <!-- Draw Editor -->
+    <div id="doc-draw-panel" style="flex:1;display:none;flex-direction:column;min-height:0">
+      <!-- Draw toolbar -->
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid #1E2D45;flex-shrink:0;flex-wrap:wrap">
+        <button onclick="setDrawTool('pen')"   id="dt-pen"   class="doc-tool-btn active-tool" title="Kalem">✏️</button>
+        <button onclick="setDrawTool('line')"  id="dt-line"  class="doc-tool-btn" title="Çizgi">╱</button>
+        <button onclick="setDrawTool('rect')"  id="dt-rect"  class="doc-tool-btn" title="Dikdörtgen">▭</button>
+        <button onclick="setDrawTool('circle')"id="dt-circle"class="doc-tool-btn" title="Daire">○</button>
+        <button onclick="setDrawTool('text')"  id="dt-text"  class="doc-tool-btn" title="Metin">T</button>
+        <button onclick="setDrawTool('eraser')"id="dt-eraser"class="doc-tool-btn" title="Silgi">🧹</button>
+        <div style="width:1px;height:20px;background:#1E2D45;margin:0 2px"></div>
+        <input type="color" id="draw-color" value="#00FFB3" title="Renk" style="width:28px;height:28px;border-radius:6px;border:1px solid #1E2D45;background:#131D30;cursor:pointer;padding:2px">
+        <select id="draw-size" style="background:#131D30;border:1px solid #1E2D45;border-radius:6px;color:#DDE8F8;padding:3px 6px;font-size:11px;cursor:pointer;outline:none">
+          <option value="2">İnce</option><option value="4" selected>Orta</option><option value="8">Kalın</option><option value="16">Çok Kalın</option>
+        </select>
+        <div style="width:1px;height:20px;background:#1E2D45;margin:0 2px"></div>
+        <button onclick="clearCanvas()" class="doc-tool-btn" title="Temizle" style="color:#FF3D6B">🗑</button>
+        <button onclick="undoCanvas()" class="doc-tool-btn" title="Geri Al">↩</button>
+      </div>
+      <canvas id="draw-canvas" style="flex:1;background:#06080F;cursor:crosshair;touch-action:none"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.doc-tool-btn {
+  padding: 4px 9px; border-radius: 6px; border: 1px solid #1E2D45;
+  background: transparent; color: #DDE8F8; cursor: pointer; font-size: 13px;
+  transition: all .12s; -webkit-tap-highlight-color: transparent;
+  min-width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+}
+.doc-tool-btn:hover, .doc-tool-btn.active-tool {
+  background: rgba(0,255,179,.12); border-color: var(--accent,#00FFB3); color: var(--accent,#00FFB3);
+}
+#doc-content:empty:before {
+  content: attr(placeholder); color: #3A4A5A; pointer-events: none;
+}
+#doc-content h1 { font-size: 1.8em; font-family: Syne,sans-serif; margin: 12px 0 6px; }
+#doc-content h2 { font-size: 1.4em; font-family: Syne,sans-serif; margin: 10px 0 5px; }
+#doc-content h3 { font-size: 1.1em; font-family: Syne,sans-serif; margin: 8px 0 4px; }
+#doc-content pre { background: #0A1018; padding: 10px; border-radius: 8px; font-family: 'JetBrains Mono',monospace; font-size: 13px; border: 1px solid #1E2D45; white-space: pre-wrap; }
+#doc-content ul, #doc-content ol { padding-left: 20px; }
+</style>
