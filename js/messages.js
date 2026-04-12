@@ -163,11 +163,18 @@ const Messages = (() => {
 
   // ── Lightbox ──────────────────────────────────────────────────
   function _lightbox(src) {
+    // Validate src is a safe URL (data: or https:)
+    if (!src || (!src.startsWith('data:') && !src.startsWith('https://') && !src.startsWith('http://'))) return;
     document.getElementById('cipher-lb')?.remove();
     const lb=document.createElement('div'); lb.id='cipher-lb';
     lb.style.cssText='position:fixed;inset:0;z-index:9000;background:rgba(6,8,15,.96);display:flex;align-items:center;justify-content:center;cursor:zoom-out';
     lb.onclick=e=>{if(e.target===lb)lb.remove();};
-    lb.innerHTML=`<img src="${src}" style="max-width:92vw;max-height:92vh;border-radius:12px;object-fit:contain"><button style="position:fixed;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:#1E2D45;color:#DDE8F8;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center" onclick="document.getElementById('cipher-lb')?.remove()">✕</button>`;
+    const img=document.createElement('img');
+    img.src=src; img.style.cssText='max-width:92vw;max-height:92vh;border-radius:12px;object-fit:contain';
+    const closeBtn=document.createElement('button');
+    closeBtn.style.cssText='position:fixed;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:#1E2D45;color:#DDE8F8;border:none;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center';
+    closeBtn.textContent='✕'; closeBtn.onclick=()=>lb.remove();
+    lb.appendChild(img); lb.appendChild(closeBtn);
     document.body.appendChild(lb);
   }
 
@@ -366,7 +373,7 @@ const Messages = (() => {
   }
 
   // ── Files ─────────────────────────────────────────────────────
-  function handleFiles(files){_files=[];const bar=document.getElementById('file-preview-bar');if(!bar)return;bar.innerHTML='';bar.style.display='block';Array.from(files).forEach(f=>{if(f.size>CONFIG.MAX_FILE_MB*1024*1024){UI.toast(`Maks. ${CONFIG.MAX_FILE_MB}MB`,'error');return;}const r=new FileReader();r.readAsDataURL(f);r.onload=()=>{_files.push({name:f.name,type:f.type,data:r.result});const d=document.createElement('div');d.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;background:#0A1018;border:1px solid #1E2D45;margin-bottom:4px';d.innerHTML=`${f.type.startsWith('image/')?`<img src="${r.result}" style="width:32px;height:32px;border-radius:6px;object-fit:cover">`:'<span style="font-size:20px">📄</span>'}<span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#DDE8F8">${f.name}</span><button onclick="Messages.clearFiles()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:14px">✕</button>`;bar.appendChild(d);};});}
+  function handleFiles(files){_files=[];const bar=document.getElementById('file-preview-bar');if(!bar)return;bar.innerHTML='';bar.style.display='block';Array.from(files).forEach(f=>{if(f.size>CONFIG.MAX_FILE_MB*1024*1024){UI.toast(`Maks. ${CONFIG.MAX_FILE_MB}MB`,'error');return;}const r=new FileReader();r.readAsDataURL(f);r.onload=()=>{_files.push({name:f.name,type:f.type,data:r.result});const d=document.createElement('div');d.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;background:#0A1018;border:1px solid #1E2D45;margin-bottom:4px';const _esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));d.innerHTML=`${f.type.startsWith('image/')?`<img src="${r.result}" style="width:32px;height:32px;border-radius:6px;object-fit:cover">`:'<span style="font-size:20px">📄</span>'}<span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#DDE8F8">${_esc(f.name)}</span><button onclick="Messages.clearFiles()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:14px">✕</button>`;bar.appendChild(d);};});}
   function clearFiles(){_files=[];const b=document.getElementById('file-preview-bar');if(b){b.innerHTML='';b.style.display='none';}const fi=document.getElementById('file-input');if(fi)fi.value='';}
   function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 
