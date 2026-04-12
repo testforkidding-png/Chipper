@@ -30,10 +30,13 @@ const Auth = (() => {
 
   function _saveSession(user) {
     const safe = { username:user.username, display_name:user.display_name||'', avatar_url:user.avatar_url||null, is_admin:user.is_admin||false, badges:user.badges||[], banner_color:user.banner_color||'#0A1628', status:user.status||'', status_emoji:user.status_emoji||'', server_roles:user.server_roles||{}, bio:user.bio||'', password_hash:user.password_hash||'' };
-    localStorage.setItem(SK, JSON.stringify({ username:user.username, expires:Date.now()+CONFIG.SESSION_HOURS*3600000, user:safe }));
+    const data = JSON.stringify({ username:user.username, expires:Date.now()+CONFIG.SESSION_HOURS*3600000, user:safe });
+    localStorage.setItem(SK, data);
+    // Backup in sessionStorage for mobile Safari reliability
+    try { sessionStorage.setItem('cipher_session_backup', data); } catch(e) {}
   }
   function getSession() { try { const s=JSON.parse(localStorage.getItem(SK)); if(!s||s.expires<Date.now()){localStorage.removeItem(SK);return null;} return s; } catch{return null;} }
-  function _clear() { localStorage.removeItem(SK); _encKey=null; }
+  function _clear() { localStorage.removeItem(SK); try { sessionStorage.removeItem('cipher_session_backup'); } catch(e) {} _encKey=null; }
 
   async function login(uname, password) {
     const u = uname.toLowerCase().trim();
