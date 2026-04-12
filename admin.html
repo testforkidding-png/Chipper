@@ -198,6 +198,9 @@ CREATE TABLE IF NOT EXISTS conversations (
 -- Mevcut tablo için:
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_from TEXT DEFAULT '';
 ALTER TABLE conversations ADD COLUMN IF NOT EXISTS server TEXT DEFAULT 'public';
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS poll_data TEXT;
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS doc_html TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status_mode TEXT DEFAULT 'online';
 
 CREATE TABLE IF NOT EXISTS messages (
   id            TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
