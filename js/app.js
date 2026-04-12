@@ -10,27 +10,53 @@ let _renderChatListTimer = null; // debounce
 
 // ── Boot ───────────────────────────────────────────────────────────
 async function bootApp() {
-  // Small wait for localStorage to settle (helps on mobile Safari)
-  await new Promise(r => setTimeout(r, 50));
-  
+  // Wait for storage to settle (mobile Safari fix)
+  await new Promise(r => setTimeout(r, 100));
+
   let session = Auth.getSession();
-  
-  // Backup: check sessionStorage if localStorage empty
+  console.log('[CIPHER boot] session:', session ? 'found' : 'null', '| key:', localStorage.getItem('cipher_session_v2') ? 'exists' : 'MISSING');
+
+  // Backup: sessionStorage fallback
   if (!session) {
     try {
-      const backup = sessionStorage.getItem('cipher_session_backup');
-      if (backup) {
-        const parsed = JSON.parse(backup);
-        if (parsed && parsed.expires > Date.now()) {
-          // Restore to localStorage
-          localStorage.setItem('cipher_session_v2', backup);
+      const bk = sessionStorage.getItem('cipher_session_backup');
+      if (bk) {
+        const p = JSON.parse(bk);
+        if (p?.expires > Date.now()) {
+          localStorage.setItem('cipher_session_v2', bk);
           session = Auth.getSession();
+          console.log('[CIPHER boot] restored from sessionStorage backup');
         }
       }
-    } catch(e) { console.warn('session backup check failed:', e); }
+    } catch(e) { console.warn('[CIPHER boot] backup restore failed:', e); }
   }
-  
-  if (!session) { window.location.href = 'index.html'; return; }
+
+  // Last resort: check ALL localStorage keys for any cipher session
+  if (!session) {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.includes('cipher_session')) {
+        try {
+          const val = JSON.parse(localStorage.getItem(key));
+          if (val?.username && val?.expires > Date.now()) {
+            // Migrate to correct key
+            localStorage.setItem('cipher_session_v2', JSON.stringify(val));
+            session = Auth.getSession();
+            console.log('[CIPHER boot] migrated session from key:', key);
+            break;
+          }
+        } catch(e) {}
+      }
+    }
+  }
+
+  if (!session) {
+    console.log('[CIPHER boot] no valid session found - redirecting to login');
+    window.location.href = 'index.html';
+    return;
+  }
+
+  console.log('[CIPHER boot] session valid for:', session.username);
 
   // ── PHASE 1: Immediate UI from session cache (zero wait) ────────
   loadSettings();
