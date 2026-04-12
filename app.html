@@ -17,7 +17,26 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <link rel="apple-touch-icon" href="icons/icon-1024.png">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Tailwind utilities — replaces CDN dependency (faster load, no blocking) */
+    .hidden{display:none!important}.flex{display:flex!important}
+    .fixed{position:fixed}.inset-0{top:0;right:0;bottom:0;left:0}
+    .z-50{z-index:50}.z-40{z-index:40}.z-30{z-index:30}
+    .items-center{align-items:center}.items-start{align-items:flex-start}
+    .justify-center{justify-content:center}.justify-between{justify-content:space-between}
+    .overflow-hidden{overflow:hidden}.overflow-y-auto{overflow-y:auto}
+    .w-full{width:100%}.h-full{height:100%}.min-h-0{min-height:0}
+    .flex-1{flex:1 1 0%}.flex-col{flex-direction:column}.flex-shrink-0{flex-shrink:0}
+    .relative{position:relative}.absolute{position:absolute}
+    .pointer-events-none{pointer-events:none}.select-none{user-select:none}
+    .truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .gap-2{gap:0.5rem}.gap-3{gap:0.75rem}.gap-4{gap:1rem}
+    .p-4{padding:1rem}.px-4{padding-left:1rem;padding-right:1rem}
+    .text-sm{font-size:0.875rem}.font-medium{font-weight:500}.font-bold{font-weight:700}
+    .rounded{border-radius:.25rem}.rounded-lg{border-radius:.5rem}
+    .bg-transparent{background:transparent}.border-none{border:none}
+    .cursor-pointer{cursor:pointer}.transition{transition:all .15s}
+  </style>
   <link rel="stylesheet" href="css/style.css">
   <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{display:['Syne','sans-serif'],body:['DM Sans','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
 </head>
