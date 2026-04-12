@@ -76,12 +76,28 @@ async function bootApp() {
   // All users into memory
   if (allUsersRes.status === 'fulfilled') {
     allUsersRes.value.forEach(u => { _allUsers[u.username] = u; });
-    // Update current user's server_roles from DB (may be more accurate than session cache)
+    // Sync current user's server_roles and admin flag from DB (session cache may be stale)
     const freshCu = _allUsers[window._currentUser?.username];
     if (freshCu && window._currentUser) {
-      window._currentUser.server_roles = freshCu.server_roles || window._currentUser.server_roles;
+      window._currentUser.server_roles = freshCu.server_roles || window._currentUser.server_roles || {};
       window._currentUser.is_admin     = freshCu.is_admin     ?? window._currentUser.is_admin;
+      window._currentUser.display_name = freshCu.display_name || window._currentUser.display_name;
+      window._currentUser.avatar_url   = freshCu.avatar_url   ?? window._currentUser.avatar_url;
+      window._currentUser.badges       = freshCu.badges       || window._currentUser.badges;
+      // Update session with fresh data
+      Auth.getSession && (() => {
+        try {
+          const s = JSON.parse(localStorage.getItem('cipher_session_v2') || '{}');
+          if (s.username) {
+            s.user = { ...s.user, ...window._currentUser };
+            const data = JSON.stringify(s);
+            localStorage.setItem('cipher_session_v2', data);
+            sessionStorage.setItem('cipher_session_backup', data);
+          }
+        } catch(e) {}
+      })();
     }
+    renderServerBar(); // re-render with fresh server_roles
   }
 
   // Conversations
@@ -105,11 +121,15 @@ async function bootApp() {
   Auth.startHeartbeat(window._currentUser.username);
 
   // New message handler — update UI from memory first, refresh DB in background
-  window._onNewMessage = async () => {
-    // Render messages from store immediately (optimistic)
-    if (window._currentConvId) await renderMessages();
-    // Then refresh convs list from DB (updates last_msg, unread counts)
-    loadConversations().catch(() => {});
+  let _newMsgTimer = null;
+  window._onNewMessage = () => {
+    // Debounce: prevent rapid re-renders from realtime bursts
+    if (_newMsgTimer) return;
+    _newMsgTimer = setTimeout(async () => {
+      _newMsgTimer = null;
+      if (window._currentConvId) await renderMessages().catch(() => {});
+      loadConversations().catch(() => {});
+    }, 80);
   };
 
   // localStorage cross-tab sync (non-Supabase mode)
@@ -276,6 +296,7 @@ function sendPushNotif(title, body, convId) {
 // ── My avatar ──────────────────────────────────────────────────────
 function renderMyAvatar() {
   const cu = window._currentUser;
+  if (!cu) return;
   const el = document.getElementById('my-avatar');
   if (!el || !cu) return;
   if (cu.avatar_url) {
@@ -1384,103 +1405,6 @@ async function submitChangePwd() {
   } catch(e) {
     if (errEl) { errEl.textContent = e.message; errEl.style.display = ''; }
   }
-}
-
-
-// ══════════════════════════════════════════════════════════════════
-const _CK = 'cipher_custom_v1';
-function _cLoad() { try { return JSON.parse(localStorage.getItem(_CK) || '{}'); } catch { return {}; } }
-function _cSave(obj) { localStorage.setItem(_CK, JSON.stringify({ ..._cLoad(), ...obj })); }
-
-// Uygulama başlangıcında kayıtlı kişiselleştirmeyi uygula
-function customizeApply() {
-  const cfg = _cLoad();
-  // Vurgu rengi
-  if (cfg.accent) {
-    document.documentElement.style.setProperty('--accent', cfg.accent);
-    document.documentElement.style.setProperty('--accent-d', _darker(cfg.accent));
-    document.documentElement.style.setProperty('--online', cfg.accent);
-  }
-  // Arkaplan (customize/bg.png)
-  const msg = document.getElementById('messages');
-  if (msg) {
-    if (cfg.bgEnabled !== false) {
-      msg.style.cssText += ';background-image:url("customize/bg.png");background-size:cover;background-position:center;background-attachment:local';
-      // Eğer dosya yoksa hata vermeden silinsin
-      const testImg = new Image();
-      testImg.onerror = () => { msg.style.backgroundImage = ''; };
-      testImg.src = 'customize/bg.png?t=' + Date.now();
-    }
-  }
-  // Logo (customize/logo.png)
-  if (cfg.logoEnabled !== false) {
-    const logoBoxes = document.querySelectorAll('.logo-bar-icon');
-    const testLogo = new Image();
-    testLogo.onload = () => {
-      logoBoxes.forEach(box => {
-        box.innerHTML = `<img src="customize/logo.png?t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">`;
-      });
-    };
-    testLogo.src = 'customize/logo.png?t=' + Date.now();
-  }
-}
-
-function _darker(hex) {
-  try {
-    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    const f = 0.78;
-    return `#${Math.round(r*f).toString(16).padStart(2,'0')}${Math.round(g*f).toString(16).padStart(2,'0')}${Math.round(b*f).toString(16).padStart(2,'0')}`;
-  } catch { return '#00C48A'; }
-}
-
-function openCustomize() {
-  // Render renkler
-  const cfg = _cLoad();
-  const current = cfg.accent || '#00FFB3';
-  const colors = [
-    ['#00FFB3','Yeşil'],['#4D9EFF','Mavi'],['#BF5FFF','Mor'],
-    ['#FF4D7A','Kırmızı'],['#FFB830','Altın'],['#FF7A30','Turuncu'],
-    ['#00E5FF','Cyan'],['#FF80AB','Pembe'],['#FFFFFF','Beyaz'],
-  ];
-  const grid = document.getElementById('accent-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  colors.forEach(([color, label]) => {
-    const btn = document.createElement('button');
-    const isActive = current.toLowerCase() === color.toLowerCase();
-    btn.style.cssText = `width:40px;height:40px;border-radius:50%;background:${color};border:3px solid ${isActive ? '#fff' : 'transparent'};cursor:pointer;transition:all .15s;position:relative;-webkit-tap-highlight-color:transparent`;
-    btn.title = label;
-    if (isActive) btn.innerHTML = `<span style="font-size:16px;color:${color === '#FFFFFF' ? '#000' : '#000'}">✓</span>`;
-    btn.onclick = () => {
-      grid.querySelectorAll('button').forEach(b => { b.style.borderColor = 'transparent'; b.innerHTML = ''; });
-      btn.style.borderColor = '#fff';
-      btn.innerHTML = `<span style="font-size:16px;color:${color === '#FFFFFF' ? '#000' : '#000'}">✓</span>`;
-      // Live preview
-      document.documentElement.style.setProperty('--accent', color);
-      document.documentElement.style.setProperty('--accent-d', _darker(color));
-      document.documentElement.style.setProperty('--online', color);
-      _cSave({ accent: color });
-      UI.toast(label + ' tema aktif ✓', 'success');
-    };
-    grid.appendChild(btn);
-  });
-  // Custom color input
-  const ci = document.getElementById('accent-custom-color');
-  if (ci) ci.value = current;
-  UI.openModal('customize-modal');
-}
-
-function customizeCustomColor(val) {
-  if (!val) return;
-  document.documentElement.style.setProperty('--accent',             val);
-  document.documentElement.style.setProperty('--accent-d',           _darker(val));
-  document.documentElement.style.setProperty('--online',             val);
-  document.documentElement.style.setProperty('--bubble-sent-1',      _mix(val,'#06080F',0.18));
-  document.documentElement.style.setProperty('--bubble-sent-2',      _mix(val,'#06080F',0.10));
-  document.documentElement.style.setProperty('--bubble-sent-border', _mix(val,'transparent',0.28));
-  _cSet({ accent: val });
-  const grid = document.getElementById('accent-grid');
-  if (grid) grid.querySelectorAll('button').forEach(b => { b.style.borderColor='transparent'; b.innerHTML=''; });
 }
 
 
