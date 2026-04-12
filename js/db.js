@@ -194,7 +194,19 @@ const DB = (() => {
 
     async createMessage(d) {
       const { data, error } = await sb().from('messages').insert(d).select('*').single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        // Retry without unknown extended cols (doc_html, poll_data may not exist in schema)
+        if (error.message.includes('column') || error.message.includes('schema')) {
+          const safe = { ...d };
+          ['doc_html'].forEach(k => delete safe[k]); // strip if not in schema
+          const { data: d2, error: e2 } = await sb().from('messages').insert(safe).select('*').single();
+          if (!e2) {
+            if (_C.msgs[d.conv_id]) { _C.msgs[d.conv_id].push(d2); _C.msgsTs[d.conv_id] = Date.now(); }
+            return d2;
+          }
+        }
+        throw new Error(error.message);
+      }
       if (_C.msgs[d.conv_id]) { _C.msgs[d.conv_id].push(data); _C.msgsTs[d.conv_id] = Date.now(); }
       return data;
     },
