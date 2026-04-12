@@ -10,7 +10,26 @@ let _renderChatListTimer = null; // debounce
 
 // ── Boot ───────────────────────────────────────────────────────────
 async function bootApp() {
-  const session = Auth.getSession();
+  // Small wait for localStorage to settle (helps on mobile Safari)
+  await new Promise(r => setTimeout(r, 50));
+  
+  let session = Auth.getSession();
+  
+  // Backup: check sessionStorage if localStorage empty
+  if (!session) {
+    try {
+      const backup = sessionStorage.getItem('cipher_session_backup');
+      if (backup) {
+        const parsed = JSON.parse(backup);
+        if (parsed && parsed.expires > Date.now()) {
+          // Restore to localStorage
+          localStorage.setItem('cipher_session_v2', backup);
+          session = Auth.getSession();
+        }
+      }
+    } catch(e) { console.warn('session backup check failed:', e); }
+  }
+  
   if (!session) { window.location.href = 'index.html'; return; }
 
   // ── PHASE 1: Immediate UI from session cache (zero wait) ────────
@@ -286,6 +305,7 @@ function buildStickerTabs() {
 
 // ── Conversations ──────────────────────────────────────────────────
 async function loadConversations() {
+  if (!window._currentUser?.username) return;
   try {
     _convs = await DB.getConversations(window._currentUser.username);
     window._convs = _convs;
@@ -313,7 +333,7 @@ function renderChatList() {
 
 function _doRenderChatList() {
   const list = document.getElementById('chat-list');
-  if (!list) return;
+  if (!list || !window._currentUser) return;
 
   let items = [..._convs];
 
@@ -406,12 +426,17 @@ function _doRenderChatList() {
 // ── Open conversation ──────────────────────────────────────────────
 async function openConv(convId) {
   window._currentConvId = convId;
+  // Show loading state immediately
+  const msgBox = document.getElementById('messages');
+  if (msgBox) msgBox.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#3A4A5A;font-size:12px;font-family:monospace">Yükleniyor…</div>';
+  document.getElementById('pin-banner')?.remove();
+
   let conv = _convs.find(c => c.id === convId);
   if (!conv) {
     try { conv = await DB.getConversation(convId); if (conv) _convs.push(conv); }
     catch(e) { console.warn('openConv getConversation:', e); }
   }
-  if (!conv) return;
+  if (!conv) { if (msgBox) msgBox.innerHTML = ''; return; }
 
   // Mark as read
   if ((conv.unread_for?.[window._currentUser.username] || 0) > 0) {
@@ -504,6 +529,32 @@ function backToSidebar() {
 
 async function sendMessage() {
   if (!window._currentConvId) return;
+  // Offline: queue to outbox
+  if (!navigator.onLine && CONFIG.USE_SUPABASE) {
+    const input = document.getElementById('msg-input');
+    const text = (input?.value || '').trim();
+    if (text) {
+      outboxAdd(window._currentConvId, text);
+      if (input) { input.value = ''; Messages.autoResize(input); }
+      return;
+    }
+  }
+  const dtEl = document.getElementById('schedule-dt');
+  if (dtEl?.value) {
+    const sendAt = new Date(dtEl.value).getTime();
+    if (sendAt > Date.now()) {
+      const input = document.getElementById('msg-input');
+      const text = (input?.value || '').trim();
+      if (!text) return;
+      const q = JSON.parse(localStorage.getItem('cipher_scheduled') || '[]');
+      q.push({ convId: window._currentConvId, text, sendAt, id: 'sc_' + Date.now() });
+      localStorage.setItem('cipher_scheduled', JSON.stringify(q));
+      if (input) { input.value = ''; Messages.autoResize(input); }
+      clearScheduler();
+      UI.toast(`⏰ ${new Date(sendAt).toLocaleString('tr-TR')} gönderilecek`, 'info', 4000);
+      return;
+    }
+  }
   await Messages.send(window._currentConvId);
 }
 
@@ -715,6 +766,7 @@ function renderContactsList(searchQ) {
   const list = document.getElementById('contacts-tab-list');
   if (!list) return;
   const cu = window._currentUser;
+  if (!cu) return;
 
   let users = Object.values(_allUsers).filter(u => u.username !== cu.username);
 
@@ -1741,6 +1793,28 @@ function _loadStatusMode() {
   if (window._currentUser) window._currentUser._statusMode = mode;
 }
 
+// ── Zamanlanmış Mesaj ────────────────────────────────────────────
+function openScheduler() {
+  const existing = document.getElementById('scheduler-bar');
+  if (existing) { existing.remove(); window._scheduledSendAt = null; return; }
+  const bar = document.createElement('div');
+  bar.id = 'scheduler-bar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 12px;margin-bottom:8px;border-radius:10px;background:#071825;border:1px solid rgba(0,229,255,.25);flex-shrink:0';
+  // Min = now
+  const now = new Date(); now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  bar.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00E5FF" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <span style="font-size:11px;color:#00E5FF;font-family:'JetBrains Mono',monospace;flex-shrink:0">Zamanlanmış:</span>
+    <input type="datetime-local" id="schedule-dt" min="${now.toISOString().slice(0,16)}"
+      style="background:transparent;border:none;outline:none;font-size:11px;color:#DDE8F8;font-family:'JetBrains Mono',monospace;cursor:pointer;flex:1">
+    <button onclick="clearScheduler()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:16px">✕</button>`;
+  const compose = document.getElementById('compose');
+  if (compose) compose.insertBefore(bar, compose.firstChild);
+}
+function clearScheduler() {
+  document.getElementById('scheduler-bar')?.remove();
+  window._scheduledSendAt = null;
+}
+
 // ── Compose + menu ────────────────────────────────────────────────
 function toggleComposePlus() {
   const m = document.getElementById('compose-plus-menu');
@@ -1843,20 +1917,7 @@ window.addEventListener('online', () => {
 });
 window.addEventListener('offline', () => UI.toast('📡 Çevrimdışı mod', 'warn'));
 
-// Intercept sendMessage to use outbox when offline
-const _origSendMsg = window.sendMessage;
-window.sendMessage = function() {
-  if (!navigator.onLine && CONFIG.USE_SUPABASE) {
-    const input = document.getElementById('msg-input');
-    const text = (input?.value || '').trim();
-    if (text && window._currentConvId) {
-      outboxAdd(window._currentConvId, text);
-      if (input) { input.value = ''; Messages.autoResize(input); }
-      return;
-    }
-  }
-  (_origSendMsg || function(){})();
-};
+// Outbox handled inside sendMessage()
 
 // ══════════════════════════════════════════════════════════════════
 // ORTAK DÖKÜMAN & GÖRSEL DÜZENLEYICI
@@ -2047,3 +2108,22 @@ function openDocViewer(msgId) {
     <div style="flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;color:#DDE8F8;font-size:15px;line-height:1.7;font-family:'DM Sans',sans-serif">${msg.doc_html}</div>`;
   document.body.appendChild(overlay);
 }
+
+
+// ── Zamanlanmış mesaj kontrolü ───────────────────────────────────
+setInterval(async () => {
+  const q = JSON.parse(localStorage.getItem('cipher_scheduled') || '[]');
+  if (!q.length || !window._currentUser) return;
+  const now = Date.now(), toSend = [], keep = [];
+  q.forEach(s => (s.sendAt <= now ? toSend : keep).push(s));
+  if (!toSend.length) return;
+  localStorage.setItem('cipher_scheduled', JSON.stringify(keep));
+  for (const s of toSend) {
+    try {
+      await DB.createMessage({ conv_id:s.convId, from:window._currentUser.username, type:'text', text:s.text, status:'sent', created_at:s.sendAt });
+      await DB.updateConversation(s.convId, { last_msg:s.text, last_time:s.sendAt, last_from:window._currentUser.username });
+      window._onNewMessage?.();
+    } catch(e) { keep.push(s); localStorage.setItem('cipher_scheduled', JSON.stringify([...keep])); }
+  }
+  if (toSend.length) UI.toast(`⏰ ${toSend.length} zamanlanmış mesaj gönderildi`, 'success');
+}, 15000);
