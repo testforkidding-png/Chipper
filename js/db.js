@@ -13,7 +13,7 @@ const DB = (() => {
 
   // ── In-memory cache ──────────────────────────────────────────
   const _C = { users: null, convs: null, msgs: {}, msgsTs: {} };
-  const MSG_TTL = 4000;
+  const MSG_TTL = 3000; // 3s - realtime handles updates
 
   // ── SHA-256 (pure JS) ────────────────────────────────────────
   function _sha256(s) {
@@ -80,15 +80,20 @@ const DB = (() => {
       return d;
     },
 
-    async getAllUsers() {
-      if (_C.users?.size > 0) {
-        const arr = Array.from(_C.users.values());
-        // Background refresh
-        _queryAllUsers().then(rows => { rows.forEach(r => _C.users.set(r.username, r)); }).catch(() => {});
-        return arr;
+    _usersTs: 0,
+    async getAllUsers(force = false) {
+      const now = Date.now();
+      const USERS_TTL = 45000; // 45s cache
+      if (!force && _C.users?.size > 0 && (now - Supa._usersTs) < USERS_TTL) {
+        // Background refresh if >20s old
+        if (now - Supa._usersTs > 20000) {
+          _queryAllUsers().then(rows => { rows.forEach(r => _C.users.set(r.username, r)); Supa._usersTs = Date.now(); }).catch(() => {});
+        }
+        return Array.from(_C.users.values());
       }
       const rows = await _queryAllUsers();
       _C.users = new Map(); rows.forEach(r => _C.users.set(r.username, r));
+      Supa._usersTs = Date.now();
       return rows;
     },
 
@@ -131,11 +136,30 @@ const DB = (() => {
     },
 
     async deleteUser(u) {
-      await sb().from('conversations').delete().contains('participants', [u]).catch(() => {});
-      await sb().from('messages').delete().eq('from', u).catch(() => {});
+      // Delete conversations where user is a participant
+      // Use cs() (contains) for TEXT[] array - Supabase JS v2 syntax
+      try {
+        await sb().from('conversations').delete().cs('participants', `{${u}}`);
+      } catch(e1) {
+        // Fallback: fetch then delete individually
+        try {
+          const { data: convs } = await sb().from('conversations').select('id').contains('participants', [u]);
+          if (convs?.length) {
+            const ids = convs.map(c => c.id);
+            await sb().from('conversations').delete().in('id', ids);
+          }
+        } catch(e2) { console.warn('deleteUser convs cleanup:', e2); }
+      }
+      // Delete messages - 'from' is reserved, use filter
+      try {
+        await sb().from('messages').delete().filter('from', 'eq', u);
+      } catch(e) { console.warn('deleteUser msgs cleanup:', e); }
+      // Delete user
       const { error } = await sb().from('users').delete().eq('username', u);
       if (error) throw new Error(error.message);
       _C.users?.delete(u);
+      // Clear conv cache entries involving this user
+      if (_C.convs) _C.convs = _C.convs.filter(c => !c.participants?.includes(u));
     },
 
     async getConversations(uid) {
@@ -174,20 +198,28 @@ const DB = (() => {
     },
 
     async updateConversation(id, patch) {
+      // Optimistic update in cache
       if (_C.convs) { const i = _C.convs.findIndex(c => c.id === id); if (i >= 0) Object.assign(_C.convs[i], patch); }
-      const safeKeys = ['last_msg','last_time','unread_for','name','avatar','banner_color','admin','participants'];
-      const safe = {}; for (const k of safeKeys) if (k in patch) safe[k] = patch[k];
-      if (Object.keys(safe).length) await sb().from('conversations').update(safe).eq('id', id).catch(() => {});
-      // Try extended cols
-      const ext = {}; for (const k in patch) if (!safeKeys.includes(k)) ext[k] = patch[k];
-      if (Object.keys(ext).length) await sb().from('conversations').update(ext).eq('id', id).catch(() => {});
+      // Try full patch first (all cols)
+      const { error } = await sb().from('conversations').update(patch).eq('id', id);
+      if (!error) return;
+      // Fallback: safe cols only
+      if (error.message.includes('column') || error.message.includes('schema')) {
+        const safeKeys = ['last_msg','last_time','unread_for','name','avatar','banner_color','admin','participants','last_from','server'];
+        const safe = {}; for (const k of safeKeys) if (k in patch) safe[k] = patch[k];
+        if (Object.keys(safe).length) await sb().from('conversations').update(safe).eq('id', id).catch(() => {});
+      }
     },
 
     async getMessages(cid) {
       const now = Date.now();
       if (_C.msgs[cid] && (now - _C.msgsTs[cid]) < MSG_TTL) return _C.msgs[cid];
       const { data, error } = await sb().from('messages').select('*').eq('conv_id', cid).order('created_at').limit(200);
-      if (error) throw new Error(error.message);
+      if (error) {
+        // Return cached if available, even if stale
+        if (_C.msgs[cid]) { console.warn('getMessages error (using cache):', error.message); return _C.msgs[cid]; }
+        throw new Error(error.message);
+      }
       _C.msgs[cid] = data || []; _C.msgsTs[cid] = now;
       return _C.msgs[cid];
     },
