@@ -162,6 +162,20 @@
 <script>
 // Boot
 (async function() {
+  // Step 1: Force unregister ANY old service workers that might serve stale JS
+  if ('serviceWorker' in navigator) {
+    try {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
+        const sw = reg.active || reg.waiting;
+        // If SW is old version (not v6), unregister it
+        const isOld = sw && !sw.scriptURL?.includes('sw.js');
+        // Always update to ensure latest sw.js
+        await reg.update();
+      }
+    } catch(e) { /* ignore */ }
+  }
+
   try { await DB.init(); } catch(e) { console.warn('DB.init:', e); }
   try {
     if (Auth.getSession()) { window.location.replace('app.html'); return; }
