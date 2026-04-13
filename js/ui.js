@@ -22,26 +22,44 @@ const UI = (() => {
 
   // Timestamp helpers
   function _ms(ts) {
-    if (!ts) return 0;
-    if (typeof ts === 'string') { const n=new Date(ts).getTime(); return isNaN(n)?0:n; }
-    return ts < 1e12 ? ts*1000 : ts;
+    if (!ts && ts !== 0) return 0;
+    if (typeof ts === 'string') {
+      // Numeric string like "1700000000000" or "1700000000"
+      if (/^\d+$/.test(ts.trim())) {
+        const n = parseFloat(ts);
+        return n < 1e12 ? n * 1000 : n;
+      }
+      // ISO string like "2024-01-01T00:00:00+00:00"
+      const n = new Date(ts).getTime();
+      return isNaN(n) ? 0 : n;
+    }
+    if (typeof ts === 'number') {
+      if (isNaN(ts)) return 0;
+      return ts < 1e12 ? ts * 1000 : ts;
+    }
+    return 0;
   }
   function fmtTime(ts) {
-    const d=new Date(_ms(ts)),now=new Date(),diff=now-d;
-    if(isNaN(d.getTime())) return '';
-    if(diff<86400000) return d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
-    if(diff<604800000) return ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][d.getDay()];
-    return d.toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit'});
+    try {
+      const ms = _ms(ts); if (!ms) return '';
+      const d=new Date(ms), now=new Date(), diff=now-d;
+      if(isNaN(d.getTime())) return '';
+      if(diff<86400000) return d.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+      if(diff<604800000) return ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][d.getDay()];
+      return d.toLocaleDateString('tr-TR',{day:'2-digit',month:'2-digit'});
+    } catch { return ''; }
   }
-  function fmtDate(ts) { const d=new Date(_ms(ts)); if(isNaN(d.getTime()))return ''; return d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}); }
+  function fmtDate(ts) { try { const ms=_ms(ts); if(!ms) return ''; const d=new Date(ms); if(isNaN(d.getTime()))return ''; return d.toLocaleDateString('tr-TR',{day:'numeric',month:'long',year:'numeric'}); } catch { return ''; } }
   function fmtRelative(ts) {
-    const ms=_ms(ts); if(!ms) return 'Bilinmiyor';
-    const d=Date.now()-ms; if(d<0||isNaN(d)) return 'Az önce';
-    if(d<60000)    return 'Az önce';
-    if(d<3600000)  return Math.floor(d/60000)+' dk önce';
-    if(d<86400000) return Math.floor(d/3600000)+' sa önce';
-    if(d<604800000)return Math.floor(d/86400000)+' gün önce';
-    return Math.floor(d/604800000)+' hafta önce';
+    try {
+      const ms=_ms(ts); if(!ms) return '';
+      const d=Date.now()-ms; if(d<0||isNaN(d)) return 'Az önce';
+      if(d<60000)    return 'Az önce';
+      if(d<3600000)  return Math.floor(d/60000)+' dk önce';
+      if(d<86400000) return Math.floor(d/3600000)+' sa önce';
+      if(d<604800000)return Math.floor(d/86400000)+' gün önce';
+      return Math.floor(d/604800000)+' hafta önce';
+    } catch { return ''; }
   }
 
   // Online status
