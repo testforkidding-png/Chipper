@@ -252,7 +252,7 @@ const DB = (() => {
 
     async deleteMessage(cid, mid) {
       await sb().from('messages').delete().eq('id', mid);
-      if (_C.msgs[cid]) _C.msgs[cid] = _C.msgs[cid].filter(m => m.id !== mid);
+      if (cid && _C.msgs[cid]) _C.msgs[cid] = _C.msgs[cid].filter(m => m.id !== mid);
     },
 
     async getStories() {
@@ -262,6 +262,10 @@ const DB = (() => {
     async createStory(d) {
       const { data, error } = await sb().from('stories').insert({ ...d, expires_at: new Date(Date.now()+86400000).toISOString() }).select('*').single();
       if (error) throw new Error(error.message); return data;
+    },
+    async updateStory(id, patch) {
+      const { error } = await sb().from('stories').update(patch).eq('id', id);
+      if (error) throw new Error(error.message);
     },
     async deleteStory(id) { await sb().from('stories').delete().eq('id', id); },
 
@@ -297,6 +301,7 @@ const DB = (() => {
     async deleteMessage(cid,mid)  { _lsSet('msgs_'+cid,(_ls('msgs_'+cid)||[]).filter(m=>m.id!==mid)); },
     async getStories() { return Object.values(_ls('stories')||{}).filter(s=>{ const e=typeof s.expires_at==='string'?new Date(s.expires_at).getTime():s.expires_at; return e>Date.now(); }); },
     async createStory(d){ const ss=_ls('stories')||{}; const id='s_'+Date.now(); ss[id]={...d,id,created_at:Date.now(),expires_at:Date.now()+86400000}; _lsSet('stories',ss); return ss[id]; },
+    async updateStory(id,p){ const ss=_ls('stories')||{}; if(ss[id]){ss[id]={...ss[id],...p};_lsSet('stories',ss);} },
     async deleteStory(id){ const ss=_ls('stories')||{}; delete ss[id]; _lsSet('stories',ss); },
     invalidateMsgs(){},'subscribeMessages':()=>null,'subscribeConversations':()=>null,'unsubscribe':()=>{},
   };
@@ -328,6 +333,7 @@ const DB = (() => {
     deleteMessage:         (...a) => impl().deleteMessage(...a),
     getStories:            (...a) => impl().getStories(...a),
     createStory:           (...a) => impl().createStory(...a),
+    updateStory:           (...a) => impl().updateStory?.(...a),
     deleteStory:           (...a) => impl().deleteStory(...a),
     subscribeMessages:     (...a) => impl().subscribeMessages?.(...a),
     subscribeConversations:(...a) => impl().subscribeConversations?.(...a),
