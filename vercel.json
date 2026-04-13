@@ -3,7 +3,7 @@
     { "source": "/cipher",      "destination": "/cipherapp.html" },
     { "source": "/login", "destination": "/index.html" },
     { "source": "/app",   "destination": "/app.html" },
-    { "source": "/admin", "destination": "/admin.html" }
+    { "source": "/admin.pırt", "destination": "/admin.html" }
   ],
   "headers": [
     {
