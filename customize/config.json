@@ -46,7 +46,7 @@
         { "id": "nasa8", "file": "backgrounds/nasa8.png", "label": "Andromeda" },
         { "id": "nasa9", "file": "backgrounds/nasa9.png", "label": "Jupiter" },
         { "id": "nasa10", "file": "backgrounds/nasa10.png", "label": "NGC 4013" },
-        { "id": "nasa11", "file": "backgrounds/nasa11.png", "label": "Cosmic Cliffs" },
+        { "id": "nasa11", "file": "backgrounds/nasa11.png", "label": "Cosmic Cliffs" }
       ]
     }
   ],
