@@ -80,6 +80,11 @@ const Auth = (() => {
     return user;
   }
 
+  async function changeDisplayName(username, newName) {
+    if (!newName?.trim()) throw new Error('Ad boş olamaz.');
+    return DB.updateUser(username, { display_name: newName.trim() });
+  }
+
   async function changePassword(username, oldPwd, newPwd) {
     const user = await DB.getUser(username);
     if (!user) throw new Error('Kullanıcı bulunamadı.');
@@ -120,5 +125,5 @@ const Auth = (() => {
     window.addEventListener('blur', off);
   }
 
-  return { login, register, logout, currentUser, requireAuth, changePassword, encryptMsg, decryptMsg, hashPassword, getSession, startHeartbeat, getLastSeenLocal: _getLocal };
+  return { login, register, logout, currentUser, requireAuth, changeDisplayName, changePassword, encryptMsg, decryptMsg, hashPassword, getSession, startHeartbeat, getLastSeenLocal: _getLocal };
 })();
