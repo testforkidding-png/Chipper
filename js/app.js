@@ -70,6 +70,7 @@ async function bootApp() {
         is_admin: false, badges: [], server_roles: {}, bio: '', status: '', status_emoji: '' };
   renderMyAvatar();
   renderServerBar();
+  _loadStatusMode();
 
   // Skeleton chat list
   const chatList = document.getElementById('chat-list');
@@ -398,8 +399,8 @@ function _doRenderChatList() {
   items.sort((a, b) => {
     const ap = _pinnedSet.has(a.id) ? 1 : 0, bp = _pinnedSet.has(b.id) ? 1 : 0;
     if (ap !== bp) return bp - ap; // pinned first
-    const ta = typeof a.last_time === 'string' ? new Date(a.last_time).getTime() : (a.last_time || 0);
-    const tb = typeof b.last_time === 'string' ? new Date(b.last_time).getTime() : (b.last_time || 0);
+    const ta = UI._ms(a.last_time) || 0;
+    const tb = UI._ms(b.last_time) || 0;
     return tb - ta;
   });
 
@@ -428,12 +429,8 @@ function _doRenderChatList() {
     div.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:13px;cursor:pointer;margin:1px 5px;transition:background .12s;background:${isActive ? '#151E30' : 'transparent'}`;
     div.addEventListener('mouseenter', () => { if (!isActive) div.style.background = '#0C1220'; });
     div.addEventListener('mouseleave', () => { div.style.background = isActive ? '#151E30' : 'transparent'; });
+    div.dataset.convId = conv.id;
     div.addEventListener('click', () => openConv(conv.id));
-    // Long press = pin/unpin
-    let _pressTimer = null;
-    div.addEventListener('pointerdown', () => { _pressTimer = setTimeout(() => { togglePinChat(conv.id); renderChatList(); }, 600); });
-    div.addEventListener('pointerup',   () => clearTimeout(_pressTimer));
-    div.addEventListener('pointerleave',() => clearTimeout(_pressTimer));
 
     // Avatar
     let avHtml;
@@ -598,7 +595,9 @@ async function sendMessage() {
       localStorage.setItem('cipher_scheduled', JSON.stringify(q));
       if (input) { input.value = ''; Messages.autoResize(input); }
       clearScheduler();
-      UI.toast(`⏰ ${new Date(sendAt).toLocaleString('tr-TR')} gönderilecek`, 'info', 4000);
+      const _dt = new Date(sendAt);
+      const _dtStr = isNaN(_dt.getTime()) ? 'belirlenen saatte' : _dt.toLocaleString('tr-TR');
+      UI.toast(`⏰ ${_dtStr} gönderilecek`, 'info', 4000);
       return;
     }
   }
@@ -638,10 +637,10 @@ function openUserProfile(user) {
       <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:4px">@${user.username}</div>
       <div style="font-size:12px;color:${st.color};margin-bottom:${user.status ? '6px' : '10px'}">${st.text}</div>
       ${user.status ? `<div style="font-size:13px;color:#B0C4D8;margin-bottom:10px">${user.status_emoji || ''} ${user.status}</div>` : ''}
-      ${user.bio ? `<div style="font-size:13px;color:#9AB0C8;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:#06080F;border-radius:10px;border:1px solid #1E2D45">${user.bio}</div>` : ''}
+      ${user.bio ? `<div style="font-size:13px;color:#9AB0C8;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:#06080F;border-radius:10px;border:1px solid #1E2D45">${(user.bio||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>` : ''}
       ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${badges}</div>` : ''}
       <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:3px">ÜYE OLDU</div>
-      <div style="font-size:12px;color:#DDE8F8;margin-bottom:16px">${UI.fmtDate(user.created_at || Date.now())}</div>
+      <div style="font-size:12px;color:#DDE8F8;margin-bottom:16px">${user.created_at ? UI.fmtDate(user.created_at) : ''}</div>
       <div style="display:flex;gap:8px">
         <button id="profile-dm-btn" style="flex:1;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">💬 Mesaj Gönder</button>
         <button id="profile-more-btn" style="padding:11px 14px;border-radius:12px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;cursor:pointer;-webkit-tap-highlight-color:transparent">⋯</button>
@@ -899,7 +898,7 @@ function renderContactsList(searchQ) {
 
   // Update count badge
   const countEl = document.getElementById('contacts-count');
-  if (countEl) countEl.textContent = users.length + ' kullanıcı';
+  if (countEl) countEl.textContent = users.length > 0 ? users.length + ' kullanıcı' : '';
 }
 
 // ── Updates tab ─────────────────────────────────────────────────────
@@ -980,16 +979,15 @@ function openNewChat() {
   if (!list) return;
   const cu = window._currentUser;
   let users = Object.values(_allUsers).filter(u => u.username !== cu.username);
-  if (!cu.is_admin) {
-    const myS = new Set(Object.entries(cu.server_roles||{}).filter(([,v])=>v).map(([k])=>k));
-    myS.add('public');
-    users = users.filter(u => {
-      if (u.is_admin) return false;
-      const theirS = new Set(Object.entries(u.server_roles||{}).filter(([,v])=>v).map(([k])=>k));
-      for (const s of myS) if (theirS.has(s)) return true;
-      return false;
-    });
-  }
+  // Use same server filter as contacts tab
+  users = users.filter(u => {
+    if (cu.is_admin || u.is_admin) return true;
+    const myRolesLoaded = cu.server_roles && Object.keys(cu.server_roles).length > 0;
+    if (!myRolesLoaded) return true;
+    const myS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s));
+    const thS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(u, s));
+    return myS.some(s => thS.includes(s));
+  });
   users.sort((a,b) => (a.display_name||a.username).localeCompare(b.display_name||b.username,'tr'));
 
   const frag = document.createDocumentFragment();
@@ -1180,14 +1178,14 @@ async function saveProfile() {
   const d = { display_name: document.getElementById('pe-displayname').value.trim()||cu.display_name, bio: document.getElementById('pe-bio').value.trim(), status: document.getElementById('pe-status').value.trim(), status_emoji: document.getElementById('pe-statusemoji').value.trim(), banner_color: window._selectedBannerColor||cu.banner_color };
   try {
     await DB.updateUser(cu.username, d);
-    window._currentUser = {...cu,...d}; _allUsers[cu.username] = window._currentUser;
+    Object.assign(window._currentUser, d); _allUsers[cu.username] = { ..._allUsers[cu.username], ...d };
     UI.closeModal('profile-edit-modal'); renderMyAvatar(); UI.toast('Profil güncellendi ✓','success');
   } catch(e) { UI.toast('Güncellenemedi: '+e.message,'error'); }
 }
 
 async function uploadAvatar(input) {
   const file = input.files[0]; if (!file) return;
-  if (file.size > CONFIG.MAX_FILE_SIZE_MB*1024*1024) { UI.toast(`Maks. ${CONFIG.MAX_FILE_SIZE_MB}MB`,'error'); return; }
+  if (file.size > CONFIG.MAX_FILE_MB*1024*1024) { UI.toast(`Maks. ${CONFIG.MAX_FILE_MB}MB`,'error'); return; }
   const r = new FileReader(); r.readAsDataURL(file);
   r.onload = async () => {
     try {
@@ -1238,7 +1236,17 @@ function reportUser() { const t=window._brTarget; if(!t)return; const r=JSON.par
 function openReportModal() { UI.openModal('report-modal'); }
 function submitReport() { const type=document.getElementById('report-type').value; const text=document.getElementById('report-text').value.trim(); if(!text){UI.toast('Açıklama girin','error');return;} const r=JSON.parse(localStorage.getItem('cipher_admin_reports')||'[]'); r.push({type,from:window._currentUser.username,text,time:Date.now()}); localStorage.setItem('cipher_admin_reports',JSON.stringify(r)); document.getElementById('report-text').value=''; UI.closeModal('report-modal'); UI.toast('Sorun bildirildi ✓','success'); }
 function openLockAccount() { document.getElementById('lock-pwd').value=''; document.getElementById('lock-err').style.display='none'; UI.openModal('lock-modal'); }
-async function confirmLock() { const pwd=document.getElementById('lock-pwd').value; if(!pwd)return; const hash=await DB.hashPassword(pwd); if(hash!==window._currentUser.password_hash){const e=document.getElementById('lock-err');e.textContent='Şifre yanlış.';e.style.display='';return;} UI.closeModal('lock-modal'); Auth.logout(); }
+async function confirmLock() {
+  const pwd=document.getElementById('lock-pwd').value; if(!pwd)return;
+  const hash=await DB.hashPassword(pwd);
+  // Fetch fresh from DB (session cache may not have password_hash)
+  let storedHash = window._currentUser.password_hash;
+  if (!storedHash) {
+    try { const u=await DB.getUser(window._currentUser.username); storedHash=u?.password_hash; } catch {}
+  }
+  if (!storedHash || hash!==storedHash){const e=document.getElementById('lock-err');e.textContent='Şifre yanlış.';e.style.display='';return;}
+  UI.closeModal('lock-modal'); Auth.logout();
+}
 function openDeleteAccount() { document.getElementById('delete-confirm').value=''; document.getElementById('delete-pwd').value=''; document.getElementById('del-err').style.display='none'; UI.openModal('delete-account-modal'); }
 async function confirmDeleteAccount() { const cf=document.getElementById('delete-confirm').value.trim(); const pwd=document.getElementById('delete-pwd').value; const errEl=document.getElementById('del-err'); const showE=msg=>{errEl.textContent=msg;errEl.style.display='';}; if(cf!=='SİL'){showE('"SİL" yazın.');return;} if(!pwd){showE('Şifre girin.');return;} const hash=await DB.hashPassword(pwd); if(hash!==window._currentUser.password_hash){showE('Şifre yanlış.');return;} try{await DB.deleteUser(window._currentUser.username); setTimeout(()=>Auth.logout(),1500); UI.toast('Hesap silindi 👋','info');}catch(e){showE(e.message);} }
 function shareApp() { const url=window.location.origin+window.location.pathname.replace('app.html',''); if(navigator.share){navigator.share({title:'CIPHER Messenger',url}).catch(()=>{});}else{navigator.clipboard.writeText(url).then(()=>UI.toast('Link kopyalandı 🔗','success'));} }
@@ -1354,6 +1362,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   await bootApp();
   Messages.initEvents();
   setupScreenshotDetection();
+
+  // Long-press delegation for chat list pin (avoids per-item listeners)
+  let _clPressTimer = null, _clPressId = null;
+  document.getElementById('chat-list')?.addEventListener('pointerdown', e => {
+    const item = e.target.closest('[data-conv-id]');
+    if (!item) return;
+    _clPressId = item.dataset.convId;
+    _clPressTimer = setTimeout(() => {
+      if (_clPressId) { togglePinChat(_clPressId); renderChatList(); _clPressId = null; }
+    }, 600);
+  });
+  document.getElementById('chat-list')?.addEventListener('pointerup', () => { clearTimeout(_clPressTimer); _clPressId = null; });
+  document.getElementById('chat-list')?.addEventListener('pointerleave', () => { clearTimeout(_clPressTimer); _clPressId = null; });
 
   // Global click handler - close overlays
   document.addEventListener('click', e => {
@@ -1779,7 +1800,16 @@ function toggleComposePlus() {
 function closeComposePlus() { const m=document.getElementById('compose-plus-menu'); if(m) m.style.display='none'; }
 
 // ── Poll (Anket) ──────────────────────────────────────────────────
-function openPollCreate() { UI.openModal('poll-modal'); }
+function openPollCreate() {
+  // Reset poll form
+  const qEl = document.getElementById('poll-question');
+  if (qEl) qEl.value = '';
+  const wrap = document.getElementById('poll-options-wrap');
+  if (wrap) {
+    wrap.innerHTML = '<input class="poll-opt modal-inp" type="text" placeholder="Seçenek 1"><input class="poll-opt modal-inp" type="text" placeholder="Seçenek 2">';
+  }
+  UI.openModal('poll-modal');
+}
 
 function addPollOption() {
   const wrap = document.getElementById('poll-options-wrap');
@@ -1810,7 +1840,10 @@ async function submitPoll() {
 
 async function votePoll(msgId, option) {
   const convId = window._currentConvId;
-  const msgs = await DB.getMessages(convId);
+  if (!convId || !window._currentUser) return;
+  let msgs;
+  try { msgs = await DB.getMessages(convId); }
+  catch(e) { UI.toast('Oy verilemedi', 'error'); return; }
   const msg = msgs.find(m => m.id === msgId);
   if (!msg || !msg.poll_data) return;
   const poll = JSON.parse(msg.poll_data);
@@ -1837,6 +1870,7 @@ function outboxAdd(convId, text) {
 }
 
 async function outboxFlush() {
+  if (!window._currentUser?.username) return;
   const q = JSON.parse(localStorage.getItem(_OUTBOX) || '[]');
   if (!q.length || !navigator.onLine) return;
   localStorage.setItem(_OUTBOX, '[]');
@@ -1876,9 +1910,12 @@ let _drawTool = 'pen', _drawing = false, _drawStart = {x:0,y:0};
 let _canvasHistory = [], _canvasHistoryIdx = -1;
 
 function openDocEditor() {
+  if (!window._currentConvId) { UI.toast('Önce bir sohbet seçin', 'error'); return; }
   switchDocTab('text');
-  document.getElementById('doc-title').value = '';
-  document.getElementById('doc-content').innerHTML = '';
+  const titleEl = document.getElementById('doc-title');
+  const contentEl = document.getElementById('doc-content');
+  if (titleEl) titleEl.value = '';
+  if (contentEl) contentEl.innerHTML = '';
   UI.openModal('doc-editor-modal');
   requestAnimationFrame(() => initCanvas());
 }
@@ -1903,9 +1940,13 @@ function docCmd(cmd, val) {
 // ── Canvas drawing ────────────────────────────────────────────────
 function initCanvas() {
   const canvas = document.getElementById('draw-canvas');
-  if (!canvas || canvas._initialized) return;
-  canvas._initialized = true;
+  if (!canvas) return;
+  // Re-init if panel size changed or first open
   const panel = document.getElementById('doc-draw-panel');
+  const panelW = panel?.offsetWidth || 0;
+  if (canvas._initialized && canvas._initW === panelW) return;
+  canvas._initialized = true;
+  canvas._initW = panelW;
   const resize = () => {
     const data = canvas.toDataURL();
     canvas.width  = panel.offsetWidth;
@@ -2055,15 +2096,27 @@ function openDocViewer(msgId) {
       <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8;flex:1">${msg.text||'Döküman'}</span>
       <button onclick="document.getElementById('doc-viewer-overlay').remove()" style="width:32px;height:32px;border-radius:8px;background:#131D30;border:1px solid #1E2D45;color:#7A8FA8;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
-    <div style="flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;color:#DDE8F8;font-size:15px;line-height:1.7;font-family:'DM Sans',sans-serif">${msg.doc_html}</div>`;
+    <div id="doc-viewer-body" style="flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;color:#DDE8F8;font-size:15px;line-height:1.7;font-family:'DM Sans',sans-serif"></div>`;
   document.body.appendChild(overlay);
+  // Safe injection: only allow formatting tags, no scripts
+  const body = overlay.querySelector('#doc-viewer-body');
+  if (body) {
+    // Strip script/iframe/on* attributes from doc_html
+    const clean = (msg.doc_html || '')
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<iframe[^>]*>/gi, '')
+      .replace(/\s+on\w+="[^"]*"/gi, '')
+      .replace(/\s+on\w+='[^']*'/gi, '');
+    body.innerHTML = clean;
+  }
 }
 
 
 // ── Zamanlanmış mesaj kontrolü ───────────────────────────────────
 setInterval(async () => {
+  if (!window._currentUser?.username || !navigator.onLine) return;
   const q = JSON.parse(localStorage.getItem('cipher_scheduled') || '[]');
-  if (!q.length || !window._currentUser) return;
+  if (!q.length) return;
   const now = Date.now(), toSend = [], keep = [];
   q.forEach(s => (s.sendAt <= now ? toSend : keep).push(s));
   if (!toSend.length) return;
