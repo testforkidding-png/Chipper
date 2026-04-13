@@ -93,7 +93,7 @@ const UI = (() => {
     menu.style.cssText=`position:fixed;z-index:9999;top:${sy}px;left:${sx}px;background:#0C1220;border:1px solid #1E2D45;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.7);min-width:180px`;
     menu.innerHTML=items.map(it=>it==='divider'
       ?'<div style="height:1px;background:#1E2D45;margin:3px 0"></div>'
-      :`<button style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;color:${it.danger?'#FF3D6B':'#DDE8F8'};background:none;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''" onclick="${it.action}">${it.icon?`<span>${it.icon}</span>`:''}<span>${it.label}</span></button>`
+      :`<button style="width:100%;text-align:left;display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;color:${it.danger?'#FF3D6B':'#DDE8F8'};background:none;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'" onclick="${it.action}">${it.icon?`<span>${it.icon}</span>`:''}<span>${it.label}</span></button>`
     ).join('');
     menu.classList.remove('hidden');
     const hide=()=>{menu.classList.add('hidden');document.removeEventListener('click',hide);};
