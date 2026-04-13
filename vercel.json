@@ -1,11 +1,17 @@
 {
+  "rewrites": [
+    { "source": "/",      "destination": "/cipherapp.html" },
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/app",   "destination": "/app.html" },
+    { "source": "/admin", "destination": "/admin.html" }
+  ],
   "headers": [
     {
-      "source": "/(.*).js",
+      "source": "/(.*)\\.js",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/(.*).html",
+      "source": "/(.*)\\.html",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     }
   ]
