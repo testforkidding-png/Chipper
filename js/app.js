@@ -525,7 +525,9 @@ async function openConv(convId) {
       statusEl.textContent = `${conv.participants?.length || 0} üye`;
       statusEl.style.color = '#7A8FA8';
     } else {
-      const st = UI.onlineStatus(other);
+      // Refresh other user from _allUsers in case last_seen updated
+      const freshOther = other ? (_allUsers[other.username] || other) : null;
+      const st = UI.onlineStatus(freshOther);
       statusEl.textContent = st.text;
       statusEl.style.color = st.color;
     }
@@ -698,7 +700,7 @@ function openGroupPanel(conv) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;cursor:pointer;transition:background .12s';
     row.onmouseenter = () => row.style.background = '#131D30';
-    row.onmouseleave = () => row.style.background = '';
+    row.onmouseleave = () => row.style.background = 'transparent';
     row.onclick = () => { const usr = _allUsers[uid]; if (usr) openUserProfile(usr); };
     row.innerHTML = `${av}
       <div style="flex:1;min-width:0">
@@ -1188,7 +1190,14 @@ function openProfileEdit() {
 
 async function saveProfile() {
   const cu = window._currentUser;
-  const d = { display_name: document.getElementById('pe-displayname').value.trim()||cu.display_name, bio: document.getElementById('pe-bio').value.trim(), status: document.getElementById('pe-status').value.trim(), status_emoji: document.getElementById('pe-statusemoji').value.trim(), banner_color: window._selectedBannerColor||cu.banner_color };
+  const _sanitize = s => (s||'').replace(/[<>]/g,'').slice(0,200);
+  const d = { 
+    display_name: _sanitize(document.getElementById('pe-displayname').value)||cu.display_name,
+    bio:          _sanitize(document.getElementById('pe-bio').value),
+    status:       _sanitize(document.getElementById('pe-status').value).slice(0,100),
+    status_emoji: (document.getElementById('pe-statusemoji').value||'').slice(0,4),
+    banner_color: window._selectedBannerColor||cu.banner_color 
+  };
   try {
     await DB.updateUser(cu.username, d);
     Object.assign(window._currentUser, d); _allUsers[cu.username] = { ..._allUsers[cu.username], ...d };
@@ -2063,6 +2072,7 @@ function _saveCanvasState() {
   const canvas = document.getElementById('draw-canvas'); if (!canvas) return;
   _canvasHistory = _canvasHistory.slice(0, _canvasHistoryIdx + 1);
   _canvasHistory.push(canvas.toDataURL());
+  if (_canvasHistory.length > 20) _canvasHistory = _canvasHistory.slice(-20);
   _canvasHistoryIdx = _canvasHistory.length - 1;
 }
 
