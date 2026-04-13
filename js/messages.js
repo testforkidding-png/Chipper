@@ -182,7 +182,7 @@ const Messages = (() => {
   async function send(convId) {
     const input = document.getElementById('msg-input');
     const text = (input?.value||'').trim();
-    if (!text && !_files.length) return;
+    if ((!text || text.length > 4000) && !_files.length) return; // max 4000 chars
     if (input){input.value='';autoResize(input);}
     closeAllPickers();
 
@@ -238,12 +238,20 @@ const Messages = (() => {
   async function searchGifs(q=''){
     if(_gifLoading)return; _gifLoading=true;
     const grid=document.getElementById('gif-grid');if(!grid){_gifLoading=false;return;}
+    _gifResults=[]; // clear stale results immediately
     grid.innerHTML=Array(6).fill(0).map(()=>'<div style="border-radius:10px;aspect-ratio:1;background:linear-gradient(90deg,#0C1220 0%,#1A2535 50%,#0C1220 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite"></div>').join('');
     try{
-      const url=q?`https://api.giphy.com/v1/gifs/search?api_key=${CONFIG.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg`:`https://api.giphy.com/v1/gifs/trending?api_key=${CONFIG.GIPHY_API_KEY}&limit=18&rating=pg`;
-      const res=await fetch(url);if(!res.ok)throw new Error('HTTP '+res.status);
-      const json=await res.json();_gifResults=json.data||[];if(!q)_gifCache=_gifResults;renderGifs();
-    }catch(e){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px">GIF yüklenemedi</div>';}
+      const qs=q?`search?api_key=${CONFIG.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg&lang=tr`:`trending?api_key=${CONFIG.GIPHY_API_KEY}&limit=18&rating=pg`;
+      const res=await fetch(`https://api.giphy.com/v1/gifs/${qs}`);
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      const json=await res.json();
+      _gifResults=json.data||[];
+      if(!q)_gifCache=_gifResults;
+      renderGifs();
+    }catch(e){
+      console.warn('GIF fetch error:',e);
+      grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px">GIF yüklenemedi — internet bağlantınızı kontrol edin</div>';
+    }
     _gifLoading=false;
   }
   function renderGifs(){
@@ -251,14 +259,26 @@ const Messages = (() => {
     if(!_gifResults.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Sonuç bulunamadı</div>';return;}
     const frag=document.createDocumentFragment();
     _gifResults.forEach(g=>{
-      const url=g.images?.fixed_height?.url||g.images?.downsized?.url||g.images?.original?.url;if(!url)return;
+      // Prefer fixed_height_small for faster loading, fallback to others
+      const url=g.images?.fixed_height_small?.url||g.images?.fixed_height?.url||g.images?.downsized?.url||g.images?.original?.url;
+      if(!url)return;
+      const previewUrl=g.images?.fixed_height_still?.url||url; // static preview while loading
       const div=document.createElement('div');
-      div.style.cssText='position:relative;width:100%;height:0;padding-bottom:100%;border-radius:12px;overflow:hidden;background:#0C1220;border:1px solid #1E2D45;cursor:pointer;transition:transform .1s,border-color .1s';
+      div.className='gif-item';
+      div.style.cssText='position:relative;border-radius:12px;overflow:hidden;background:#0C1220;border:1px solid #1E2D45;cursor:pointer;transition:transform .1s,border-color .1s;aspect-ratio:1';
       div.onmouseenter=()=>{div.style.transform='scale(1.03)';div.style.borderColor='var(--accent,#00FFB3)';};
       div.onmouseleave=()=>{div.style.transform='scale(1)';div.style.borderColor='#1E2D45';};
-      const img=document.createElement('img');img.src=url;img.loading='lazy';
-      img.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block';
-      div.appendChild(img);div.onclick=()=>{if(window._currentConvId)sendGif(window._currentConvId,url,g.title);};
+      const img=document.createElement('img');
+      // Use static preview first, swap to animated on load
+      img.src=url;
+      img.alt=(g.title||'GIF').slice(0,40);
+      img.decoding='async';
+      img.style.cssText='width:100%;height:100%;object-fit:cover;display:block';
+      img.onerror=()=>{div.style.display='none';}; // hide broken GIFs
+      div.appendChild(img);
+      // Support both click and touch
+      const send=()=>{if(window._currentConvId)sendGif(window._currentConvId,url,g.title);};
+      div.onclick=send;
       frag.appendChild(div);
     });
     grid.innerHTML='';grid.appendChild(frag);
@@ -379,7 +399,12 @@ const Messages = (() => {
 
   // ── Events ────────────────────────────────────────────────────
   function initEvents(){
-    document.addEventListener('click',e=>{const pill=e.target.closest('.reaction-pill');if(pill){_toggleReaction(pill.dataset.msgid,pill.dataset.emoji);}});
+    document.addEventListener('click',e=>{
+      const pill=e.target.closest('.reaction-pill');
+      if(pill&&pill.dataset.msgid&&pill.dataset.emoji){
+        _toggleReaction(pill.dataset.msgid,pill.dataset.emoji);
+      }
+    });
     const area=document.getElementById('messages');
     if(area){
       area.addEventListener('contextmenu',e=>{const b=e.target.closest('[data-msgid]');if(!b)return;e.preventDefault();_ctxMenu(e,b.dataset.msgid,b.dataset.ismine==='1');});
