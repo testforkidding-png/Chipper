@@ -53,10 +53,15 @@ const DB = (() => {
 
   // ── User helpers ──────────────────────────────────────────────
   async function _queryUser(username) {
-    // Try with extended cols, fall back to safe
     let { data, error } = await sb().from('users').select('*').eq('username', username).maybeSingle();
-    if (error && (error.message.includes('column') || error.message.includes('schema'))) {
-      ({ data, error } = await sb().from('users').select(U_SAFE).eq('username', username).maybeSingle());
+    if (error) {
+      if (error.message.includes('column') || error.message.includes('schema')) {
+        ({ data, error } = await sb().from('users').select(U_SAFE).eq('username', username).maybeSingle());
+      } else if (error.status === 429) {
+        // Rate limited — wait and retry once
+        await new Promise(r => setTimeout(r, 1500));
+        ({ data, error } = await sb().from('users').select(U_SAFE).eq('username', username).maybeSingle());
+      }
     }
     if (error) throw new Error(error.message);
     return data;
