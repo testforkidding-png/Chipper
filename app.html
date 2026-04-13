@@ -2,6 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' https:; media-src 'self' blob: data:">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
   <meta name="theme-color" content="#00FFB3">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -300,17 +301,17 @@
             </button>
             <!-- Compose + popup -->
             <div id="compose-plus-menu" style="display:none;position:absolute;bottom:60px;left:12px;background:#0C1220;border:1px solid #1E2D45;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:20;min-width:180px">
-              <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:13px;color:#DDE8F8;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
+              <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:13px;color:#DDE8F8;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">📎</span> Dosya Ekle
                 <input type="file" id="file-input" class="hidden" multiple onchange="Messages.handleFiles(this.files);closeComposePlus()">
               </label>
-              <button onclick="openScheduler();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
+              <button onclick="openScheduler();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">⏰</span> Zamanlanmış Gönder
               </button>
-              <button onclick="openPollCreate();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
+              <button onclick="openPollCreate();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">📊</span> Anket Oluştur
               </button>
-              <button onclick="openDocEditor();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background=''">
+              <button onclick="openDocEditor();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">📄</span> Döküman / Çizim
               </button>
             </div>
