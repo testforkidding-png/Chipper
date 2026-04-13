@@ -42,9 +42,17 @@ const Auth = (() => {
   function getSession() { try { const s=JSON.parse(localStorage.getItem(SK)); if(!s||s.expires<Date.now()){localStorage.removeItem(SK);return null;} return s; } catch{return null;} }
   function _clear() { localStorage.removeItem(SK); localStorage.removeItem('cipher_session'); try { sessionStorage.removeItem('cipher_session_backup'); } catch(e) {} _encKey=null; }
 
+  // Brute-force protection: max 10 attempts per 5 min
+  const _loginAttempts = {};
   async function login(uname, password) {
     const u = uname.toLowerCase().trim();
     if (!u||!password) throw new Error('Kullanıcı adı ve şifre girin.');
+    // Check attempt count
+    const now = Date.now();
+    if (!_loginAttempts[u]) _loginAttempts[u] = [];
+    _loginAttempts[u] = _loginAttempts[u].filter(t => now - t < 300000); // 5 min window
+    if (_loginAttempts[u].length >= 10) throw new Error('Çok fazla başarısız deneme. 5 dakika bekleyin.');
+    _loginAttempts[u].push(now);
     let user;
     try { user = await DB.getUser(u); }
     catch(e) {
@@ -59,6 +67,7 @@ const Auth = (() => {
     if (user.password_hash !== hash) throw new Error('Şifre yanlış.');
     await deriveEncKey(password, u);
     _saveSession(user);
+    if(_loginAttempts[u]) delete _loginAttempts[u]; // clear on success
     DB.updateUser(u, { last_seen:Date.now(), online:true }).catch(()=>{});
     return user;
   }
