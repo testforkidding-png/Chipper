@@ -252,7 +252,14 @@
       display: flex; align-items: center; justify-content: space-between;
       flex-wrap: wrap; gap: 16px;
     }
-    .footer-logo { font-family: Syne, sans-serif; font-weight: 800; font-size: 15px; color: var(--t); }
+    /* GÜNCELLENEN LOGO STİLİ */
+    .footer-logo { 
+      display: flex; align-items: center; gap: 10px;
+      font-family: Syne, sans-serif; font-weight: 800; font-size: 15px; color: var(--t); 
+    }
+    .footer-frame {
+      height: 24px; width: auto; object-fit: contain;
+    }
     .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
     .footer-links a { font-size: 12px; color: var(--m); text-decoration: none; font-family: 'JetBrains Mono', monospace; transition: color .2s; }
     .footer-links a:hover { color: var(--a); }
@@ -265,6 +272,7 @@
       .nav-links a:not(.nav-cta) { display: none; }
       .hero { padding: 100px 16px 60px; }
       footer { flex-direction: column; text-align: center; }
+      .footer-logo { justify-content: center; }
     }
   </style>
 </head>
@@ -272,7 +280,6 @@
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
 
-<!-- NAV -->
 <nav>
   <a href="#" class="nav-logo">
     <div class="nav-logo-box">
@@ -288,7 +295,6 @@
   </div>
 </nav>
 
-<!-- HERO -->
 <section class="hero">
   <div class="hero-badge">
     <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--a)" stroke="none"><circle cx="12" cy="12" r="10"/></svg>
@@ -305,7 +311,6 @@
     <a href="#ozellikler" class="btn-secondary">Özellikleri Keşfet →</a>
   </div>
 
-  <!-- Mock chat UI -->
   <div class="hero-visual">
     <div class="mock-header">
       <div class="mock-av">A</div>
@@ -332,7 +337,6 @@
   </div>
 </section>
 
-<!-- FEATURES -->
 <section class="features" id="ozellikler">
   <div class="features-header">
     <h2>Eksiksiz Mesajlaşma</h2>
@@ -387,7 +391,6 @@
   </div>
 </section>
 
-<!-- HOW IT WORKS -->
 <section class="how">
   <div class="how-inner">
     <h2>Nasıl Çalışır?</h2>
@@ -411,7 +414,6 @@
   </div>
 </section>
 
-<!-- SECURITY -->
 <section class="security" id="guvenlik">
   <div class="security-inner">
     <h2>Güvenlik Her Şeyin Önünde</h2>
@@ -440,7 +442,6 @@
   </div>
 </section>
 
-<!-- CTA -->
 <section class="cta-section">
   <div class="cta-box">
     <h2>Hemen Başlamaya Hazır mısın?</h2>
@@ -452,9 +453,12 @@
   </div>
 </section>
 
-<!-- FOOTER -->
 <footer>
-  <div class="footer-logo">⚡ CIPHER</div>
+  <div class="footer-logo">
+    <img src="frame.png" alt="Cipher Frame" class="footer-frame">
+    <span>CIPHER</span>
+  </div>
+  
   <div class="footer-links">
     <a href="hakkinda.html">Hakkında</a>
     <a href="gizlilik.html">Gizlilik</a>
