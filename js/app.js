@@ -71,6 +71,7 @@ async function bootApp() {
   renderMyAvatar();
   renderServerBar();
   _loadStatusMode();
+  _loadNotifs();
 
   // Skeleton chat list
   const chatList = document.getElementById('chat-list');
@@ -130,6 +131,7 @@ async function bootApp() {
   // Conversations
   _convs = convsRes.status === 'fulfilled' ? convsRes.value : [];
   window._convs = _convs;
+  window._convsLoaded = true;
   renderChatList();
 
   // Supabase warning
@@ -390,8 +392,8 @@ function _doRenderChatList() {
   if (_chatFilter === 'groups') items = items.filter(c => c.type === 'group');
   items = items.filter(convMatchesServer);
   if (_searchQuery) {
-    const q = _searchQuery.toLowerCase();
-    items = items.filter(c => getConvName(c).toLowerCase().includes(q) || (c.last_msg || '').toLowerCase().includes(q));
+    const q = _searchQuery.toLocaleLowerCase('tr-TR');
+    items = items.filter(c => getConvName(c).toLocaleLowerCase('tr-TR').includes(q) || (c.last_msg || '').toLocaleLowerCase('tr-TR').includes(q));
   }
 
   // Pinned chats first, then sort by last_time descending
@@ -410,7 +412,8 @@ function _doRenderChatList() {
   if (!items.length) {
     const empty = document.createElement('div');
     empty.style.cssText = 'text-align:center;padding:32px 16px;font-size:13px;color:#7A8FA8';
-    empty.textContent = _chatFilter !== 'all' ? 'Filtre sonucu yok' : 'Henüz sohbet yok';
+    const loadingStill = !window._convsLoaded && _chatFilter === 'all';
+    empty.textContent = loadingStill ? '' : (_chatFilter !== 'all' ? 'Filtre sonucu yok' : 'Henüz sohbet yok');
     frag.appendChild(empty);
     list.innerHTML = '';
     list.appendChild(frag);
@@ -441,7 +444,7 @@ function _doRenderChatList() {
     }
 
     // Last message preview
-    const lastText = (conv.last_msg || '').slice(0, 40);
+    const lastText = (conv.last_msg || '').slice(0, 40).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
     let previewHtml = `<span style="font-size:12px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lastText}</span>`;
     if (conv.type === 'group' && conv.last_from) {
       const senderName = conv.last_from === cu.username ? 'Sen' : (_allUsers[conv.last_from]?.display_name || conv.last_from);
@@ -457,7 +460,7 @@ function _doRenderChatList() {
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between">
           ${previewHtml}
-          ${unread > 0 ? `<span style="min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:#00FFB3;color:#062B1F;flex-shrink:0;margin-left:6px">${unread > 99 ? '99+' : unread}</span>` : ''}
+          ${unread > 0 ? `<span style="min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:var(--accent,#00FFB3);color:#062B1F;flex-shrink:0;margin-left:6px">${unread > 99 ? '99+' : unread}</span>` : ''}
         </div>
       </div>`;
     frag.appendChild(div);
@@ -469,6 +472,7 @@ function _doRenderChatList() {
 
 // ── Open conversation ──────────────────────────────────────────────
 async function openConv(convId) {
+  if (!convId) return;
   window._currentConvId = convId;
   // Show loading state immediately
   const msgBox = document.getElementById('messages');
@@ -567,7 +571,7 @@ function backToSidebar() {
   const backBtn = document.getElementById('back-btn');
   if (backBtn) backBtn.style.display = 'none';
   Messages.closeAllPickers();
-  // Stop polling when leaving chat
+  Messages.stopVoice(); // stop any active recording
   if (window._pollInterval) { clearInterval(window._pollInterval); window._pollInterval = null; }
 }
 
@@ -837,9 +841,9 @@ function renderContactsList(searchQ) {
   const q = (searchQ || document.getElementById('contact-search-input')?.value || '').toLowerCase().trim();
   if (q) {
     users = users.filter(u =>
-      (u.display_name || '').toLowerCase().includes(q) ||
-      u.username.toLowerCase().includes(q) ||
-      (u.bio || '').toLowerCase().includes(q)
+      (u.display_name || '').toLocaleLowerCase('tr-TR').includes(q) ||
+      u.username.toLocaleLowerCase('tr-TR').includes(q) ||
+      (u.bio || '').toLocaleLowerCase('tr-TR').includes(q)
     );
   }
 
@@ -855,7 +859,6 @@ function renderContactsList(searchQ) {
 
   users.forEach(u => {
     const color = UI.avatarColor(u.username);
-    const hasChatted = chattedSet.has(u.username);
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:13px;cursor:pointer;margin:1px 5px;transition:background .12s';
     div.onmouseenter = () => div.style.background = '#0C1220';
@@ -958,7 +961,17 @@ async function renderStories() {
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0';
     div.innerHTML = `<div class="${seen ? 'story-ring-seen' : 'story-ring'}" style="width:52px;height:52px;border-radius:50%"><div style="width:100%;height:100%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:${uc}22">${uAv}</div></div><span style="font-size:10px;color:${seen?'#7A8FA8':'#DDE8F8'};max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',monospace">${(u.display_name||u.username).split(' ')[0]}</span>`;
-    div.onclick = () => UI.showStory(sts[0], u);
+    div.onclick = () => {
+      UI.showStory(sts[0], u);
+      // Mark as seen
+      const cu = window._currentUser;
+      if (sts[0] && !sts[0].seen_by?.includes(cu?.username)) {
+        const seen = [...(sts[0].seen_by||[]), cu.username];
+        DB.updateStory?.(sts[0].id, { seen_by: seen }).catch(()=>{});
+        sts[0].seen_by = seen;
+        setTimeout(() => renderStories().catch(()=>{}), 500);
+      }
+    };
     strip.appendChild(div);
   });
 }
@@ -1117,7 +1130,7 @@ async function searchInMessages(q) {
   const ce = document.getElementById('search-count');
   if (!q) { if(ce) ce.textContent=''; await renderMessages(); return; }
   const msgs = await DB.getMessages(window._currentConvId).catch(()=>[]);
-  const hits = msgs.filter(m => (m.text||'').toLowerCase().includes(q.toLowerCase()));
+  const hits = msgs.filter(m => (m.text||'').toLocaleLowerCase('tr-TR').includes(q.toLocaleLowerCase('tr-TR')));
   if(ce) ce.textContent = hits.length + ' sonuç';
   await renderMessages(q);
   if(hits.length) document.getElementById('msg-'+hits[0].id)?.scrollIntoView({behavior:'smooth',block:'center'});
@@ -1256,7 +1269,15 @@ let _notifs = [];
 function addNotif(msg, from, convId) {
   _notifs.unshift({msg,from,convId,time:Date.now(),read:false});
   if (_notifs.length>50) _notifs.length=50;
+  try { localStorage.setItem('cipher_notifs_'+window._currentUser?.username, JSON.stringify(_notifs.slice(0,20))); } catch {}
   updateNotifBadge();
+}
+function _loadNotifs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('cipher_notifs_'+window._currentUser?.username) || '[]');
+    _notifs = saved;
+    updateNotifBadge();
+  } catch {}
 }
 function updateNotifBadge() {
   const unread=_notifs.filter(n=>!n.read).length;
@@ -1407,7 +1428,12 @@ async function applyAvatarUrl() {
       window._currentUser.avatar_url = url;
       _allUsers[window._currentUser.username].avatar_url = url;
       renderMyAvatar();
-      if (prev) prev.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover">`;
+      if (prev) {
+      prev.innerHTML = '';
+      const aImg = document.createElement('img');
+      aImg.src = url; aImg.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+      prev.appendChild(aImg);
+    }
       UI.toast('Fotoğraf güncellendi ✓', 'success');
       if (urlInput) urlInput.value = '';
     } catch(e) { UI.toast('Kaydedilemedi: ' + e.message, 'error'); }
@@ -1418,7 +1444,12 @@ async function applyAvatarUrl() {
       window._currentUser.avatar_url = url;
       _allUsers[window._currentUser.username].avatar_url = url;
       renderMyAvatar();
-      if (prev) prev.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover">`;
+      if (prev) {
+      prev.innerHTML = '';
+      const aImg = document.createElement('img');
+      aImg.src = url; aImg.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+      prev.appendChild(aImg);
+    }
       UI.toast('Fotoğraf güncellendi ✓', 'success');
       if (urlInput) urlInput.value = '';
     }).catch(e => UI.toast('Kaydedilemedi: ' + e.message, 'error'));
