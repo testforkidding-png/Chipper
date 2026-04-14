@@ -8,7 +8,10 @@ const CONFIG = {
   SESSION_HOURS: 168,
   MAX_FILE_MB: 5,
   ALLOW_REGISTER: true,
-  GIPHY_API_KEY: 'dc6zaTOxFJmzC',
+  // GIF API — Tenor (Google) ücretsiz, API key gerekmez
+  // Giphy kullanmak istersen: https://developers.giphy.com adresinden key al
+  GIPHY_API_KEY: 'MyUO0T9onUDn5nmCE15L2daCuRYitSzl', // opsiyonel - Tenor fallback aktif
+  TENOR_KEY: 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk', // Google Tenor ücretsiz key
 
   SERVERS: {
     friends: { id:'friends', label:'Arkadaşlar', icon:'👫', color:'#0066FF' },
@@ -25,6 +28,19 @@ const CONFIG = {
     'CIPHER':   ['🔐','🔒','🔓','🛡️','⚔️','🗝️','💻','📱','👁️','🕵️','🌐','📡','🔭','⚙️','🔬','💡','🎯','🎰','🃏','🎭'],
   },
 
+  GROUP_ICONS: [
+    // Genel
+    '👥','👨‍👩‍👧‍👦','🏠','🎮','📚','🎵','🎨','⚽','🏋️','🍕',
+    // Çalışma
+    '💼','💻','📊','🔬','⚙️','🚀','💡','📝','🎯','🏆',
+    // Sosyal  
+    '❤️','🔥','⚡','🌟','🎉','🎭','🌈','🦋','🌸','🌙',
+    // Özel
+    '🔐','🛡️','⚔️','🗝️','👁️','🕵️','🌐','📡','🔭','🎰',
+    // Semboller
+    '♟️','🎲','🃏','🎪','🎬','📸','🎤','🎧','📱','💬',
+  ],
+
   BADGES: {
     admin:    { icon:'⚡', label:'Yönetici',        color:'#FFD700' },
     early:    { icon:'🌟', label:'Erken Kullanıcı', color:'#00FFB3' },
@@ -32,6 +48,6 @@ const CONFIG = {
   },
 
   BANNER_COLORS: ['#0A1628','#1A0A28','#0A2818','#281A0A','#1A0A1A'],
-  APP_VERSION: '6.1.0',
+  APP_VERSION: '3.8.0',
 };
 Object.freeze(CONFIG);
