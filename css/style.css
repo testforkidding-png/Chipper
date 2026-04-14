@@ -170,9 +170,11 @@ button{-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 }
 @media(max-width:600px){.gif-grid{grid-template-columns:repeat(2,1fr)}}
 .gif-item{
-  border-radius:10px;overflow:hidden;cursor:pointer;
-  aspect-ratio:1;background:var(--elev);
-  transition:transform .12s;
+  border-radius:12px;overflow:hidden;cursor:pointer;
+  aspect-ratio:1;background:#0C1220;
+  border:1px solid var(--border);
+  transition:transform .12s, border-color .12s;
+  -webkit-tap-highlight-color:transparent;
 }
 .gif-item:hover{transform:scale(1.03)}
 .gif-item:active{transform:scale(.95)}
