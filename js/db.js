@@ -78,11 +78,18 @@ const DB = (() => {
 
   // ── Supabase implementation ───────────────────────────────────
   const Supa = {
+    _pendingUsers: {},
     async getUser(u) {
       if (_C.users?.has(u)) return _C.users.get(u);
-      const d = await _queryUser(u);
-      if (d) { if (!_C.users) _C.users = new Map(); _C.users.set(u, d); }
-      return d;
+      // Deduplicate concurrent requests for same user
+      if (Supa._pendingUsers[u]) return Supa._pendingUsers[u];
+      const p = _queryUser(u).then(d => {
+        delete Supa._pendingUsers[u];
+        if (d) { if (!_C.users) _C.users = new Map(); _C.users.set(u, d); }
+        return d;
+      }).catch(e => { delete Supa._pendingUsers[u]; throw e; });
+      Supa._pendingUsers[u] = p;
+      return p;
     },
 
     _usersTs: 0,
