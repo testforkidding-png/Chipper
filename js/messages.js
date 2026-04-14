@@ -27,7 +27,13 @@ const Messages = (() => {
   // ── Render ────────────────────────────────────────────────────
   async function renderAll(convId, users, highlight='') {
     const msgs = await DB.getMessages(convId);
-    _getStore(convId).msgs = msgs;
+    const store = _getStore(convId);
+    // Skip re-render if messages unchanged (count + last id + reactions + edits)
+    const lastMsgNew = msgs[msgs.length-1];
+    const newHashKey = msgs.length + '_' + (lastMsgNew?.id||'') + '_' + (lastMsgNew?.reactions?JSON.stringify(lastMsgNew.reactions):'') + (lastMsgNew?.recalled?'r':'') + (lastMsgNew?.edited?'e':'');
+    if (!highlight && store._lastHash === newHashKey) return;
+    store.msgs = msgs;
+    store._lastHash = newHashKey;
     const container = document.getElementById('messages'); if(!container) return;
     const atBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 100;
     const prevH = container.scrollHeight;
@@ -41,7 +47,10 @@ const Messages = (() => {
       if (msg.destruct_at && msg.destruct_at > Date.now()) _startDestruct(msg, convId);
     }
     container.innerHTML = ''; container.appendChild(frag);
-    if (atBottom || msgs.length <= 5) container.scrollTop = container.scrollHeight;
+    if (atBottom || msgs.length <= 5) {
+      if (msgs.length > 5 && atBottom) container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      else container.scrollTop = container.scrollHeight;
+    }
     else container.scrollTop = container.scrollHeight - prevH + container.scrollTop;
 
     // Pin banner
@@ -63,6 +72,9 @@ const Messages = (() => {
     const sender = (users||window._allUsers||{})[msg.from] || { username:msg.from, display_name:msg.from };
     const color = UI.avatarColor(sender.username);
     const recalled = !!msg.recalled;
+
+    // HTML escape for untrusted user content in innerHTML
+    const _e = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
     // Markdown render
     function _md(t) {
@@ -98,7 +110,7 @@ const Messages = (() => {
               const active=myVote===opt;
               return `<button onclick="votePoll('${msg.id}','${opt.replace(/'/g,"&#39;")}')" style="width:100%;margin-bottom:5px;padding:8px 12px;border-radius:8px;border:1.5px solid ${active?'var(--accent,#00FFB3)':'#1E2D45'};background:${active?'rgba(0,255,179,.08)':'transparent'};cursor:pointer;text-align:left;position:relative;overflow:hidden">
                 <div style="position:absolute;left:0;top:0;bottom:0;width:${pct}%;background:rgba(0,255,179,.07);pointer-events:none"></div>
-                <div style="position:relative;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:${active?'var(--accent,#00FFB3)':'#DDE8F8'}">${opt}</span><span style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${pct}%</span></div>
+                <div style="position:relative;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:${active?'var(--accent,#00FFB3)':'#DDE8F8'}">${_e(opt)}</span><span style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${pct}%</span></div>
               </button>`;
             }).join('')}
             <div style="font-size:10px;color:#5A6E88;font-family:'JetBrains Mono',monospace">${total} oy</div>
@@ -144,7 +156,7 @@ const Messages = (() => {
 
     const noBubble = msg.type==='sticker' && !recalled;
     const bubStyle = noBubble ? 'background:transparent;border:none;padding:4px 8px' : `padding:9px 13px;border-radius:${isMine?'18px 18px 4px 18px':'18px 18px 18px 4px'}`;
-    const senderName = (!isMine && window._isGroup) ? `<div style="font-size:11px;font-weight:600;color:${color};margin-bottom:2px;cursor:pointer;font-family:Syne,sans-serif" onclick="window.showProfile?.('${sender.username}')">${sender.display_name||sender.username}</div>` : '';
+    const senderName = (!isMine && window._isGroup) ? `<div style="font-size:11px;font-weight:600;color:${color};margin-bottom:2px;cursor:pointer;font-family:Syne,sans-serif" onclick="window.showProfile?.('${_e(sender.username)}')">${_e(sender.display_name||sender.username)}</div>` : '';
     const avatarHtml = !isMine ? (sender.avatar_url ? `<img src="${sender.avatar_url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;cursor:pointer;flex-shrink:0;align-self:flex-end" onclick="window.showProfile?.('${sender.username}')">` : `<div onclick="window.showProfile?.('${sender.username}')" style="width:28px;height:28px;min-width:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;align-self:flex-end;cursor:pointer;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(sender.display_name||sender.username)}</div>`) : '';
 
     const w = document.createElement('div');
@@ -234,23 +246,55 @@ const Messages = (() => {
   }
 
   // ── GIF ───────────────────────────────────────────────────────
-  function toggleGif(){_gifOpen=!_gifOpen;_stickerOpen=false;document.getElementById('gif-picker')?.classList.toggle('open',_gifOpen);document.getElementById('sticker-picker')?.classList.remove('open');if(_gifOpen){if(_gifCache){_gifResults=_gifCache;renderGifs();}else searchGifs('');}}
+  function toggleGif(){_gifOpen=!_gifOpen;_stickerOpen=false;document.getElementById('gif-picker')?.classList.toggle('open',_gifOpen);document.getElementById('sticker-picker')?.classList.remove('open');if(_gifOpen){const cacheAge=Date.now()-(_gifCacheTs||0);if(_gifCache&&cacheAge<300000){_gifResults=_gifCache;renderGifs();}else searchGifs('');}}
+  // Tenor API helper (free, no quota issues)
+  async function _fetchTenor(q) {
+    const key = CONFIG.TENOR_KEY || 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk';
+    const endpoint = q
+      ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${key}&limit=20&media_filter=gif,tinygif&locale=tr_TR`
+      : `https://tenor.googleapis.com/v2/featured?key=${key}&limit=20&media_filter=gif,tinygif&locale=tr_TR`;
+    const res = await fetch(endpoint);
+    if (!res.ok) throw new Error('Tenor HTTP ' + res.status);
+    const json = await res.json();
+    // Normalize Tenor results to Giphy format for renderGifs()
+    return (json.results || []).map(r => ({
+      id: r.id,
+      title: r.content_description || '',
+      images: {
+        fixed_height_small: { url: r.media_formats?.tinygif?.url || r.media_formats?.gif?.url },
+        fixed_height:        { url: r.media_formats?.gif?.url },
+        original:            { url: r.media_formats?.gif?.url },
+      }
+    }));
+  }
+
   async function searchGifs(q=''){
     if(_gifLoading)return; _gifLoading=true;
     const grid=document.getElementById('gif-grid');if(!grid){_gifLoading=false;return;}
-    _gifResults=[]; // clear stale results immediately
+    _gifResults=[];
     grid.innerHTML=Array(6).fill(0).map(()=>'<div style="border-radius:10px;aspect-ratio:1;background:linear-gradient(90deg,#0C1220 0%,#1A2535 50%,#0C1220 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite"></div>').join('');
     try{
-      const qs=q?`search?api_key=${CONFIG.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg&lang=tr`:`trending?api_key=${CONFIG.GIPHY_API_KEY}&limit=18&rating=pg`;
-      const res=await fetch(`https://api.giphy.com/v1/gifs/${qs}`);
-      if(!res.ok)throw new Error('HTTP '+res.status);
-      const json=await res.json();
-      _gifResults=json.data||[];
-      if(!q)_gifCache=_gifResults;
+      // Try Tenor first (free, reliable)
+      _gifResults = await _fetchTenor(q);
+      if(!q) _gifCache = _gifResults;
       renderGifs();
-    }catch(e){
-      console.warn('GIF fetch error:',e);
-      grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px">GIF yüklenemedi — internet bağlantınızı kontrol edin</div>';
+    }catch(e1){
+      console.warn('Tenor failed, trying Giphy:', e1.message);
+      try{
+        // Fallback: Giphy
+        const qs=q
+          ?`search?api_key=${CONFIG.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg`
+          :`trending?api_key=${CONFIG.GIPHY_API_KEY}&limit=18&rating=pg`;
+        const res=await fetch(`https://api.giphy.com/v1/gifs/${qs}`);
+        if(!res.ok)throw new Error('HTTP '+res.status);
+        const json=await res.json();
+        _gifResults=json.data||[];
+        if(!q){_gifCache=_gifResults;_gifCacheTs=Date.now();}
+        renderGifs();
+      }catch(e2){
+        console.warn('Giphy also failed:', e2.message);
+        grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px">GIF yüklenemedi</div>';
+      }
     }
     _gifLoading=false;
   }
@@ -299,7 +343,7 @@ const Messages = (() => {
       _rec.onstop=async()=>{
         stream.getTracks().forEach(t=>t.stop());
         const blob=new Blob(chunks,{type:'audio/webm'});const r=new FileReader();r.readAsDataURL(blob);
-        r.onload=async()=>{const convId=window._currentConvId;if(!convId)return;const dur=`0:${String(_recSecs).padStart(2,'0')}`;const cu=window._currentUser,now=Date.now();try{const[m]=await Promise.all([DB.createMessage({conv_id:convId,from:cu.username,type:'voice',text:'',duration:dur,audio_data:r.result,status:'sent',created_at:now}),DB.updateConversation(convId,{last_msg:`🎙 ${dur}`,last_time:now,last_from:cu.username})]);_getStore(convId).msgs.push(m);window._onNewMessage?.();}catch(e){UI.toast('Ses gönderilemedi','error');}};
+        r.onload=async()=>{const convId=window._currentConvId;if(!convId||!r.result||r.result==='data:')return;const dur=`0:${String(_recSecs).padStart(2,'0')}`;const cu=window._currentUser,now=Date.now();try{const[m]=await Promise.all([DB.createMessage({conv_id:convId,from:cu.username,type:'voice',text:'',duration:dur,audio_data:r.result,status:'sent',created_at:now}),DB.updateConversation(convId,{last_msg:`🎙 ${dur}`,last_time:now,last_from:cu.username})]);_getStore(convId).msgs.push(m);window._onNewMessage?.();}catch(e){UI.toast('Ses gönderilemedi','error');}};
       };
       _rec.start();_recSecs=0;
       document.getElementById('voice-indicator')?.style.setProperty('display','flex');
