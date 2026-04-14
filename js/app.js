@@ -8,6 +8,17 @@ let _allUsers = {}, _convs = [], _chatFilter = 'all', _searchQuery = '';
 let _activeTab = 'messages', _activeServer = 'all';
 let _renderChatListTimer = null; // debounce
 
+
+// ── Avatar URL güvenlik kontrolü ────────────────────────────────
+function _safeUrl(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    // Only allow http/https/data protocols
+    if (!['http:', 'https:', 'data:'].includes(u.protocol)) return null;
+    return url;
+  } catch { return null; } // relative URLs pass through
+}
 // ── Boot ───────────────────────────────────────────────────────────
 async function bootApp() {
   // Wait for storage to settle (mobile Safari fix)
@@ -156,7 +167,7 @@ async function bootApp() {
     if (_newMsgTimer) return;
     _newMsgTimer = setTimeout(async () => {
       _newMsgTimer = null;
-      if (window._currentConvId) await renderMessages().catch(() => {});
+      if (window._currentConvId) await renderMessages().catch(() => {}); // smooth handled in renderAll
       loadConversations().catch(() => {});
     }, 80);
   };
@@ -196,8 +207,13 @@ async function bootApp() {
   }
   // Polling: 30s for Supabase (safety net), 4s for localStorage
   if (window._convPollInterval) clearInterval(window._convPollInterval);
+  let _lastConvLoad = 0;
   window._convPollInterval = setInterval(() => {
-    if (!document.hidden) loadConversations().catch(()=>{});
+    if (document.hidden) return; // page not visible
+    const minInterval = CONFIG.USE_SUPABASE ? 28000 : 3500;
+    if (Date.now() - _lastConvLoad < minInterval) return;
+    _lastConvLoad = Date.now();
+    loadConversations().catch(()=>{});
   }, CONFIG.USE_SUPABASE ? 30000 : 4000);
 }
 
@@ -222,7 +238,16 @@ function setTab(tab) {
 async function refreshAllUsers() {
   try {
     const users = await DB.getAllUsers();
-    users.forEach(u => { _allUsers[u.username] = u; });
+    // Merge into existing _allUsers (preserve any local state)
+    users.forEach(u => {
+      _allUsers[u.username] = u;
+    });
+    // Also update _currentUser's data if included
+    const freshCu = _allUsers[window._currentUser?.username];
+    if (freshCu && window._currentUser) {
+      window._currentUser.server_roles = freshCu.server_roles || window._currentUser.server_roles;
+      window._currentUser.is_admin = freshCu.is_admin ?? window._currentUser.is_admin;
+    }
   } catch(e) { console.warn('refreshAllUsers:', e); }
 }
 
@@ -359,6 +384,7 @@ async function loadConversations() {
   try {
     _convs = await DB.getConversations(window._currentUser.username);
     window._convs = _convs;
+    if (typeof _lastConvLoad !== 'undefined') _lastConvLoad = Date.now();
   } catch(e) { console.warn('loadConversations:', e); _convs = []; }
   renderChatList();
 }
@@ -397,7 +423,9 @@ function _doRenderChatList() {
   }
 
   // Pinned chats first, then sort by last_time descending
-  const _pinnedSet = new Set(JSON.parse(localStorage.getItem('cipher_pinned') || '[]'));
+  // Cache pinnedSet outside sort to avoid repeated localStorage reads
+  const _pinnedArr = (() => { try { return JSON.parse(localStorage.getItem('cipher_pinned') || '[]'); } catch { return []; } })();
+  const _pinnedSet = new Set(_pinnedArr);
   items.sort((a, b) => {
     const ap = _pinnedSet.has(a.id) ? 1 : 0, bp = _pinnedSet.has(b.id) ? 1 : 0;
     if (ap !== bp) return bp - ap; // pinned first
@@ -438,7 +466,11 @@ function _doRenderChatList() {
     // Avatar
     let avHtml;
     if (other?.avatar_url) {
-      avHtml = `<img src="${other.avatar_url}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;flex-shrink:0">`;
+      avHtml = `<img src="${_safeUrl(other.avatar_url)||''}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;flex-shrink:0">`;
+    } else if (conv.type === 'group') {
+      const gIcon = conv.avatar || UI.initials(name);
+      const isEmoji = gIcon.length <= 2 && gIcon.codePointAt(0) > 127;
+      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:${isEmoji?'22px':'14px'};font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${gIcon}</div>`;
     } else {
       avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(name)}</div>`;
     }
@@ -501,11 +533,14 @@ async function openConv(convId) {
   const avEl = document.getElementById('chat-avatar');
   if (avEl) {
     if (other?.avatar_url) {
-      avEl.innerHTML = `<img src="${other.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+      avEl.innerHTML = `<img src="${_safeUrl(other.avatar_url)||''}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
     } else {
       avEl.style.background = `${color}22`;
       avEl.style.color = color;
-      avEl.textContent = conv.type === 'group' ? (conv.avatar || UI.initials(name)) : UI.initials(name);
+      avEl.style.borderRadius = conv.type === 'group' ? '10px' : '50%';
+      const gIcon = conv.type === 'group' ? (conv.avatar || UI.initials(name)) : UI.initials(name);
+      avEl.style.fontSize = (conv.type === 'group' && gIcon.codePointAt(0) > 127) ? '22px' : '';
+      avEl.textContent = gIcon;
     }
     avEl.style.cursor = 'pointer';
     avEl.onclick = () => conv.type === 'group' ? openGroupPanel(conv) : other && openUserProfile(other);
@@ -610,6 +645,24 @@ async function sendMessage() {
   await Messages.send(window._currentConvId);
 }
 
+
+function _updateMsgCounter(input) {
+  const len = (input.value||'').length;
+  let counter = document.getElementById('msg-counter');
+  if (!counter) {
+    counter = document.createElement('span');
+    counter.id = 'msg-counter';
+    counter.style.cssText = "position:absolute;bottom:6px;right:48px;font-size:10px;font-family:'JetBrains Mono',monospace;color:#3A4A5A;pointer-events:none;transition:color .2s";
+    input.parentElement?.appendChild(counter);
+  }
+  if (len > 3500) {
+    counter.textContent = (4000 - len) + ' kaldı';
+    counter.style.color = len > 3900 ? '#FF3D6B' : '#FFA535';
+    counter.style.display = 'block';
+  } else {
+    counter.style.display = 'none';
+  }
+}
 function handleMsgKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   if (e.key === 'Escape') Messages.closeAllPickers();
@@ -672,9 +725,12 @@ function openGroupPanel(conv) {
     <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid #1E2D45;margin-bottom:16px">
       <div style="width:64px;height:64px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;font-family:Syne,sans-serif;margin:0 auto 10px">${conv.avatar || UI.initials(conv.name)}</div>
       ${isAdmin
-        ? `<div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:6px">
-            <input id="gp-name-inp" value="${conv.name || ''}" style="background:#06080F;border:1.5px solid #1E2D45;border-radius:8px;padding:5px 10px;font-size:14px;font-weight:700;color:#DDE8F8;font-family:Syne,sans-serif;text-align:center;outline:none;max-width:160px;font-size:16px" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
-            <button id="gp-save-btn" style="padding:6px 12px;border-radius:8px;background:#00FFB3;color:#062B1F;font-weight:700;font-size:12px;border:none;cursor:pointer">Kaydet</button>
+        ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:6px">
+            <button onclick="openGroupIconEdit('${conv.id}')" style="font-size:28px;background:rgba(0,0,0,.2);border:1.5px dashed #1E2D45;border-radius:14px;width:52px;height:52px;cursor:pointer;transition:border-color .2s" title="İkon değiştir" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">${conv.avatar || UI.initials(conv.name)}</button>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input id="gp-name-inp" value="${conv.name || ''}" style="background:#06080F;border:1.5px solid #1E2D45;border-radius:8px;padding:5px 10px;font-size:14px;font-weight:700;color:#DDE8F8;font-family:Syne,sans-serif;text-align:center;outline:none;max-width:160px" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+              <button id="gp-save-btn" style="padding:6px 12px;border-radius:8px;background:#00FFB3;color:#062B1F;font-weight:700;font-size:12px;border:none;cursor:pointer">Kaydet</button>
+            </div>
           </div>`
         : `<div style="font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:#DDE8F8;margin-bottom:4px">${conv.name}</div>`}
       <div style="font-size:12px;color:#7A8FA8">${conv.participants?.length || 0} üye</div>
@@ -694,7 +750,7 @@ function openGroupPanel(conv) {
     const c = UI.avatarColor(u.username);
     const isOwner = conv.admin === uid;
     const av = u.avatar_url
-      ? `<img src="${u.avatar_url}" style="width:38px;height:38px;border-radius:50%;object-fit:cover">`
+      ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:38px;height:38px;border-radius:50%;object-fit:cover">`
       : `<div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>`;
 
     const row = document.createElement('div');
@@ -822,21 +878,16 @@ function renderContactsList(searchQ) {
 
   let users = Object.values(_allUsers).filter(u => u.username !== cu.username);
 
-  // Server filter
+  // Server filter — pre-compute my servers once
+  const _myServers = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s));
+  const _myRolesLoaded = cu.server_roles && Object.keys(cu.server_roles).length > 0;
   users = users.filter(u => {
     if (cu.is_admin || u.is_admin) return true;
-    // If MY server_roles not loaded yet (empty {}), show everyone temporarily
-    const myRoles = window._currentUser?.server_roles;
-    const myRolesLoaded = myRoles && Object.keys(myRoles).length > 0;
-    if (!myRolesLoaded) return true; // will re-filter after DB loads
-
+    if (!_myRolesLoaded) return true; // roles not loaded yet → show all
     if (_activeServer && _activeServer !== 'all') {
       return hasServerAccess(cu, _activeServer) && hasServerAccess(u, _activeServer);
     }
-    // 'all': share at least one server
-    const myS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s));
-    const thS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(u, s));
-    return myS.some(s => thS.includes(s));
+    return _myServers.some(s => hasServerAccess(u, s));
   });
 
   // Search filter
@@ -867,7 +918,7 @@ function renderContactsList(searchQ) {
     div.onmouseleave = () => div.style.background = 'transparent';
 
     const av = u.avatar_url
-      ? `<img src="${u.avatar_url}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;flex-shrink:0">`
+      ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;flex-shrink:0">`
       : `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(u.display_name || u.username)}</div>`;
 
     const st = UI.onlineStatus(u);
@@ -939,9 +990,13 @@ function renderUpdatesTab() {
 async function renderStories() {
   const strip = document.getElementById('stories-strip');
   if (!strip) return;
-  strip.innerHTML = '';
   const cu = window._currentUser;
   const stories = await DB.getStories().catch(() => []);
+  // Skip re-render if stories unchanged (compare count + ids)
+  const newHash = stories.map(s=>s.id).join(',') + (cu?.username||'');
+  if (strip._lastHash === newHash) return;
+  strip._lastHash = newHash;
+  strip.innerHTML = '';
 
   // My button
   const myBtn = document.createElement('div');
@@ -959,7 +1014,7 @@ async function renderStories() {
     const u = _allUsers[uid]; if (!u) return;
     const uc = UI.avatarColor(u.username);
     const seen = sts.every(s => s.seen_by?.includes(cu.username));
-    const uAv = u.avatar_url ? `<img src="${u.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : `<span style="font-weight:700;font-size:11px;color:#fff;font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</span>`;
+    const uAv = u.avatar_url ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : `<span style="font-weight:700;font-size:11px;color:#fff;font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</span>`;
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0';
     div.innerHTML = `<div class="${seen ? 'story-ring-seen' : 'story-ring'}" style="width:52px;height:52px;border-radius:50%"><div style="width:100%;height:100%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:${uc}22">${uAv}</div></div><span style="font-size:10px;color:${seen?'#7A8FA8':'#DDE8F8'};max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',monospace">${(u.display_name||u.username).split(' ')[0]}</span>`;
@@ -1012,7 +1067,7 @@ function openNewChat() {
     div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;cursor:pointer;transition:background .12s';
     div.onmouseenter = () => div.style.background = '#131D30';
     div.onmouseleave = () => div.style.background = 'transparent';
-    const av = u.avatar_url ? `<img src="${u.avatar_url}" style="width:36px;height:36px;min-width:36px;border-radius:50%;object-fit:cover">` : `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`;
+    const av = u.avatar_url ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;min-width:36px;border-radius:50%;object-fit:cover">` : `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`;
     div.innerHTML = `${av}<div style="min-width:0"><div style="font-size:13px;font-weight:500;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.display_name||u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div>`;
     div.onclick = () => { UI.closeModal('new-chat-modal'); startDM(u.username); };
     frag.appendChild(div);
@@ -1038,7 +1093,92 @@ async function startDM(userId) {
 }
 
 // ── Group create ─────────────────────────────────────────────────────
+// ── Grup İkon Seçici ─────────────────────────────────────────────
+let _selectedGroupIcon = '👥';
+
+function openGroupIconPicker() {
+  const panel = document.getElementById('group-icon-panel');
+  if (!panel) return;
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) _renderGroupIconGrid('group-icon-grid', _selectedGroupIcon, (icon) => {
+    _selectedGroupIcon = icon;
+    const btn = document.getElementById('group-icon-btn');
+    if (btn) btn.textContent = icon;
+    panel.style.display = 'none';
+  });
+}
+
+function _renderGroupIconGrid(gridId, selected, onSelect) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  grid.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  (CONFIG.GROUP_ICONS || []).forEach(icon => {
+    const btn = document.createElement('button');
+    const isActive = icon === selected;
+    btn.textContent = icon;
+    btn.style.cssText = `width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;border:2px solid ${isActive ? 'var(--accent,#00FFB3)' : 'transparent'};background:${isActive ? 'rgba(0,255,179,.1)' : 'transparent'};transition:all .12s;-webkit-tap-highlight-color:transparent`;
+    btn.onmouseenter = () => { if (icon !== selected) btn.style.background = '#131D30'; };
+    btn.onmouseleave = () => { if (icon !== selected) btn.style.background = 'transparent'; };
+    btn.onclick = () => onSelect(icon);
+    frag.appendChild(btn);
+  });
+  grid.appendChild(frag);
+}
+
+// ── Grup panelinde ikon değiştirme ───────────────────────────────
+function openGroupIconEdit(convId) {
+  const conv = _convs.find(c => c.id === convId);
+  if (!conv) return;
+  let modal = document.getElementById('group-icon-edit-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'group-icon-edit-modal';
+    modal.className = 'fixed inset-0 z-50 hidden items-center justify-center';
+    modal.style.background = 'rgba(6,8,15,.92)';
+    modal.innerHTML = `<div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:18px;overflow:hidden;animation:slideUp .2s ease-out">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
+        <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">Grup İkonu</span>
+        <button onclick="UI.closeModal('group-icon-edit-modal')" style="color:#7A8FA8;background:transparent;border:none;cursor:pointer;font-size:18px">✕</button>
+      </div>
+      <div style="padding:14px">
+        <div id="group-icon-edit-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+        <button id="group-icon-save-btn" style="width:100%;margin-top:14px;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;cursor:pointer;border:none;font-family:Syne,sans-serif">Kaydet</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
+  }
+
+  let _editIcon = conv.avatar || '👥';
+  const _refreshEditGrid = (icon) => {
+    _editIcon = icon;
+    _renderGroupIconGrid('group-icon-edit-grid', _editIcon, _refreshEditGrid);
+  };
+  _renderGroupIconGrid('group-icon-edit-grid', _editIcon, _refreshEditGrid);
+
+  document.getElementById('group-icon-save-btn').onclick = async () => {
+    await DB.updateConversation(convId, { avatar: _editIcon });
+    const local = _convs.find(c => c.id === convId);
+    if (local) local.avatar = _editIcon;
+    UI.closeModal('group-icon-edit-modal');
+    // Update chat header
+    const avEl = document.getElementById('chat-avatar');
+    if (avEl && window._currentConvId === convId) avEl.textContent = _editIcon;
+    renderChatList();
+    UI.toast('İkon güncellendi ✓', 'success');
+  };
+
+  UI.openModal('group-icon-edit-modal');
+}
+
 function openGroupCreate() {
+  // Reset icon selection
+  _selectedGroupIcon = '👥';
+  const iconBtn = document.getElementById('group-icon-btn');
+  if (iconBtn) iconBtn.textContent = '👥';
+  const iconPanel = document.getElementById('group-icon-panel');
+  if (iconPanel) iconPanel.style.display = 'none';
   const gc = document.getElementById('group-contacts');
   if (!gc) return;
   gc.innerHTML = '';
@@ -1074,7 +1214,7 @@ async function createGroup() {
     const conv = await DB.createConversation({
       id: convId, type: 'group', name,
       participants: [window._currentUser.username, ...selected],
-      avatar: UI.initials(name),
+      avatar: _selectedGroupIcon || UI.initials(name),
       banner_color: ['#0A2818','#1A0A28','#0A1628','#281A0A','#0A1A28'][Math.floor(Math.random()*5)],
       last_msg: '', last_time: Date.now(), unread_for: {}, admin: window._currentUser.username,
       server: _activeServer !== 'all' ? _activeServer : 'public',
@@ -1247,7 +1387,7 @@ function openBlockReport() {
   window._brTarget = u.username;
   const blocked = getBlockedList();
   const color = UI.avatarColor(u.username);
-  document.getElementById('br-user-info').innerHTML = `${u.avatar_url?`<img src="${u.avatar_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`:`<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`}<div><div style="font-size:13px;font-weight:600;color:#DDE8F8">${u.display_name||u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div>`;
+  document.getElementById('br-user-info').innerHTML = `${u.avatar_url?`<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`:`<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`}<div><div style="font-size:13px;font-weight:600;color:#DDE8F8">${u.display_name||u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div>`;
   document.getElementById('br-block-btn').innerHTML = blocked.includes(u.username) ? `<span style="font-size:18px">✅</span><div><div style="font-size:13px;font-weight:600">Engeli Kaldır</div></div>` : `<span style="font-size:18px">🚫</span><div><div style="font-size:13px;font-weight:600">Engelle</div></div>`;
   UI.openModal('block-report-modal');
 }
@@ -1260,17 +1400,20 @@ function submitReport() { const type=document.getElementById('report-type').valu
 function openLockAccount() { document.getElementById('lock-pwd').value=''; document.getElementById('lock-err').style.display='none'; UI.openModal('lock-modal'); }
 async function confirmLock() {
   const pwd=document.getElementById('lock-pwd').value; if(!pwd)return;
-  const hash=await DB.hashPassword(pwd);
-  // Fetch fresh from DB (session cache may not have password_hash)
-  let storedHash = window._currentUser.password_hash;
-  if (!storedHash) {
-    try { const u=await DB.getUser(window._currentUser.username); storedHash=u?.password_hash; } catch {}
-  }
-  if (!storedHash || hash!==storedHash){const e=document.getElementById('lock-err');e.textContent='Şifre yanlış.';e.style.display='';return;}
-  UI.closeModal('lock-modal'); Auth.logout();
+  const lockErr=document.getElementById('lock-err');
+  lockErr.style.display='none';
+  try {
+    const hash=await DB.hashPassword(pwd);
+    // Always fetch fresh from DB (session no longer stores password_hash)
+    const u=await DB.getUser(window._currentUser.username);
+    if(!u?.password_hash||hash!==u.password_hash){lockErr.textContent='Şifre yanlış.';lockErr.style.display='';return;}
+    UI.closeModal('lock-modal'); Auth.logout();
+  } catch(e) { lockErr.textContent='Hata: '+e.message; lockErr.style.display=''; }
 }
 function openDeleteAccount() { document.getElementById('delete-confirm').value=''; document.getElementById('delete-pwd').value=''; document.getElementById('del-err').style.display='none'; UI.openModal('delete-account-modal'); }
-async function confirmDeleteAccount() { const cf=document.getElementById('delete-confirm').value.trim(); const pwd=document.getElementById('delete-pwd').value; const errEl=document.getElementById('del-err'); const showE=msg=>{errEl.textContent=msg;errEl.style.display='';}; if(cf!=='SİL'){showE('"SİL" yazın.');return;} if(!pwd){showE('Şifre girin.');return;} const hash=await DB.hashPassword(pwd); if(hash!==window._currentUser.password_hash){showE('Şifre yanlış.');return;} try{await DB.deleteUser(window._currentUser.username); setTimeout(()=>Auth.logout(),1500); UI.toast('Hesap silindi 👋','info');}catch(e){showE(e.message);} }
+async function confirmDeleteAccount() { const cf=document.getElementById('delete-confirm').value.trim(); const pwd=document.getElementById('delete-pwd').value; const errEl=document.getElementById('del-err'); const showE=msg=>{errEl.textContent=msg;errEl.style.display='';}; if(cf!=='SİL'){showE('"SİL" yazın.');return;} if(!pwd){showE('Şifre girin.');return;} const hash=await DB.hashPassword(pwd);
+    const freshU=await DB.getUser(window._currentUser.username).catch(()=>null);
+    if(!freshU?.password_hash||hash!==freshU.password_hash){showE('Şifre yanlış.');return;} try{await DB.deleteUser(window._currentUser.username); setTimeout(()=>Auth.logout(),1500); UI.toast('Hesap silindi 👋','info');}catch(e){showE(e.message);} }
 function shareApp() { const url=window.location.origin+window.location.pathname.replace('app.html',''); if(navigator.share){navigator.share({title:'CIPHER Messenger',url}).catch(()=>{});}else{navigator.clipboard.writeText(url).then(()=>UI.toast('Link kopyalandı 🔗','success'));} }
 
 // ── Notifications ──────────────────────────────────────────────────
@@ -1341,7 +1484,7 @@ function openForwardModal(msgId) {
   sorted.forEach(conv => {
     const name=getConvName(conv); const color=getConvColor(conv);
     const other=conv.type==='direct'?_allUsers[conv.participants?.find(p=>p!==window._currentUser.username)]:null;
-    const av=other?.avatar_url?`<img src="${other.avatar_url}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">`:`<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(name)}</div>`;
+    const av=other?.avatar_url?`<img src="${_safeUrl(other.avatar_url)||''}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">`:`<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(name)}</div>`;
     const row=document.createElement('div');
     row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .12s';
     row.onmouseenter=()=>row.style.background='#131D30';
@@ -1388,6 +1531,11 @@ function startVoiceCall() { UI.toast('📞 Sesli arama (Demo)','info'); setTimeo
 
 // ── Boot ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  // Force HTTPS in production
+  if (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    location.replace('https:' + location.href.slice(5));
+    return;
+  }
   await DB.init();
   await bootApp();
   Messages.initEvents();
