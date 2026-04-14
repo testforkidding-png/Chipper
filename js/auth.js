@@ -29,7 +29,7 @@ const Auth = (() => {
   async function decryptMsg(d) { if(!_encKey)return d; try{const b=Uint8Array.from(atob(d),c=>c.charCodeAt(0));const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:b.slice(0,12)},_encKey,b.slice(12));return new TextDecoder().decode(pt);}catch{return d;} }
 
   function _saveSession(user) {
-    const safe = { username:user.username, display_name:user.display_name||'', avatar_url:user.avatar_url||null, is_admin:user.is_admin||false, badges:user.badges||[], banner_color:user.banner_color||'#0A1628', status:user.status||'', status_emoji:user.status_emoji||'', server_roles:user.server_roles||{}, bio:user.bio||'', password_hash:user.password_hash||'' };
+    const safe = { username:user.username, display_name:user.display_name||'', avatar_url:user.avatar_url||null, is_admin:user.is_admin||false, badges:user.badges||[], banner_color:user.banner_color||'#0A1628', status:user.status||'', status_emoji:user.status_emoji||'', server_roles:user.server_roles||{}, bio:user.bio||'' }; // password_hash NOT stored in session
     const payload = { username:user.username, expires:Date.now()+CONFIG.SESSION_HOURS*3600000, user:safe };
     const data = JSON.stringify(payload);
     // Save to multiple places for maximum reliability
@@ -77,7 +77,9 @@ const Auth = (() => {
     const u = uname.toLowerCase().trim();
     if (!/^[a-z0-9_.-]{3,20}$/.test(u)) throw new Error('Kullanıcı adı: 3-20 karakter, harf/rakam/_');
     if (password.length < 6) throw new Error('Şifre en az 6 karakter.');
+    if (password.length > 128) throw new Error('Şifre çok uzun (max 128 karakter).');
     if (!displayName?.trim()) throw new Error('Ad zorunlu.');
+    if (displayName.trim().length > 50) throw new Error('Ad en fazla 50 karakter.');
     let existing;
     try { existing = await DB.getUser(u); }
     catch(e) { throw new Error('Bağlantı hatası: ' + e.message); }
@@ -123,8 +125,13 @@ const Auth = (() => {
   const _getLocal = u => { try { return JSON.parse(localStorage.getItem(_lsk(u))); } catch { return null; } };
 
   function startHeartbeat(username) {
-    const tick = () => { const n=Date.now(); _lsLocal(username,n,true); DB.updateUser(username,{last_seen:n,online:true}).catch(()=>{}); };
-    const off  = () => { const n=Date.now(); _lsLocal(username,n,false); DB.updateUser(username,{last_seen:n,online:false}).catch(()=>{}); };
+    let _lastHbSent = 0;
+    const tick = () => {
+      const n=Date.now(); _lsLocal(username,n,true);
+      // Rate limit: only update DB every 30s minimum
+      if (n - _lastHbSent > 28000) { _lastHbSent=n; DB.updateUser(username,{last_seen:n,online:true}).catch(()=>{}); }
+    };
+    const off = () => { const n=Date.now(); _lsLocal(username,n,false); _lastHbSent=0; DB.updateUser(username,{last_seen:n,online:false}).catch(()=>{}); };
     tick();
     setInterval(tick, 25000);
     window.addEventListener('beforeunload', off);
