@@ -642,6 +642,17 @@ async function sendMessage() {
       return;
     }
   }
+  // Bot komutu mu? Sadece cipher_bot sohbetinde yakala
+  if (_isBotConv(window._currentConvId)) {
+    const input = document.getElementById('msg-input');
+    const rawText = (input?.value || '').trim();
+    if (rawText.startsWith('/')) {
+      // Kullanıcının mesajını önce gönder, sonra bot cevaplasın
+      await Messages.send(window._currentConvId);
+      await handleBotCommand(window._currentConvId, rawText);
+      return;
+    }
+  }
   await Messages.send(window._currentConvId);
 }
 
@@ -802,13 +813,38 @@ async function saveGroupName(convId) {
 function openAddMemberModal(convId) {
   const conv = _convs.find(c => c.id === convId);
   if (!conv) return;
+  const cu = window._currentUser;
   const existing = new Set(conv.participants);
   const gc = document.getElementById('add-member-list');
   if (!gc) return;
   gc.innerHTML = '';
-  const candidates = Object.values(_allUsers).filter(u => !existing.has(u.username));
+
+  // Sadece: grupta olmayan + aktif sunucuda olan + daha önce konuşulmuş
+  const chattedSet = new Set(
+    _convs.filter(c => c.type === 'direct')
+      .map(c => c.participants?.find(p => p !== cu.username))
+      .filter(Boolean)
+  );
+
+  const candidates = Object.values(_allUsers).filter(u => {
+    if (u.username === cu.username) return false;          // kendim değil
+    if (existing.has(u.username)) return false;            // zaten grupta değil
+    if (!chattedSet.has(u.username) && !cu.is_admin) return false; // daha önce konuşulmuş olmalı
+    // Sunucu filtresi
+    if (cu.is_admin || u.is_admin) return true;
+    const myRolesLoaded = cu.server_roles && Object.keys(cu.server_roles).length > 0;
+    if (!myRolesLoaded) return true;
+    const convServer = conv.server;
+    if (convServer && convServer !== 'all') {
+      return hasServerAccess(u, convServer);
+    }
+    const myS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s));
+    const thS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(u, s));
+    return myS.some(s => thS.includes(s));
+  });
+
   if (!candidates.length) {
-    gc.innerHTML = '<div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Eklenecek kullanıcı yok</div>';
+    gc.innerHTML = '<div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Eklenebilecek kullanıcı yok</div>';
   }
   candidates.forEach(u => {
     const c = UI.avatarColor(u.username);
@@ -1049,11 +1085,16 @@ function openNewChat() {
   if (!list) return;
   const cu = window._currentUser;
   let users = Object.values(_allUsers).filter(u => u.username !== cu.username);
-  // Use same server filter as contacts tab
+  // Aktif sunucuya göre filtrele — sadece aynı sunucudaki kullanıcılar
   users = users.filter(u => {
     if (cu.is_admin || u.is_admin) return true;
     const myRolesLoaded = cu.server_roles && Object.keys(cu.server_roles).length > 0;
     if (!myRolesLoaded) return true;
+    if (_activeServer && _activeServer !== 'all') {
+      // Aktif sunucu seçiliyse: her iki taraf da o sunucuda olmalı
+      return hasServerAccess(cu, _activeServer) && hasServerAccess(u, _activeServer);
+    }
+    // "Tümü" görünümündeyse: ortak en az 1 sunucu olmalı
     const myS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s));
     const thS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(u, s));
     return myS.some(s => thS.includes(s));
@@ -1182,12 +1223,35 @@ function openGroupCreate() {
   const gc = document.getElementById('group-contacts');
   if (!gc) return;
   gc.innerHTML = '';
-  const chattedUsernames = [...new Set(_convs.filter(c=>c.type==='direct').map(c=>c.participants?.find(p=>p!==window._currentUser.username)).filter(Boolean))];
-  if (!chattedUsernames.length) {
-    gc.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:#7A8FA8">Önce biriyle mesajlaşın</div>';
+  const cu = window._currentUser;
+
+  // Sadece daha önce konuşulan + aktif sunucuda olan kullanıcılar
+  const chattedUsernames = [...new Set(
+    _convs.filter(c => c.type === 'direct')
+      .map(c => c.participants?.find(p => p !== cu.username))
+      .filter(Boolean)
+  )];
+
+  const myRolesLoaded = cu.server_roles && Object.keys(cu.server_roles).length > 0;
+  const targetServer = _activeServer !== 'all' ? _activeServer : null;
+
+  const eligible = chattedUsernames
+    .map(un => _allUsers[un])
+    .filter(Boolean)
+    .filter(u => {
+      if (cu.is_admin || u.is_admin) return true;
+      if (!myRolesLoaded) return true;
+      if (targetServer) return hasServerAccess(u, targetServer);
+      const myS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(cu, s));
+      const thS = Object.keys(CONFIG.SERVERS).filter(s => hasServerAccess(u, s));
+      return myS.some(s => thS.includes(s));
+    });
+
+  if (!eligible.length) {
+    gc.innerHTML = '<div style="text-align:center;padding:20px;font-size:12px;color:#7A8FA8">Önce bu sunucudaki biriyle mesajlaşın</div>';
     UI.openModal('group-modal'); return;
   }
-  chattedUsernames.map(un => _allUsers[un]).filter(Boolean)
+  eligible
     .sort((a,b) => (a.display_name||a.username).localeCompare(b.display_name||b.username,'tr'))
     .forEach(u => {
       const c = UI.avatarColor(u.username);
@@ -1461,16 +1525,277 @@ function openNotifs() {
 function clearAllNotifs() { _notifs=[]; updateNotifBadge(); UI.closeModal('notif-modal'); }
 
 // ── Bot ────────────────────────────────────────────────────────────
+const _BOT_ID = 'cipher_bot';
+const _BOT_START = Date.now(); // uptime başlangıcı
+
 async function ensureBotConversation() {
-  const BOT='cipher_bot';
-  const bot=await DB.getUser(BOT).catch(()=>null); if(!bot)return;
-  const ids=[BOT,window._currentUser.username].sort();
+  const bot=await DB.getUser(_BOT_ID).catch(()=>null); if(!bot)return;
+  const ids=[_BOT_ID,window._currentUser.username].sort();
   const convId=ids.join('_');
   const existing=await DB.getConversation(convId).catch(()=>null); if(existing)return;
   const now=Date.now();
-  const welcome=`👋 Merhaba ${window._currentUser.display_name||window._currentUser.username}! Ben CIPHER Bot. 🔐`;
+  const welcome=`👋 Merhaba ${window._currentUser.display_name||window._currentUser.username}! Ben **CIPHER Bot** 🔐\n\nKomutları görmek için **/yardım** yaz.`;
   await DB.createConversation({id:convId,type:'direct',participants:ids,last_msg:welcome,last_time:now,unread_for:{[window._currentUser.username]:1},server:'public'});
-  await DB.createMessage({conv_id:convId,from:BOT,type:'text',text:welcome,status:'sent',created_at:now});
+  await DB.createMessage({conv_id:convId,from:_BOT_ID,type:'text',text:welcome,status:'sent',created_at:now});
+}
+
+function _isBotConv(convId) {
+  if (!convId) return false;
+  const ids = [_BOT_ID, window._currentUser?.username].sort();
+  return convId === ids.join('_');
+}
+
+async function _botReply(convId, text) {
+  const now = Date.now();
+  const msg = { conv_id:convId, from:_BOT_ID, type:'text', text, status:'sent', created_at:now };
+  try {
+    await DB.createMessage(msg);
+    await DB.updateConversation(convId, { last_msg: text.slice(0,60).replace(/\*\*/g,''), last_time: now });
+    await loadConversations();
+  } catch(e) { console.error('botReply:', e); }
+}
+
+function _botGenerateKey(len=32) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+  const arr = new Uint8Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr).map(b => chars[b % chars.length]).join('');
+}
+
+function _botToBinary(text) {
+  return text.split('').map(c => c.charCodeAt(0).toString(2).padStart(8,'0')).join(' ');
+}
+
+function _botFromBinary(bin) {
+  try {
+    return bin.trim().split(/\s+/).map(b => String.fromCharCode(parseInt(b,2))).join('');
+  } catch { return null; }
+}
+
+const _MORSE = {
+  'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....','I':'..','J':'.---',
+  'K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.','Q':'--.-','R':'.-.','S':'...','T':'-',
+  'U':'..-','V':'...-','W':'.--','X':'-..-','Y':'-.--','Z':'--..',
+  '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.',
+  '.':'.-.-.-',',':'--..--','?':'..--..','!':'-.-.--','/':'-..-.','(':'-.--.',')':`-.--.-`,
+  '&':'.-...',':':'---...',';':'-.-.-.','=':'-...-','+':'.-.-.','_':'..--.-','"':'.-..-.','$':'...-..-','@':'.--.-.','\'':'.----.'
+};
+const _MORSE_REV = Object.fromEntries(Object.entries(_MORSE).map(([k,v])=>[v,k]));
+
+function _botToMorse(text) {
+  return text.toUpperCase().split('').map(c => c === ' ' ? '/' : (_MORSE[c] || '?')).join(' ');
+}
+function _botFromMorse(morse) {
+  try {
+    return morse.trim().split(' / ').map(word =>
+      word.split(' ').map(sym => _MORSE_REV[sym] || '?').join('')
+    ).join(' ');
+  } catch { return null; }
+}
+
+function _botFmtUptime(ms) {
+  const s=Math.floor(ms/1000), m=Math.floor(s/60), h=Math.floor(m/60), d=Math.floor(h/24);
+  if(d>0) return `${d}g ${h%24}s ${m%60}dk`;
+  if(h>0) return `${h}s ${m%60}dk ${s%60}sn`;
+  if(m>0) return `${m}dk ${s%60}sn`;
+  return `${s}sn`;
+}
+
+async function handleBotCommand(convId, rawText) {
+  const text = rawText.trim();
+  if (!text.startsWith('/')) return false;
+
+  const parts = text.slice(1).split(/\s+/);
+  const cmd = parts[0].toLowerCase();
+  const args = parts.slice(1).join(' ');
+  const cu = window._currentUser;
+
+  // Sadece bot konuşmasında çalış
+  if (!_isBotConv(convId)) return false;
+
+  let reply = '';
+
+  switch(cmd) {
+
+    case 'kimlik': {
+      reply =
+`🪪 **KİMLİK BİLGİLERİ**
+━━━━━━━━━━━━━━━━━━━━
+👤 Kullanıcı Adı : \`${cu.username}\`
+✨ Görünen Ad     : \`${cu.display_name || '(ayarlanmamış)'}\`
+📝 Bio            : ${cu.bio || '(boş)'}
+🏅 Rozetler       : ${(cu.badges||[]).length > 0 ? cu.badges.join(', ') : 'yok'}
+📅 Kayıt          : ${new Date(cu.created_at||Date.now()).toLocaleDateString('tr-TR')}`;
+      break;
+    }
+
+    case 'yardim':
+    case 'yardım': {
+      reply =
+`🤖 **CIPHER BOT — KOMUTLAR**
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+👤 **Kimlik & Bilgi**
+  \`/kimlik\`       — Kullanıcı adı ve görünen ad
+  \`/status\`       — Bot durumu ve işlem yükü
+  \`/version\`      — Sürüm notları
+  \`/uptime\`       — Çalışma süresi
+
+🔐 **Güvenlik**
+  \`/key\`          — Rastgele güvenli anahtar üret
+  \`/key 64\`       — İstediğin uzunlukta anahtar
+
+🔢 **Şifreleme**
+  \`/binary <metin>\`  — Binary'ye çevir
+  \`/debinary <01>\`   — Binary'den çevir
+  \`/morse <metin>\`   — Morse'a çevir
+  \`/demorse <...>\`   — Morse'dan çevir
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+💡 Komutlar sadece bu sohbette çalışır.`;
+      break;
+    }
+
+    case 'key': {
+      const len = Math.min(Math.max(parseInt(args)||32, 8), 128);
+      const key = _botGenerateKey(len);
+      reply =
+`🔑 **GÜVENLİ ANAHTAR (${len} karakter)**
+━━━━━━━━━━━━━━━━━━━━
+\`${key}\`
+━━━━━━━━━━━━━━━━━━━━
+🔒 Bu anahtarı güvenli bir yerde sakla.
+💡 Farklı uzunluk için: \`/key 64\``;
+      break;
+    }
+
+    case 'binary': {
+      if (!args) { reply = '⚠️ Kullanım: `/binary Merhaba Dünya`'; break; }
+      const bin = _botToBinary(args);
+      reply =
+`🔢 **BINARY ŞİFRELEME**
+━━━━━━━━━━━━━━━━━━━━
+Girdi: \`${args}\`
+━━━━━━━━━━━━━━━━━━━━
+\`${bin}\`
+━━━━━━━━━━━━━━━━━━━━
+💡 Geri çevirmek için: \`/debinary ${bin.slice(0,16)}...\``;
+      break;
+    }
+
+    case 'debinary': {
+      if (!args) { reply = '⚠️ Kullanım: `/debinary 01001101 01101101`'; break; }
+      const decoded = _botFromBinary(args);
+      if (decoded === null) { reply = '❌ Geçersiz binary giriş. Sadece 0 ve 1 kullan.'; break; }
+      reply =
+`🔓 **BINARY ÇÖZME**
+━━━━━━━━━━━━━━━━━━━━
+Binary: \`${args.slice(0,40)}${args.length>40?'...':''}\`
+━━━━━━━━━━━━━━━━━━━━
+Sonuç: **${decoded}**`;
+      break;
+    }
+
+    case 'morse': {
+      if (!args) { reply = '⚠️ Kullanım: `/morse SOS`'; break; }
+      const morse = _botToMorse(args);
+      reply =
+`📡 **MORSE ŞİFRELEME**
+━━━━━━━━━━━━━━━━━━━━
+Girdi: \`${args.toUpperCase()}\`
+━━━━━━━━━━━━━━━━━━━━
+\`${morse}\`
+━━━━━━━━━━━━━━━━━━━━
+💡 Geri çevirmek için: \`/demorse ${morse.slice(0,20)}...\``;
+      break;
+    }
+
+    case 'demorse': {
+      if (!args) { reply = '⚠️ Kullanım: `/demorse ... --- ...`'; break; }
+      const decoded = _botFromMorse(args);
+      if (decoded === null) { reply = '❌ Geçersiz Morse giriş.'; break; }
+      reply =
+`📻 **MORSE ÇÖZME**
+━━━━━━━━━━━━━━━━━━━━
+Morse: \`${args.slice(0,40)}${args.length>40?'...':''}\`
+━━━━━━━━━━━━━━━━━━━━
+Sonuç: **${decoded}**`;
+      break;
+    }
+
+    case 'status': {
+      const mem = performance?.memory ? Math.round(performance.memory.usedJSHeapSize/1024/1024) : null;
+      const convCount = (window._convs||[]).length;
+      const userCount = Object.keys(window._allUsers||{}).length;
+      reply =
+`📊 **BOT DURUMU**
+━━━━━━━━━━━━━━━━━━━━
+🟢 Durum      : AKTİF
+⚡ Versiyon   : ${CONFIG.APP_VERSION}
+💬 Sohbetler  : ${convCount}
+👥 Kullanıcı  : ${userCount}
+${mem ? `🧠 Bellek     : ${mem} MB\n` : ''}🕒 Uptime      : ${_botFmtUptime(Date.now()-_BOT_START)}
+━━━━━━━━━━━━━━━━━━━━
+✅ Tüm sistemler normal.`;
+      break;
+    }
+
+    case 'version': {
+      reply =
+`📦 **CIPHER BOT — SÜRÜM NOTLARI**
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 **v${CONFIG.APP_VERSION}** (Güncel)
+  • Bot komut motoru eklendi
+  • /binary, /debinary şifreleme
+  • /morse, /demorse Mors desteği
+  • /key güvenli anahtar üretici
+  • /kimlik, /status, /uptime
+
+📌 **v3.7.x**
+  • Grup kanalları ve sunucu çubuğu
+  • Hikaye / Story özelliği
+  • Zamanlı mesaj gönderimi
+
+📌 **v3.6.x**
+  • Uçtan uca şifreli mesajlar
+  • Ekran görüntüsü koruması
+  • GIF ve sticker desteği
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔐 CIPHER — Güvenli iletişim platformu`;
+      break;
+    }
+
+    case 'uptime': {
+      const elapsed = Date.now() - _BOT_START;
+      const ms = elapsed % 1000;
+      const s  = Math.floor(elapsed/1000) % 60;
+      const m  = Math.floor(elapsed/60000) % 60;
+      const h  = Math.floor(elapsed/3600000) % 24;
+      const d  = Math.floor(elapsed/86400000);
+      reply =
+`⏱️ **ÇALIŞMA SÜRESİ**
+━━━━━━━━━━━━━━━━━━━━
+${d > 0 ? `📅 Gün    : ${d}\n` : ''}⏰ Saat   : ${String(h).padStart(2,'0')}
+⏱ Dakika  : ${String(m).padStart(2,'0')}
+⏲ Saniye  : ${String(s).padStart(2,'0')}
+━━━━━━━━━━━━━━━━━━━━
+🔄 Toplam  : **${_botFmtUptime(elapsed)}**
+🌐 Sayfa yüklendiğinden beri kesintisiz çalışıyor.`;
+      break;
+    }
+
+    default: {
+      reply = `❓ Bilinmeyen komut: \`/${cmd}\`\n\nMevcut komutlar için **/yardım** yaz.`;
+      break;
+    }
+  }
+
+  // Kısa gecikme — bot "yazıyor" hissi
+  await new Promise(r => setTimeout(r, 420));
+  await _botReply(convId, reply);
+  return true;
 }
 
 // ── Forward ────────────────────────────────────────────────────────
