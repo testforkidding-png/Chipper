@@ -134,6 +134,78 @@
       </div>
     </div>
 
+    <!-- CCode Yönetimi -->
+    <div class="section">
+      <h2 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700;color:#DDE8F8;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+        <span>🎁</span> CCode — Promosyon Kodları
+      </h2>
+      <p style="color:#7A8FA8;font-size:12px;margin-bottom:16px;line-height:1.6">Promosyon kodu oluştur. Kullanıcılar alttaki CCode butonundan kodu girerek rozet, sunucu erişimi veya avatar öğesi kazanır.</p>
+
+      <!-- Yeni kod oluştur -->
+      <div style="background:#06080F;border:1px solid #1E2D45;border-radius:14px;padding:16px;margin-bottom:16px">
+        <div style="font-size:10px;font-weight:700;color:#FFD700;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">YENİ KOD OLUŞTUR</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label class="label">KOD</label>
+            <div style="display:flex;gap:6px">
+              <input id="cc-code" type="text" class="field" placeholder="CIPHER-XXXX" style="text-transform:uppercase;font-family:'JetBrains Mono',monospace" oninput="this.value=this.value.toUpperCase()">
+              <button onclick="genCCode()" style="padding:8px 10px;border-radius:8px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer;font-size:12px;white-space:nowrap">🎲 Üret</button>
+            </div>
+          </div>
+          <div>
+            <label class="label">MAX KULLANIM (0=sınırsız)</label>
+            <input id="cc-max" type="number" class="field" value="1" min="0">
+          </div>
+          <div>
+            <label class="label">ROZET ÖDÜLÜ</label>
+            <select id="cc-badge" class="field">
+              <option value="">— Yok —</option>
+              <option value="early">🌟 Erken Kullanıcı</option>
+              <option value="verified">✅ Doğrulanmış</option>
+              <option value="admin">⚡ Yönetici</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">SUNUCU ROL ÖDÜLÜ</label>
+            <select id="cc-server" class="field">
+              <option value="">— Yok —</option>
+              <option value="friends">👫 Arkadaşlar</option>
+              <option value="private">🔒 Bana Özel</option>
+              <option value="public">🌐 Herkese Açık</option>
+              <option value="family">🏠 Aile</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">AVATAR ÖĞESI ÖDÜLÜ</label>
+            <select id="cc-avatar-item" class="field">
+              <option value="">— Yok —</option>
+              <option value="crown_gold">👑 Altın Taç</option>
+              <option value="halo">😇 Halo</option>
+              <option value="fire">🔥 Ateş Efekti</option>
+              <option value="diamond">💎 Elmas Çerçeve</option>
+              <option value="vip_frame">⭐ VIP Çerçeve</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">ÖZEL MESAJ (OPSİYONEL)</label>
+            <input id="cc-message" type="text" class="field" placeholder="Teşekkürler! 🎉">
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <button onclick="createCCode()" class="btn-green">🎁 Kod Oluştur</button>
+        </div>
+      </div>
+
+      <!-- Mevcut kodlar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em">MEVCUT KODLAR</div>
+        <button onclick="loadCCodes()" style="font-size:11px;padding:5px 10px;border-radius:7px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer;font-family:'JetBrains Mono',monospace">↻ Yenile</button>
+      </div>
+      <div id="ccode-list" style="display:flex;flex-direction:column;gap:6px">
+        <div style="text-align:center;padding:16px;color:#7A8FA8;font-size:13px">Yükleniyor…</div>
+      </div>
+    </div>
+
     <!-- Supabase Setup -->
     <div class="section">
       <h2 style="font-family:Syne,sans-serif;font-size:17px;font-weight:700;color:#DDE8F8;margin-bottom:8px;display:flex;align-items:center;gap:8px"><span>🗄</span> Supabase Kurulum</h2>
@@ -292,6 +364,7 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
     document.getElementById('admin-panel').classList.remove('hidden');
     try { await loadUsers(); } catch(e) { console.error('loadUsers:', e); }
     try { loadReports(); } catch(e) {}
+    try { loadCCodes(); } catch(e) {}
   }
 
   // ── Users ──────────────────────────────────────────────────────
@@ -552,6 +625,109 @@ ALTER TABLE stories       DISABLE ROW LEVEL SECURITY;</pre>
   function copySQL() {
     navigator.clipboard.writeText(document.getElementById('sql-block').textContent)
       .then(() => UI.toast('SQL kopyalandı ✓', 'success'));
+  }
+
+  // ── CCode ──────────────────────────────────────────────────────
+  const _CCODES_KEY = 'cipher_admin_ccodes';
+
+  function genCCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const seg = (n) => Array.from({length:n}, () => chars[Math.floor(Math.random()*chars.length)]).join('');
+    document.getElementById('cc-code').value = `CIPHER-${seg(4)}-${seg(4)}`;
+  }
+
+  function createCCode() {
+    const code = document.getElementById('cc-code').value.trim().toUpperCase();
+    const maxUses = parseInt(document.getElementById('cc-max').value) || 0;
+    const badge = document.getElementById('cc-badge').value;
+    const serverRole = document.getElementById('cc-server').value;
+    const avatarItem = document.getElementById('cc-avatar-item').value;
+    const message = document.getElementById('cc-message').value.trim();
+
+    if (!code) { UI.toast('Kod girin', 'error'); return; }
+    if (code.length < 4) { UI.toast('Kod çok kısa', 'error'); return; }
+    if (!badge && !serverRole && !avatarItem) { UI.toast('En az bir ödül seçin', 'error'); return; }
+
+    const codes = JSON.parse(localStorage.getItem(_CCODES_KEY) || '[]');
+    if (codes.find(c => c.code === code)) { UI.toast('Bu kod zaten mevcut', 'error'); return; }
+
+    codes.push({
+      code, maxUses, badge, serverRole, avatarItem, message,
+      active: true, usedCount: 0, usedBy: [],
+      createdAt: Date.now()
+    });
+    localStorage.setItem(_CCODES_KEY, JSON.stringify(codes));
+
+    // Form temizle
+    document.getElementById('cc-code').value = '';
+    document.getElementById('cc-badge').value = '';
+    document.getElementById('cc-server').value = '';
+    document.getElementById('cc-avatar-item').value = '';
+    document.getElementById('cc-message').value = '';
+
+    loadCCodes();
+    UI.toast(`✅ Kod oluşturuldu: ${code}`, 'success');
+  }
+
+  function loadCCodes() {
+    const codes = JSON.parse(localStorage.getItem(_CCODES_KEY) || '[]');
+    const list = document.getElementById('ccode-list');
+    if (!codes.length) {
+      list.innerHTML = '<div style="text-align:center;padding:16px;color:#7A8FA8;font-size:13px">Henüz kod yok. Yukarıdan oluştur.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    [...codes].reverse().forEach((c, revIdx) => {
+      const idx = codes.length - 1 - revIdx;
+      const usagePct = c.maxUses > 0 ? Math.round((c.usedCount||0)/c.maxUses*100) : null;
+      const rewards = [
+        c.badge && `🏅 ${c.badge}`,
+        c.serverRole && `🌐 ${c.serverRole}`,
+        c.avatarItem && `🎨 ${c.avatarItem}`,
+      ].filter(Boolean).join(' · ');
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:12px 14px;border-radius:12px;background:#06080F;border:1px solid #1E2D45;display:flex;align-items:center;gap:12px';
+      row.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:${c.active?'#FFD700':'#7A8FA8'}">${c.code}</span>
+            <span style="font-size:10px;padding:1px 7px;border-radius:20px;background:${c.active?'rgba(0,255,179,.1)':'rgba(255,61,107,.1)'};color:${c.active?'#00FFB3':'#FF3D6B'};border:1px solid ${c.active?'rgba(0,255,179,.2)':'rgba(255,61,107,.2)'};font-family:'JetBrains Mono',monospace">${c.active?'AKTİF':'KAPALI'}</span>
+          </div>
+          <div style="font-size:11px;color:#7A8FA8">${rewards}</div>
+          <div style="font-size:10px;color:#5A6E88;font-family:'JetBrains Mono',monospace;margin-top:2px">
+            Kullanım: ${c.usedCount||0}${c.maxUses>0?' / '+c.maxUses:' (sınırsız)'}
+            ${usagePct !== null ? ` · %${usagePct}` : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0">
+          <button onclick="copyCCode('${c.code}')" style="font-size:11px;padding:5px 8px;border-radius:7px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer" title="Kopyala">📋</button>
+          <button onclick="toggleCCode(${idx})" style="font-size:11px;padding:5px 8px;border-radius:7px;background:#131D30;color:${c.active?'#FFA535':'#00FFB3'};border:1px solid ${c.active?'rgba(255,165,53,.2)':'rgba(0,255,179,.2)'};cursor:pointer">${c.active?'Kapat':'Aç'}</button>
+          <button onclick="deleteCCode(${idx})" style="font-size:11px;padding:5px 8px;border-radius:7px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer">Sil</button>
+        </div>`;
+      list.appendChild(row);
+    });
+  }
+
+  function copyCCode(code) {
+    navigator.clipboard.writeText(code).then(() => UI.toast(`${code} kopyalandı ✓`, 'success'));
+  }
+
+  function toggleCCode(idx) {
+    const codes = JSON.parse(localStorage.getItem(_CCODES_KEY) || '[]');
+    if (!codes[idx]) return;
+    codes[idx].active = !codes[idx].active;
+    localStorage.setItem(_CCODES_KEY, JSON.stringify(codes));
+    loadCCodes();
+    UI.toast(codes[idx].active ? '✅ Kod aktifleştirildi' : '❌ Kod kapatıldı', 'info');
+  }
+
+  function deleteCCode(idx) {
+    if (!confirm('Bu kodu silmek istiyor musunuz?')) return;
+    const codes = JSON.parse(localStorage.getItem(_CCODES_KEY) || '[]');
+    codes.splice(idx, 1);
+    localStorage.setItem(_CCODES_KEY, JSON.stringify(codes));
+    loadCCodes();
+    UI.toast('Kod silindi', 'info');
   }
 </script>
 </body>
