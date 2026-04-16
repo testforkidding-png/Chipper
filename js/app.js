@@ -154,6 +154,8 @@ async function bootApp() {
   setTimeout(() => {
     renderStories().catch(()=>{});
     ensureBotConversation().catch(()=>{});
+    ensureMathBotUser().then(() => ensureMathBotConversation()).catch(()=>{});
+    setTimeout(() => checkAndAwardBadges().catch(()=>{}), 5000);
     requestPushPermission().catch(()=>{});
     PWA.init();
   }, 100);
@@ -362,6 +364,20 @@ function renderMyAvatar() {
   }
   const nameEl = document.getElementById('my-name');
   if (nameEl) nameEl.textContent = cu.display_name || cu.username;
+
+  // Bottom nav avatar butonu da güncelle
+  const bnInner = document.getElementById('bottom-nav-avatar-inner');
+  if (bnInner) {
+    if (cu.avatar_url) {
+      bnInner.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;object-fit:cover">`;
+      bnInner.style.background = 'transparent';
+    } else {
+      const c = UI.avatarColor(cu.username);
+      bnInner.style.background = `linear-gradient(135deg,${c},${c}99)`;
+      bnInner.style.color = '#fff';
+      bnInner.textContent = UI.initials(cu.display_name || cu.username);
+    }
+  }
 }
 
 // ── Sticker tabs ───────────────────────────────────────────────────
@@ -572,6 +588,13 @@ async function openConv(convId) {
   const brBtn = document.getElementById('block-report-btn');
   if (brBtn) brBtn.style.display = conv.type === 'direct' ? 'flex' : 'none';
 
+  // Komutlar butonu — sadece bot sohbetlerinde göster
+  const cmdBtn = document.getElementById('compose-commands-btn');
+  if (cmdBtn) {
+    const isBot = _isBotConv(convId) || _isMathBotConv(convId);
+    cmdBtn.style.display = isBot ? 'flex' : 'none';
+  }
+
   // Show chat view
   document.getElementById('empty-state').style.display = 'none';
   const cv = document.getElementById('chat-view');
@@ -642,17 +665,35 @@ async function sendMessage() {
       return;
     }
   }
-  // Bot komutu mu? Sadece cipher_bot sohbetinde yakala
-  if (_isBotConv(window._currentConvId)) {
+  // Bot komutu mu? Sadece cipher_bot veya mathbot sohbetinde yakala
+  if (_isBotConv(window._currentConvId) || _isMathBotConv(window._currentConvId)) {
     const input = document.getElementById('msg-input');
     const rawText = (input?.value || '').trim();
-    if (rawText.startsWith('/')) {
+    if (rawText.startsWith('/') || _isMathBotConv(window._currentConvId)) {
       // Kullanıcının mesajını önce gönder, sonra bot cevaplasın
       await Messages.send(window._currentConvId);
-      await handleBotCommand(window._currentConvId, rawText);
+      if (_isBotConv(window._currentConvId)) {
+        await handleBotCommand(window._currentConvId, rawText);
+      } else {
+        await handleMathBotCommand(window._currentConvId, rawText);
+      }
       return;
     }
   }
+
+  // @mention tespiti — grup sohbetlerinde
+  const _input = document.getElementById('msg-input');
+  const _msgText = (_input?.value || '').trim();
+  if (_msgText) _checkMentions(window._currentConvId, _msgText);
+
+  // Mesaj filtresi
+  if (_msgText && _isSensitiveMessage(_msgText)) {
+    const input = document.getElementById('msg-input');
+    if (input) { input.value = ''; Messages.autoResize(input); }
+    await _sendSensitiveMessage(window._currentConvId, _msgText);
+    return;
+  }
+
   await Messages.send(window._currentConvId);
 }
 
@@ -953,9 +994,14 @@ function renderContactsList(searchQ) {
     div.onmouseenter = () => div.style.background = '#0C1220';
     div.onmouseleave = () => div.style.background = 'transparent';
 
-    const av = u.avatar_url
-      ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;flex-shrink:0">`
-      : `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(u.display_name || u.username)}</div>`;
+    // Çift avatar: önce avatar_url (fotoğraf/avatar maker), yanında initials
+    // avatar_url varsa öncelikli göster; yoksa renkli initials
+    const avMain = u.avatar_url
+      ? `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #1E2D45"><img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover;display:block"></div>`
+      : `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0;border:2px solid ${color}33">${UI.initials(u.display_name || u.username)}</div>`;
+    // Küçük initials badge (her zaman sağ alta)
+    const avBadge = `<div style="position:absolute;bottom:-2px;right:-2px;width:18px;height:18px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;border:2px solid #0C1220;font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username).slice(0,1)}</div>`;
+    const av = `<div style="position:relative;flex-shrink:0">${avMain}${u.avatar_url ? avBadge : ''}</div>`;
 
     const st = UI.onlineStatus(u);
 
@@ -1367,6 +1413,17 @@ function toggleLowData() { _settings.lowData=!_settings.lowData; saveSettings();
 function toggleNotifs() { _settings.notifs=!_settings.notifs; saveSettings(); updateToggle('notif-toggle',_settings.notifs); if(_settings.notifs&&'Notification'in window) Notification.requestPermission(); }
 
 // ── Profile edit ──────────────────────────────────────────────────────
+function setPeTab(tab) {
+  ['profil','avatar','qr'].forEach(t => {
+    const btn = document.getElementById('pe-tab-'+t);
+    const panel = document.getElementById('pe-panel-'+t);
+    if (btn) { btn.style.color = t===tab ? '#00FFB3' : '#7A8FA8'; btn.style.borderBottomColor = t===tab ? '#00FFB3' : 'transparent'; }
+    if (panel) panel.style.display = t===tab ? 'flex' : 'none';
+  });
+  if (tab === 'avatar') initAvatarMaker();
+  if (tab === 'qr') initQRCode();
+}
+
 function openProfileEdit() {
   const cu = window._currentUser;
   document.getElementById('pe-displayname').value = cu.display_name||'';
@@ -1389,7 +1446,223 @@ function openProfileEdit() {
     if (cu.avatar_url) prev.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
     else { const c=UI.avatarColor(cu.username); prev.style.background=`linear-gradient(135deg,${c},${c}99)`; prev.style.color='#fff'; prev.textContent=UI.initials(cu.display_name||cu.username); }
   }
+  setPeTab('profil');
   UI.openModal('profile-edit-modal');
+}
+
+// ─── Avatar Maker ───────────────────────────────────────────────────
+const _AV = {
+  bg: '#1E2D45', color: '#00FFB3',
+  shape: 0, eye: 0, mouth: 0, acc: 0,
+  shapes: ['circle','square','hexagon','diamond','star','rounded'],
+  eyes:   ['normal','happy','cool','sleepy','surprised','wink'],
+  mouths: ['smile','grin','flat','sad','open','smirk'],
+  accs:   ['none','hat','crown','glasses','headphones','horns'],
+  bgs: ['#1E2D45','#0A1628','#1A0A28','#0A2818','#281A0A','#06080F','#001F1A','#1A0F00'],
+  colors: ['#00FFB3','#0066FF','#FF3D6B','#FFA535','#9333EA','#F59E0B','#10B981','#EF4444','#EC4899','#6366F1','#FFFFFF','#7A8FA8'],
+};
+
+function initAvatarMaker() {
+  const buildSwatch = (containerId, arr, key, isColor=true, renderFn) => {
+    const el = document.getElementById(containerId); if (!el) return;
+    el.innerHTML = '';
+    arr.forEach((val, i) => {
+      const btn = document.createElement('button');
+      if (isColor) {
+        btn.style.cssText = `width:26px;height:26px;border-radius:50%;background:${val};border:2.5px solid ${_AV[key]===val?'#00FFB3':'transparent'};cursor:pointer;flex-shrink:0;transition:border-color .15s`;
+        btn.onclick = () => { _AV[key]=val; el.querySelectorAll('button').forEach(b=>b.style.borderColor='transparent'); btn.style.borderColor='#00FFB3'; drawAvatar(); };
+      } else {
+        btn.style.cssText = `padding:4px 10px;border-radius:8px;border:1.5px solid ${_AV[key]===i?'#00FFB3':'#1E2D45'};background:${_AV[key]===i?'rgba(0,255,179,.12)':'transparent'};cursor:pointer;font-size:11px;color:${_AV[key]===i?'#00FFB3':'#7A8FA8'};font-family:'JetBrains Mono',monospace;transition:all .15s`;
+        btn.textContent = renderFn ? renderFn(val) : val;
+        btn.onclick = () => { _AV[key]=i; el.querySelectorAll('button').forEach(b=>{ b.style.borderColor='#1E2D45'; b.style.background='transparent'; b.style.color='#7A8FA8'; }); btn.style.borderColor='#00FFB3'; btn.style.background='rgba(0,255,179,.12)'; btn.style.color='#00FFB3'; drawAvatar(); };
+      }
+      el.appendChild(btn);
+    });
+  };
+  buildSwatch('av-bg-swatches', _AV.bgs, 'bg', true);
+  buildSwatch('av-color-swatches', _AV.colors, 'color', true);
+  buildSwatch('av-shape-btns', _AV.shapes, 'shape', false, s=>({'circle':'●','square':'■','hexagon':'⬡','diamond':'◆','star':'★','rounded':'▢'}[s]||s));
+  buildSwatch('av-eye-btns', _AV.eyes, 'eye', false, e=>({'normal':'◉◉','happy':'^‿^','cool':'⊙⊙','sleepy':'−−','surprised':'○○','wink':'−◉'}[e]||e));
+  buildSwatch('av-mouth-btns', _AV.mouths, 'mouth', false, m=>({'smile':'⌣','grin':'D','flat':'−','sad':'⌢','open':'O','smirk':'⌣̃'}[m]||m));
+  buildSwatch('av-acc-btns', _AV.accs, 'acc', false, a=>({'none':'∅','hat':'🎩','crown':'👑','glasses':'👓','headphones':'🎧','horns':'😈'}[a]||a));
+  drawAvatar();
+}
+
+function drawAvatar() {
+  const canvas = document.getElementById('av-canvas'); if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 200, H = 200, cx = W/2, cy = H/2;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = _AV.bg;
+  ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI*2); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI*2); ctx.clip();
+
+  // Shape (face/body)
+  ctx.fillStyle = _AV.color;
+  const shapeR = 52;
+  ctx.beginPath();
+  switch(_AV.shapes[_AV.shape]) {
+    case 'circle':   ctx.arc(cx, cy+8, shapeR, 0, Math.PI*2); break;
+    case 'square':   ctx.rect(cx-shapeR, cy-shapeR+8, shapeR*2, shapeR*2); break;
+    case 'hexagon':  for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/6;ctx.lineTo(cx+shapeR*Math.cos(a),cy+8+shapeR*Math.sin(a));} break;
+    case 'diamond':  ctx.moveTo(cx,cy-shapeR+8);ctx.lineTo(cx+shapeR,cy+8);ctx.lineTo(cx,cy+shapeR+8);ctx.lineTo(cx-shapeR,cy+8); break;
+    case 'star':     for(let i=0;i<10;i++){const a=Math.PI/5*i-Math.PI/2,r=i%2===0?shapeR:shapeR*0.45;ctx.lineTo(cx+r*Math.cos(a),cy+8+r*Math.sin(a));} break;
+    case 'rounded':  ctx.roundRect(cx-shapeR,cy-shapeR+8,shapeR*2,shapeR*2,18); break;
+    default:         ctx.arc(cx, cy+8, shapeR, 0, Math.PI*2);
+  }
+  ctx.fill();
+
+  // Eyes
+  const eyeY = cy - 2, eyeLX = cx - 18, eyeRX = cx + 18;
+  const eyeCol = _AV.bg;
+  ctx.fillStyle = eyeCol;
+  switch(_AV.eyes[_AV.eye]) {
+    case 'normal':    [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,7,0,Math.PI*2);ctx.fill();}); break;
+    case 'happy':     [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY+3,7,Math.PI,0);ctx.fill();}); break;
+    case 'cool':      [eyeLX,eyeRX].forEach(x=>{ctx.fillRect(x-9,eyeY-4,18,8);}); break;
+    case 'sleepy':    ctx.lineWidth=3;ctx.strokeStyle=eyeCol;[eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.moveTo(x-8,eyeY);ctx.lineTo(x+8,eyeY);ctx.stroke();}); break;
+    case 'surprised': [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,9,0,Math.PI*2);ctx.fill();}); break;
+    case 'wink':      ctx.beginPath();ctx.arc(eyeRX,eyeY,7,0,Math.PI*2);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=eyeCol;ctx.beginPath();ctx.moveTo(eyeLX-8,eyeY);ctx.lineTo(eyeLX+8,eyeY);ctx.stroke(); break;
+  }
+
+  // Mouth
+  const mY = cy + 26;
+  ctx.strokeStyle = _AV.bg; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+  switch(_AV.mouths[_AV.mouth]) {
+    case 'smile':  ctx.beginPath();ctx.arc(cx,mY-6,14,0.2,Math.PI-0.2);ctx.stroke(); break;
+    case 'grin':   ctx.beginPath();ctx.arc(cx,mY-6,16,0.1,Math.PI-0.1);ctx.fill();ctx.stroke(); break;
+    case 'flat':   ctx.beginPath();ctx.moveTo(cx-13,mY);ctx.lineTo(cx+13,mY);ctx.stroke(); break;
+    case 'sad':    ctx.beginPath();ctx.arc(cx,mY+6,14,Math.PI+0.2,2*Math.PI-0.2);ctx.stroke(); break;
+    case 'open':   ctx.beginPath();ctx.arc(cx,mY-4,10,0,Math.PI*2);ctx.fill();ctx.stroke(); break;
+    case 'smirk':  ctx.beginPath();ctx.moveTo(cx-10,mY+2);ctx.quadraticCurveTo(cx+4,mY-6,cx+12,mY);ctx.stroke(); break;
+  }
+
+  // Accessory
+  ctx.fillStyle = _AV.color;
+  switch(_AV.accs[_AV.acc]) {
+    case 'hat':        ctx.fillRect(cx-28,cy-68,56,12);ctx.beginPath();ctx.rect(cx-20,cy-92,40,28);ctx.fill(); break;
+    case 'crown':      [cx-22,cx-8,cx+8,cx+22].forEach((x,i)=>{ctx.beginPath();ctx.moveTo(x-8,cy-58);ctx.lineTo(x,cy-74+i%2*10);ctx.lineTo(x+8,cy-58);ctx.fill();}); break;
+    case 'glasses':    ctx.lineWidth=3;ctx.strokeStyle=_AV.color;[eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,11,0,Math.PI*2);ctx.stroke();});ctx.beginPath();ctx.moveTo(eyeLX+11,eyeY);ctx.lineTo(eyeRX-11,eyeY);ctx.stroke(); break;
+    case 'headphones': ctx.lineWidth=5;ctx.strokeStyle=_AV.color;ctx.beginPath();ctx.arc(cx,cy-20,40,Math.PI*1.1,Math.PI*1.9);ctx.stroke();[cx-40,cx+40].forEach(x=>{ctx.fillRect(x-7,cy-24,14,16);}); break;
+    case 'horns':      [[cx-30,cy-72],[cx+30,cy-72]].forEach(([x,y])=>{ctx.beginPath();ctx.moveTo(x-8,y+16);ctx.lineTo(x,y);ctx.lineTo(x+8,y+16);ctx.fill();}); break;
+  }
+
+  ctx.restore();
+  // Subtle border
+  ctx.strokeStyle = 'rgba(0,0,0,.2)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, 99, 0, Math.PI*2); ctx.stroke();
+}
+
+async function applyMakerAvatar() {
+  const canvas = document.getElementById('av-canvas'); if (!canvas) return;
+  const dataUrl = canvas.toDataURL('image/png');
+  try {
+    await DB.updateUser(window._currentUser.username, { avatar_url: dataUrl });
+    window._currentUser.avatar_url = dataUrl;
+    _allUsers[window._currentUser.username].avatar_url = dataUrl;
+    const prev = document.getElementById('avatar-preview');
+    if (prev) prev.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    renderMyAvatar();
+    setPeTab('profil');
+    UI.toast('Avatar kaydedildi ✓','success');
+  } catch(e) { UI.toast('Kaydedilemedi: '+e.message,'error'); }
+}
+
+// ─── QR Code ────────────────────────────────────────────────────────
+function initQRCode() {
+  const cu = window._currentUser;
+  const label = document.getElementById('qr-username-label');
+  if (label) label.textContent = `@${cu.username}`;
+  const canvas = document.getElementById('qr-canvas'); if (!canvas) return;
+  // QR içerik: cipher://user/<username>
+  const text = `cipher://user/${cu.username}`;
+  _drawQR(canvas, text, 168);
+}
+
+function _drawQR(canvas, text, size) {
+  // Mini QR encoder — sadece alphanumeric/byte, hata düzeltme L
+  // Basit görsel QR — gerçek QR decode edilebilir değil ama estetik amaçlı
+  // Production'da qrcode.js kütüphanesi kullanılmalı
+  const ctx = canvas.getContext('2d');
+  canvas.width = size; canvas.height = size;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, size, size);
+
+  // Gerçek QR üretimi için deterministik hash → hücre matrisi
+  const N = 25; // 25x25 grid (versiyon 2 benzeri)
+  const cell = size / N;
+  const matrix = _qrMatrix(text, N);
+
+  ctx.fillStyle = '#06080F';
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      if (matrix[r][c]) {
+        const x = c * cell, y = r * cell;
+        const r2 = cell * 0.18;
+        ctx.beginPath();
+        ctx.roundRect(x+1, y+1, cell-2, cell-2, r2);
+        ctx.fill();
+      }
+    }
+  }
+
+  // Finder patterns (köşe kareler)
+  _drawFinder(ctx, 0, 0, cell);
+  _drawFinder(ctx, (N-7)*cell, 0, cell);
+  _drawFinder(ctx, 0, (N-7)*cell, cell);
+
+  // CIPHER yazısı ortada
+  ctx.fillStyle = '#00FFB3';
+  ctx.font = `bold ${Math.round(cell*1.2)}px 'JetBrains Mono', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('CIPHER', size/2, size/2);
+}
+
+function _qrMatrix(text, N) {
+  const m = Array.from({length:N}, ()=>new Array(N).fill(0));
+  // Pseudo-random fill based on text content
+  let seed = 0;
+  for (let i = 0; i < text.length; i++) seed = (seed * 31 + text.charCodeAt(i)) & 0x7FFFFFFF;
+  const rand = () => { seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF; return seed / 0x7FFFFFFF; };
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) m[r][c] = rand() > 0.5 ? 1 : 0;
+  // Clear finder areas
+  [[0,0],[N-7,0],[0,N-7]].forEach(([fr,fc])=>{
+    for (let r=fr-1; r<=fr+7; r++) for (let c=fc-1; c<=fc+7; c++) if(r>=0&&r<N&&c>=0&&c<N) m[r][c]=0;
+  });
+  // Clear center for text
+  const mid = Math.floor(N/2);
+  for (let r=mid-3;r<=mid+3;r++) for (let c=mid-7;c<=mid+7;c++) if(r>=0&&r<N&&c>=0&&c<N) m[r][c]=0;
+  return m;
+}
+
+function _drawFinder(ctx, x, y, cell) {
+  ctx.fillStyle = '#06080F';
+  ctx.fillRect(x, y, cell*7, cell*7);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x+cell, y+cell, cell*5, cell*5);
+  ctx.fillStyle = '#06080F';
+  ctx.fillRect(x+cell*2, y+cell*2, cell*3, cell*3);
+}
+
+function downloadQR() {
+  const canvas = document.getElementById('qr-canvas'); if (!canvas) return;
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `cipher-qr-${window._currentUser.username}.png`;
+  a.click();
+}
+
+async function shareQR() {
+  const cu = window._currentUser;
+  const shareUrl = `${location.origin}${location.pathname}?add=${cu.username}`;
+  if (navigator.share) {
+    await navigator.share({ title:'CIPHER\'da beni ekle', text:`@${cu.username} olarak CIPHER\'dayım!`, url: shareUrl });
+  } else {
+    navigator.clipboard.writeText(shareUrl).then(()=>UI.toast('Link kopyalandı ✓','success'));
+  }
 }
 
 async function saveProfile() {
@@ -1524,7 +1797,328 @@ function openNotifs() {
 }
 function clearAllNotifs() { _notifs=[]; updateNotifBadge(); UI.closeModal('notif-modal'); }
 
-// ── Bot ────────────────────────────────────────────────────────────
+// ── Kaydedilen Mesajlar ─────────────────────────────────────────────
+const _SAVED_KEY = () => 'cipher_saved_' + (window._currentUser?.username || '');
+
+function saveMessage(msgId, text) {
+  const saved = JSON.parse(localStorage.getItem(_SAVED_KEY()) || '[]');
+  if (saved.find(m => m.id === msgId)) { UI.toast('Zaten kaydedilmiş', 'info'); return; }
+  saved.unshift({ id: msgId, text: text?.slice(0,300) || '', time: Date.now(), convId: window._currentConvId });
+  if (saved.length > 100) saved.length = 100;
+  localStorage.setItem(_SAVED_KEY(), JSON.stringify(saved));
+  UI.toast('📌 Mesaj kaydedildi', 'success');
+}
+
+function openSavedMessages() {
+  const list = document.getElementById('saved-messages-list');
+  if (!list) return;
+  const saved = JSON.parse(localStorage.getItem(_SAVED_KEY()) || '[]');
+  if (!saved.length) {
+    list.innerHTML = '<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">Henüz kaydedilen mesaj yok.<br><br>Mesaja uzun bas → 📌 Kaydet</div>';
+  } else {
+    list.innerHTML = '';
+    saved.forEach((m, i) => {
+      const div = document.createElement('div');
+      div.style.cssText = 'padding:10px 12px;border-radius:12px;background:#06080F;border:1px solid #1E2D45;display:flex;gap:10px;align-items:start';
+      div.innerHTML = `<div style="flex:1;min-width:0"><div style="font-size:13px;color:#DDE8F8;line-height:1.5;word-break:break-word">${String(m.text||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div><div style="font-size:10px;color:#5A6E88;font-family:'JetBrains Mono',monospace;margin-top:4px">${UI.fmtDate(m.time)}</div></div><div style="display:flex;gap:4px;flex-shrink:0"><button onclick="goToSavedMsg('${m.convId}');UI.closeModal('saved-messages-modal')" style="font-size:11px;padding:4px 8px;border-radius:6px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer">Git</button><button onclick="deleteSavedMsg(${i})" style="font-size:11px;padding:4px 8px;border-radius:6px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer">✕</button></div>`;
+      list.appendChild(div);
+    });
+  }
+  UI.openModal('saved-messages-modal');
+}
+
+function deleteSavedMsg(idx) {
+  const saved = JSON.parse(localStorage.getItem(_SAVED_KEY()) || '[]');
+  saved.splice(idx, 1);
+  localStorage.setItem(_SAVED_KEY(), JSON.stringify(saved));
+  openSavedMessages();
+}
+
+function goToSavedMsg(convId) {
+  if (convId) openConv(convId);
+}
+
+// ── Story Görüntüleyenler ───────────────────────────────────────────
+function openStoryViewers(storyId) {
+  // Find story in cached stories
+  DB.getStories().then(stories => {
+    const story = stories.find(s => s.id === storyId);
+    if (!story) return;
+    const viewers = story.seen_by || [];
+    const list = document.getElementById('story-viewers-list');
+    if (!list) return;
+    if (!viewers.length) {
+      list.innerHTML = '<div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Henüz kimse görmedi</div>';
+    } else {
+      list.innerHTML = '';
+      viewers.forEach(uid => {
+        const u = _allUsers[uid] || { username: uid, display_name: uid };
+        const c = UI.avatarColor(u.username);
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px';
+        const av = u.avatar_url
+          ? `<div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover"></div>`
+          : `<div style="width:32px;height:32px;border-radius:50%;background:${c}22;color:${c};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${UI.initials(u.display_name||u.username)}</div>`;
+        div.innerHTML = `${av}<div><div style="font-size:13px;color:#DDE8F8">${u.display_name||u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div><span style="margin-left:auto;font-size:16px">👁</span>`;
+        list.appendChild(div);
+      });
+    }
+    UI.openModal('story-viewers-modal');
+  }).catch(() => {});
+}
+
+// ── @Mention Bildirimleri ──────────────────────────────────────────
+function _checkMentions(convId, text) {
+  if (!convId || !text) return;
+  const conv = _convs.find(c => c.id === convId);
+  if (!conv || conv.type !== 'group') return;
+  const cu = window._currentUser;
+  // Find all @username mentions in text
+  const mentions = [...text.matchAll(/@([a-z0-9_.-]+)/gi)].map(m => m[1].toLowerCase());
+  mentions.forEach(uid => {
+    if (uid === cu.username) return; // kendi kendine mention
+    const u = _allUsers[uid];
+    if (!u || !conv.participants?.includes(uid)) return;
+    // Bildirim ekle
+    addNotif(`@${cu.username} seni bahsetti: ${text.slice(0,60)}`, cu.username, convId);
+  });
+}
+
+// ── Mesaj Filtresi ─────────────────────────────────────────────────
+const _SENSITIVE_WORDS = [
+  'küfür','sövme','hakaret','bok','sik','göt','orospu','piç','salak','mal','aptal','gerize',
+  'nefret','öldür','öldüreceğim','intihar','kendini öldür','kes','kesin','koy','koyayım'
+];
+
+function _isSensitiveMessage(text) {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return _SENSITIVE_WORDS.some(w => lower.includes(w));
+}
+
+async function _sendSensitiveMessage(convId, text) {
+  const cu = window._currentUser;
+  const now = Date.now();
+  const tmpId = 'tmp_' + now;
+  // Mesajı "hassas" flag ile gönder
+  const msg = {
+    id: tmpId, conv_id: convId, from: cu.username,
+    type: 'text', text, status: 'sent',
+    sensitive: true, created_at: now
+  };
+  try {
+    await DB.createMessage({ ...msg, id: undefined });
+    await DB.updateConversation(convId, { last_msg: '⚠️ Hassas içerik', last_time: now, last_from: cu.username });
+    if (typeof renderChatList === 'function') renderChatList();
+    await renderMessages();
+  } catch(e) { UI.toast('Gönderilemedi', 'error'); }
+}
+
+// ── Konum Paylaşımı ────────────────────────────────────────────────
+function shareLocation() {
+  if (!window._currentConvId) { UI.toast('Önce bir sohbet seçin', 'info'); return; }
+  if (!navigator.geolocation) { UI.toast('Tarayıcınız konum desteklemiyor', 'error'); return; }
+  UI.toast('📍 Konum alınıyor…', 'info', 2000);
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+      const text = `📍 **Konum Paylaştı**\n\`${lat.toFixed(6)}, ${lng.toFixed(6)}\`\nDoğruluk: ~${Math.round(accuracy)}m\n🗺 [Haritada Aç](${mapsUrl})`;
+      const cu = window._currentUser;
+      const now = Date.now();
+      await DB.createMessage({ conv_id: window._currentConvId, from: cu.username, type: 'text', text, status: 'sent', created_at: now });
+      await DB.updateConversation(window._currentConvId, { last_msg: '📍 Konum', last_time: now, last_from: cu.username });
+      renderChatList();
+      renderMessages();
+      UI.toast('📍 Konum paylaşıldı (15dk)', 'success');
+      // 15 dk sonra sona erdi bildirimi
+      setTimeout(() => UI.toast('📍 Konum paylaşımı sona erdi', 'info'), 15 * 60 * 1000);
+    },
+    err => UI.toast('Konum alınamadı: ' + (err.message || 'İzin verilmedi'), 'error'),
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+// ── Takvim Etkinliği ───────────────────────────────────────────────
+function openEventCreate() {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 60);
+  const local = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  const dtEl = document.getElementById('event-datetime');
+  if (dtEl) dtEl.value = local;
+  document.getElementById('event-title').value = '';
+  document.getElementById('event-location').value = '';
+  document.getElementById('event-desc').value = '';
+  UI.openModal('event-modal');
+}
+
+async function submitEvent() {
+  const title = document.getElementById('event-title')?.value.trim();
+  const dt = document.getElementById('event-datetime')?.value;
+  const location2 = document.getElementById('event-location')?.value.trim();
+  const desc = document.getElementById('event-desc')?.value.trim();
+  if (!title) { UI.toast('Etkinlik adı girin', 'error'); return; }
+  if (!dt) { UI.toast('Tarih/saat seçin', 'error'); return; }
+  const d = new Date(dt);
+  const dateStr = d.toLocaleDateString('tr-TR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+  const timeStr = d.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
+  let text = `📅 **ETKİNLİK: ${title}**\n⏰ ${dateStr} — ${timeStr}`;
+  if (location2) text += `\n📍 ${location2}`;
+  if (desc) text += `\n📝 ${desc}`;
+  text += `\n\n*Katılıyor musun?* ✅ Evet  ❌ Hayır  🤔 Belki`;
+  const cu = window._currentUser;
+  const now = Date.now();
+  try {
+    await DB.createMessage({ conv_id: window._currentConvId, from: cu.username, type: 'text', text, status: 'sent', created_at: now });
+    await DB.updateConversation(window._currentConvId, { last_msg: `📅 ${title}`, last_time: now, last_from: cu.username });
+    UI.closeModal('event-modal');
+    renderChatList();
+    renderMessages();
+    UI.toast('📅 Etkinlik gönderildi ✓', 'success');
+  } catch(e) { UI.toast('Gönderilemedi: ' + e.message, 'error'); }
+}
+
+// ── Otomatik Çeviri ────────────────────────────────────────────────
+async function translateMessage(text, targetLang='tr') {
+  // Google Translate API (ücretsiz endpoint)
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const translated = data[0]?.map(s => s?.[0] || '').join('') || '';
+    const detectedLang = data[2] || 'auto';
+    return { translated, detectedLang };
+  } catch(e) { return null; }
+}
+
+// ── Rozet Otomatik Sistemi ─────────────────────────────────────────
+async function checkAndAwardBadges() {
+  const cu = window._currentUser;
+  if (!cu) return;
+  try {
+    const msgs = await DB.getAllUserMessages?.(cu.username).catch(() => null);
+    if (!msgs) return;
+    const msgCount = msgs.length;
+    const currentBadges = new Set(cu.badges || []);
+    let changed = false;
+
+    if (msgCount >= 1 && !currentBadges.has('first_msg')) {
+      currentBadges.add('first_msg'); changed = true;
+      UI.toast('🏅 Rozet kazandın: İlk Mesaj!', 'success', 5000);
+    }
+    if (msgCount >= 100 && !currentBadges.has('chatter')) {
+      currentBadges.add('chatter'); changed = true;
+      UI.toast('🏅 Rozet kazandın: 100 Mesaj!', 'success', 5000);
+    }
+    if (msgCount >= 1000 && !currentBadges.has('veteran')) {
+      currentBadges.add('veteran'); changed = true;
+      UI.toast('🏅 Rozet kazandın: Veteran!', 'success', 5000);
+    }
+    if (changed) {
+      const newBadges = [...currentBadges];
+      await DB.updateUser(cu.username, { badges: newBadges });
+      window._currentUser.badges = newBadges;
+      if (_allUsers[cu.username]) _allUsers[cu.username].badges = newBadges;
+    }
+  } catch {}
+}
+
+// ── Bot Komutlar Modal ─────────────────────────────────────────────
+function showBotCommands() {
+  const cipherCmds = [
+    ['/yardım','Tüm komutları listeler'],
+    ['/kimlik','Kullanıcı adı ve bilgiler'],
+    ['/key [uzunluk]','Güvenli anahtar üretir'],
+    ['/binary <metin>','Binary\'ye çevirir'],
+    ['/debinary <01>','Binary\'den çevirir'],
+    ['/morse <metin>','Morse\'a çevirir'],
+    ['/demorse <...>','Morse\'dan çevirir'],
+    ['/status','Bot durumu'],
+    ['/version','Sürüm notları'],
+    ['/uptime','Çalışma süresi'],
+    ['/hatırla <süre> <not>','Hatırlatıcı'],
+  ];
+  const mathCmds = [
+    ['<işlem>','Doğrudan hesap: 2+3*4'],
+    ['/çöz <denklem>','3x+5=20'],
+    ['/kareçöz a b c','ax²+bx+c=0'],
+    ['/asal <n>','Asal mı?'],
+    ['/çarpan <n>','Asal çarpanlar'],
+    ['/obeb a b','OBEB hesapla'],
+    ['/okek a b','OKEK hesapla'],
+    ['/türev <f> x=<n>','Sayısal türev'],
+    ['/integral <f> a b','Belirli integral'],
+    ['/status','Bot durumu'],
+  ];
+
+  const buildList = (containerId, cmds) => {
+    const el = document.getElementById(containerId); if (!el) return;
+    el.innerHTML = '';
+    cmds.forEach(([cmd, desc]) => {
+      const row = document.createElement('button');
+      row.style.cssText = 'display:flex;align-items:start;gap:10px;padding:8px 10px;border-radius:8px;width:100%;text-align:left;background:transparent;border:none;cursor:pointer;transition:background .12s';
+      row.onmouseenter = () => row.style.background = '#131D30';
+      row.onmouseleave = () => row.style.background = 'transparent';
+      row.innerHTML = `<span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:#00FFB3;flex-shrink:0;min-width:120px">${cmd}</span><span style="font-size:12px;color:#7A8FA8">${desc}</span>`;
+      row.onclick = () => {
+        const input = document.getElementById('msg-input');
+        if (input) { input.value = cmd.includes('<') ? cmd.split('<')[0].trim() + ' ' : cmd + ' '; input.focus(); }
+        UI.closeModal('bot-commands-modal');
+      };
+      el.appendChild(row);
+    });
+  };
+
+  buildList('bot-cmd-list-cipher', cipherCmds);
+  buildList('bot-cmd-list-math', mathCmds);
+  UI.openModal('bot-commands-modal');
+}
+
+// ── Hatırlatıcı Bot Komutu ─────────────────────────────────────────
+function _parseReminderTime(str) {
+  const match = str.match(/^(\d+)(sn|s|dk|d|sa|h|g)$/i);
+  if (!match) return null;
+  const n = parseInt(match[1]);
+  const unit = match[2].toLowerCase();
+  const ms = { sn:1000, s:1000, dk:60000, d:60000, sa:3600000, h:3600000, g:86400000 }[unit];
+  return n * (ms || 0);
+}
+
+// ── Anket 2.0 — süreli anket desteği ──────────────────────────────
+async function submitPoll() {
+  const question = document.getElementById('poll-question')?.value.trim();
+  if (!question) { UI.toast('Soru girin', 'error'); return; }
+  const opts = Array.from(document.querySelectorAll('.poll-opt')).map(i => i.value.trim()).filter(Boolean);
+  if (opts.length < 2) { UI.toast('En az 2 seçenek girin', 'error'); return; }
+  const convId = window._currentConvId;
+  if (!convId) return;
+  const durSecs = parseInt(document.getElementById('poll-duration')?.value || '0');
+  const expiresAt = durSecs > 0 ? Date.now() + durSecs * 1000 : null;
+  const poll = { question, options: opts, votes: Object.fromEntries(opts.map(o => [o, []])), expiresAt };
+  try {
+    await DB.createMessage({ conv_id: convId, from: window._currentUser.username, type: 'poll', text: question, poll_data: JSON.stringify(poll), status: 'sent', created_at: Date.now() });
+    await DB.updateConversation(convId, { last_msg: `📊 ${question}`, last_time: Date.now(), last_from: window._currentUser.username });
+    UI.closeModal('poll-modal');
+    window._onNewMessage?.();
+    UI.toast('Anket gönderildi ✓', 'success');
+  } catch(e) { UI.toast('Gönderilemedi: ' + e.message, 'error'); }
+}
+
+// ── MathBot ensure ────────────────────────────────────────────────
+async function ensureMathBotUser() {
+  const existing = await DB.getUser(MATHBOT_ID).catch(() => null);
+  if (existing) return existing;
+  const hash = await DB.hashPassword('mathbot_system_' + Date.now());
+  return DB.createUser({
+    username: MATHBOT_ID, password_hash: hash,
+    display_name: 'MathBot 🧮', bio: 'Matematik sorularını çözerim',
+    is_admin: false, badges: ['verified'], banner_color: '#0A1628',
+    status: '7/24 Matematik', status_emoji: '🧮', avatar_url: null,
+    created_at: Date.now()
+  }).catch(() => null);
+}
+
+
 const _BOT_ID = 'cipher_bot';
 const _BOT_START = Date.now(); // uptime başlangıcı
 
@@ -1853,6 +2447,121 @@ function setupScreenshotDetection() {
 }
 
 function startVoiceCall() { UI.toast('📞 Sesli arama (Demo)','info'); setTimeout(()=>UI.toast('Yanıt verilmiyor.','warn'),2500); }
+
+// ── CCode (Promosyon Kodu) ─────────────────────────────────────────
+const _CCODE_USED_KEY = () => 'cipher_ccode_used_' + (window._currentUser?.username || '');
+
+function openCCodeRedeem() {
+  const inp = document.getElementById('ccode-input');
+  const res = document.getElementById('ccode-result');
+  if (inp) inp.value = '';
+  if (res) { res.style.display = 'none'; res.innerHTML = ''; }
+  UI.openModal('ccode-redeem-modal');
+  setTimeout(() => inp?.focus(), 200);
+}
+
+async function redeemCCode() {
+  const code = (document.getElementById('ccode-input')?.value || '').trim().toUpperCase();
+  const resEl = document.getElementById('ccode-result');
+  if (!code) { UI.toast('Kod girin', 'error'); return; }
+
+  // Kullanılmış kodları kontrol et
+  const usedCodes = JSON.parse(localStorage.getItem(_CCODE_USED_KEY()) || '[]');
+  if (usedCodes.includes(code)) {
+    _showCCodeResult('error', '❌ Bu kodu daha önce kullandınız.');
+    return;
+  }
+
+  // Admin panelinde oluşturulan kodları kontrol et
+  const allCodes = JSON.parse(localStorage.getItem('cipher_admin_ccodes') || '[]');
+  const codeEntry = allCodes.find(c => c.code === code && c.active);
+
+  if (!codeEntry) {
+    _showCCodeResult('error', '❌ Geçersiz veya süresi dolmuş kod.');
+    return;
+  }
+
+  // Kod limiti kontrolü
+  if (codeEntry.maxUses > 0 && (codeEntry.usedCount || 0) >= codeEntry.maxUses) {
+    _showCCodeResult('error', '❌ Bu kodun kullanım limiti doldu.');
+    return;
+  }
+
+  // Ödülü uygula
+  const cu = window._currentUser;
+  let rewardMsg = '';
+  const updates = {};
+
+  // Rozet ödülü
+  if (codeEntry.badge) {
+    const currentBadges = new Set(cu.badges || []);
+    if (!currentBadges.has(codeEntry.badge)) {
+      currentBadges.add(codeEntry.badge);
+      updates.badges = [...currentBadges];
+      const badgeDef = CONFIG.BADGES[codeEntry.badge];
+      rewardMsg += `🏅 Rozet: **${badgeDef?.icon || ''} ${badgeDef?.label || codeEntry.badge}**\n`;
+    }
+  }
+
+  // Sunucu rolü ödülü
+  if (codeEntry.serverRole) {
+    const defaults = {};
+    Object.keys(CONFIG.SERVERS).forEach(k => defaults[k] = false);
+    const existing = (typeof cu.server_roles === 'object' && cu.server_roles) ? cu.server_roles : {};
+    const roles = { ...defaults, ...existing };
+    if (!roles[codeEntry.serverRole]) {
+      roles[codeEntry.serverRole] = true;
+      updates.server_roles = roles;
+      const srv = CONFIG.SERVERS[codeEntry.serverRole];
+      rewardMsg += `${srv?.icon || '🌐'} Sunucu Erişimi: **${srv?.label || codeEntry.serverRole}**\n`;
+    }
+  }
+
+  // Avatar ödülü
+  if (codeEntry.avatarItem) {
+    const currentItems = JSON.parse(localStorage.getItem('cipher_avatar_items_' + cu.username) || '[]');
+    if (!currentItems.includes(codeEntry.avatarItem)) {
+      currentItems.push(codeEntry.avatarItem);
+      localStorage.setItem('cipher_avatar_items_' + cu.username, JSON.stringify(currentItems));
+      rewardMsg += `🎨 Avatar Öğesi: **${codeEntry.avatarItem}**\n`;
+    }
+  }
+
+  // Özel durum mesajı
+  if (codeEntry.message) rewardMsg += `\n💬 ${codeEntry.message}`;
+
+  // Veritabanına kaydet
+  try {
+    if (Object.keys(updates).length > 0) {
+      await DB.updateUser(cu.username, updates);
+      Object.assign(window._currentUser, updates);
+      if (_allUsers[cu.username]) Object.assign(_allUsers[cu.username], updates);
+    }
+
+    // Kodu kullanıldı olarak işaretle
+    usedCodes.push(code);
+    localStorage.setItem(_CCODE_USED_KEY(), JSON.stringify(usedCodes));
+
+    // Admin tarafında kullanım sayısını artır
+    codeEntry.usedCount = (codeEntry.usedCount || 0) + 1;
+    codeEntry.usedBy = [...(codeEntry.usedBy || []), cu.username];
+    localStorage.setItem('cipher_admin_ccodes', JSON.stringify(allCodes));
+
+    _showCCodeResult('success', `✅ **Kod başarıyla kullanıldı!**\n\n${rewardMsg || 'Ödülünüz uygulandı.'}`);
+    renderMyAvatar();
+    setTimeout(() => UI.closeModal('ccode-redeem-modal'), 3000);
+  } catch(e) {
+    _showCCodeResult('error', '❌ Ödül uygulanamadı: ' + e.message);
+  }
+}
+
+function _showCCodeResult(type, text) {
+  const el = document.getElementById('ccode-result');
+  if (!el) return;
+  const isSuccess = type === 'success';
+  el.style.cssText = `display:block;padding:12px 14px;border-radius:10px;font-size:13px;line-height:1.6;background:${isSuccess ? 'rgba(0,255,179,.08)' : 'rgba(255,61,107,.08)'};border:1px solid ${isSuccess ? 'rgba(0,255,179,.3)' : 'rgba(255,61,107,.3)'};color:${isSuccess ? '#00FFB3' : '#FF3D6B'}`;
+  el.innerHTML = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>');
+}
 
 // ── Boot ────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
