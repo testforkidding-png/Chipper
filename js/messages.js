@@ -162,11 +162,17 @@ const Messages = (() => {
     const w = document.createElement('div');
     w.id='msg-'+msg.id; w.dataset.msgId=msg.id; w.dataset.isMine=isMine?'1':'0';
     w.style.cssText=`display:flex;${isMine?'justify-content:flex-end':'justify-content:flex-start'};margin-bottom:3px;flex-shrink:0`;
+    // Hassas içerik
+    const isSensitive = !!msg.sensitive;
+    const bubbleInner = `${replyHtml}${textHtml}${contentHtml}${metaHtml}`;
+    const bubbleContent = isSensitive
+      ? `<div style="position:relative"><div class="sensitive-overlay" style="position:absolute;inset:0;border-radius:10px;background:rgba(10,16,24,.88);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;z-index:2" onclick="this.remove()"><span style="font-size:14px">⚠️</span><span style="font-size:11px;color:#FFA535;font-weight:600;font-family:'JetBrains Mono',monospace">Hassas içerik</span><span style="font-size:10px;color:#7A8FA8">Görmek için tıkla</span></div>${bubbleInner}</div>`
+      : bubbleInner;
     w.innerHTML=`<div style="display:flex;align-items:flex-end;gap:6px;max-width:78%;${isMine?'flex-direction:row-reverse':''}">
       ${!isMine?avatarHtml:''}
       <div style="min-width:0">${senderName}
         <div class="${noBubble?'':'msg-bubble '+(isMine?'sent':'recv')}" style="${bubStyle};cursor:pointer" data-msgid="${msg.id}" data-ismine="${isMine?'1':'0'}">
-          ${replyHtml}${textHtml}${contentHtml}${metaHtml}
+          ${bubbleContent}
         </div>${reactHtml}
       </div>
     </div>`;
@@ -388,18 +394,28 @@ const Messages = (() => {
     const ex=el?.querySelector('.msg-tr');if(ex){ex.remove();return;}
     UI.toast('Çevriliyor…','info',1500);
     try{
-      const res=await fetch('https://libretranslate.de/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({q:msg.text,source:'auto',target:'tr',format:'text'})});
-      if(!res.ok)throw new Error('HTTP '+res.status);
-      const data=await res.json();const tr=data.translatedText;
-      if(!tr||tr===msg.text){UI.toast('Çeviri bulunamadı','info');return;}
+      // Google Translate API (ücretsiz endpoint)
+      const url=`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=tr&dt=t&q=${encodeURIComponent(msg.text)}`;
+      const res=await fetch(url);
+      const data=await res.json();
+      const tr=data[0]?.map(s=>s?.[0]||'').join('')||'';
+      const detectedLang=data[2]||'auto';
+      if(!tr||tr.toLowerCase()===msg.text.toLowerCase()){UI.toast('Zaten Türkçe','info');return;}
       const div=document.createElement('div');div.className='msg-tr';
       div.style.cssText='font-size:12px;color:#B0D4FF;margin-top:4px;padding:6px 10px;border-radius:8px;background:rgba(0,100,255,.1);border:1px solid rgba(0,100,255,.2);line-height:1.5';
-      div.innerHTML=`<span style="font-size:10px;color:#5A7A9A;font-family:'JetBrains Mono',monospace;display:block;margin-bottom:2px">🌐 Çeviri (TR)</span>${tr}`;
+      div.innerHTML=`<span style="font-size:10px;color:#5A7A9A;font-family:'JetBrains Mono',monospace;display:block;margin-bottom:2px">🌐 Çeviri (${detectedLang.toUpperCase()} → TR)</span>${tr}`;
       el?.querySelector('[data-msgid]')?.after(div);
     }catch(e){
-      const url=`https://translate.google.com/?sl=auto&tl=tr&text=${encodeURIComponent(msg.text)}&op=translate`;
-      window.open(url,'_blank');
+      const gUrl=`https://translate.google.com/?sl=auto&tl=tr&text=${encodeURIComponent(msg.text)}&op=translate`;
+      window.open(gUrl,'_blank');
     }
+  }
+
+  async function _saveMsg(msgId){
+    const msg=_findMsg(window._currentConvId,msgId)||(await DB.getMessages(window._currentConvId).catch(()=>[])).find(m=>m.id===msgId);
+    if(!msg){UI.toast('Mesaj bulunamadı','error');return;}
+    if(typeof saveMessage==='function') saveMessage(msgId,msg.text);
+    else UI.toast('📌 Kaydet özelliği yüklenmedi','error');
   }
 
   // ── Context menu ──────────────────────────────────────────────
@@ -409,6 +425,7 @@ const Messages = (() => {
       {icon:'↩',label:'Yanıtla',   action:`Messages._setReply('${msgId}')`},
       {icon:'📋',label:'Kopyala',   action:`Messages._copy('${msgId}')`},
       {icon:'🌐',label:'Çevir',     action:`Messages._translate('${msgId}')`},
+      {icon:'📌',label:'Kaydet',    action:`Messages._saveMsg('${msgId}')`},
       {icon:'📌',label:'Sabitle',   action:`Messages._pinMsg('${msgId}')`},
       {icon:'😊',label:'Reaksiyon', action:`UI.showReactionPicker(${e.clientX},${e.clientY},em=>Messages._toggleReaction('${msgId}',em))`},
     ];
@@ -463,7 +480,7 @@ const Messages = (() => {
     startVoice, stopVoice, toggleDestruct,
     handleFiles, clearFiles, clearReply, saveEdit, initEvents,
     _ctxMenu, _setReply, _copy, _openEdit, _recall, _delete, _toggleReaction,
-    _pinMsg, _translate, _lightbox, autoResize,
+    _pinMsg, _translate, _saveMsg, _lightbox, autoResize,
     getMsgs: cid => _getStore(cid).msgs,
     hasFiles: () => _files.length > 0,
     _setDestructSecs: v => { _destructSecs=v; },
