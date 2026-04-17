@@ -1450,124 +1450,97 @@ function openProfileEdit() {
   UI.openModal('profile-edit-modal');
 }
 
-// ─── Avatar Maker ───────────────────────────────────────────────────
-const _AV = {
-  bg: '#1E2D45', color: '#00FFB3',
-  shape: 0, eye: 0, mouth: 0, acc: 0,
-  shapes: ['circle','square','hexagon','diamond','star','rounded'],
-  eyes:   ['normal','happy','cool','sleepy','surprised','wink'],
-  mouths: ['smile','grin','flat','sad','open','smirk'],
-  accs:   ['none','hat','crown','glasses','headphones','horns'],
-  bgs: ['#1E2D45','#0A1628','#1A0A28','#0A2818','#281A0A','#06080F','#001F1A','#1A0F00'],
-  colors: ['#00FFB3','#0066FF','#FF3D6B','#FFA535','#9333EA','#F59E0B','#10B981','#EF4444','#EC4899','#6366F1','#FFFFFF','#7A8FA8'],
-};
+// ─── Avatar Maker — Ready Player Me 3D ─────────────────────────────
+// Avatar, avatar_data alanına kaydedilir. avatar_url (profil fotoğrafı) DOKUNULMAZ.
 
 function initAvatarMaker() {
-  const buildSwatch = (containerId, arr, key, isColor=true, renderFn) => {
-    const el = document.getElementById(containerId); if (!el) return;
-    el.innerHTML = '';
-    arr.forEach((val, i) => {
-      const btn = document.createElement('button');
-      if (isColor) {
-        btn.style.cssText = `width:26px;height:26px;border-radius:50%;background:${val};border:2.5px solid ${_AV[key]===val?'#00FFB3':'transparent'};cursor:pointer;flex-shrink:0;transition:border-color .15s`;
-        btn.onclick = () => { _AV[key]=val; el.querySelectorAll('button').forEach(b=>b.style.borderColor='transparent'); btn.style.borderColor='#00FFB3'; drawAvatar(); };
-      } else {
-        btn.style.cssText = `padding:4px 10px;border-radius:8px;border:1.5px solid ${_AV[key]===i?'#00FFB3':'#1E2D45'};background:${_AV[key]===i?'rgba(0,255,179,.12)':'transparent'};cursor:pointer;font-size:11px;color:${_AV[key]===i?'#00FFB3':'#7A8FA8'};font-family:'JetBrains Mono',monospace;transition:all .15s`;
-        btn.textContent = renderFn ? renderFn(val) : val;
-        btn.onclick = () => { _AV[key]=i; el.querySelectorAll('button').forEach(b=>{ b.style.borderColor='#1E2D45'; b.style.background='transparent'; b.style.color='#7A8FA8'; }); btn.style.borderColor='#00FFB3'; btn.style.background='rgba(0,255,179,.12)'; btn.style.color='#00FFB3'; drawAvatar(); };
-      }
-      el.appendChild(btn);
-    });
-  };
-  buildSwatch('av-bg-swatches', _AV.bgs, 'bg', true);
-  buildSwatch('av-color-swatches', _AV.colors, 'color', true);
-  buildSwatch('av-shape-btns', _AV.shapes, 'shape', false, s=>({'circle':'●','square':'■','hexagon':'⬡','diamond':'◆','star':'★','rounded':'▢'}[s]||s));
-  buildSwatch('av-eye-btns', _AV.eyes, 'eye', false, e=>({'normal':'◉◉','happy':'^‿^','cool':'⊙⊙','sleepy':'−−','surprised':'○○','wink':'−◉'}[e]||e));
-  buildSwatch('av-mouth-btns', _AV.mouths, 'mouth', false, m=>({'smile':'⌣','grin':'D','flat':'−','sad':'⌢','open':'O','smirk':'⌣̃'}[m]||m));
-  buildSwatch('av-acc-btns', _AV.accs, 'acc', false, a=>({'none':'∅','hat':'🎩','crown':'👑','glasses':'👓','headphones':'🎧','horns':'😈'}[a]||a));
-  drawAvatar();
+  // iframe yükleme overlay'i gizle
+  const iframe = document.getElementById('rpm-iframe');
+  const loading = document.getElementById('rpm-loading');
+  if (iframe) {
+    iframe.onload = () => { if (loading) loading.style.display = 'none'; };
+  }
+
+  // Mevcut avatar_data varsa önizlemede göster
+  const cu = window._currentUser;
+  const existingAvatarData = cu.avatar_data || localStorage.getItem('cipher_avatar_data_' + cu.username);
+  if (existingAvatarData) {
+    const prev = document.getElementById('rpm-avatar-preview');
+    const status = document.getElementById('rpm-avatar-status');
+    if (prev) prev.innerHTML = `<img src="${existingAvatarData}" style="width:100%;height:100%;object-fit:cover">`;
+    if (status) status.textContent = 'Mevcut 3D avatarın';
+  }
+
+  // Ready Player Me'den mesaj dinle
+  if (!window._rpmListenerAdded) {
+    window.addEventListener('message', _handleRPMMessage);
+    window._rpmListenerAdded = true;
+  }
 }
 
-function drawAvatar() {
-  const canvas = document.getElementById('av-canvas'); if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const W = 200, H = 200, cx = W/2, cy = H/2;
-  ctx.clearRect(0, 0, W, H);
-
-  // Background
-  ctx.fillStyle = _AV.bg;
-  ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI*2); ctx.fill();
-  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI*2); ctx.clip();
-
-  // Shape (face/body)
-  ctx.fillStyle = _AV.color;
-  const shapeR = 52;
-  ctx.beginPath();
-  switch(_AV.shapes[_AV.shape]) {
-    case 'circle':   ctx.arc(cx, cy+8, shapeR, 0, Math.PI*2); break;
-    case 'square':   ctx.rect(cx-shapeR, cy-shapeR+8, shapeR*2, shapeR*2); break;
-    case 'hexagon':  for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/6;ctx.lineTo(cx+shapeR*Math.cos(a),cy+8+shapeR*Math.sin(a));} break;
-    case 'diamond':  ctx.moveTo(cx,cy-shapeR+8);ctx.lineTo(cx+shapeR,cy+8);ctx.lineTo(cx,cy+shapeR+8);ctx.lineTo(cx-shapeR,cy+8); break;
-    case 'star':     for(let i=0;i<10;i++){const a=Math.PI/5*i-Math.PI/2,r=i%2===0?shapeR:shapeR*0.45;ctx.lineTo(cx+r*Math.cos(a),cy+8+r*Math.sin(a));} break;
-    case 'rounded':  ctx.roundRect(cx-shapeR,cy-shapeR+8,shapeR*2,shapeR*2,18); break;
-    default:         ctx.arc(cx, cy+8, shapeR, 0, Math.PI*2);
-  }
-  ctx.fill();
-
-  // Eyes
-  const eyeY = cy - 2, eyeLX = cx - 18, eyeRX = cx + 18;
-  const eyeCol = _AV.bg;
-  ctx.fillStyle = eyeCol;
-  switch(_AV.eyes[_AV.eye]) {
-    case 'normal':    [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,7,0,Math.PI*2);ctx.fill();}); break;
-    case 'happy':     [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY+3,7,Math.PI,0);ctx.fill();}); break;
-    case 'cool':      [eyeLX,eyeRX].forEach(x=>{ctx.fillRect(x-9,eyeY-4,18,8);}); break;
-    case 'sleepy':    ctx.lineWidth=3;ctx.strokeStyle=eyeCol;[eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.moveTo(x-8,eyeY);ctx.lineTo(x+8,eyeY);ctx.stroke();}); break;
-    case 'surprised': [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,9,0,Math.PI*2);ctx.fill();}); break;
-    case 'wink':      ctx.beginPath();ctx.arc(eyeRX,eyeY,7,0,Math.PI*2);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=eyeCol;ctx.beginPath();ctx.moveTo(eyeLX-8,eyeY);ctx.lineTo(eyeLX+8,eyeY);ctx.stroke(); break;
-  }
-
-  // Mouth
-  const mY = cy + 26;
-  ctx.strokeStyle = _AV.bg; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
-  switch(_AV.mouths[_AV.mouth]) {
-    case 'smile':  ctx.beginPath();ctx.arc(cx,mY-6,14,0.2,Math.PI-0.2);ctx.stroke(); break;
-    case 'grin':   ctx.beginPath();ctx.arc(cx,mY-6,16,0.1,Math.PI-0.1);ctx.fill();ctx.stroke(); break;
-    case 'flat':   ctx.beginPath();ctx.moveTo(cx-13,mY);ctx.lineTo(cx+13,mY);ctx.stroke(); break;
-    case 'sad':    ctx.beginPath();ctx.arc(cx,mY+6,14,Math.PI+0.2,2*Math.PI-0.2);ctx.stroke(); break;
-    case 'open':   ctx.beginPath();ctx.arc(cx,mY-4,10,0,Math.PI*2);ctx.fill();ctx.stroke(); break;
-    case 'smirk':  ctx.beginPath();ctx.moveTo(cx-10,mY+2);ctx.quadraticCurveTo(cx+4,mY-6,cx+12,mY);ctx.stroke(); break;
-  }
-
-  // Accessory
-  ctx.fillStyle = _AV.color;
-  switch(_AV.accs[_AV.acc]) {
-    case 'hat':        ctx.fillRect(cx-28,cy-68,56,12);ctx.beginPath();ctx.rect(cx-20,cy-92,40,28);ctx.fill(); break;
-    case 'crown':      [cx-22,cx-8,cx+8,cx+22].forEach((x,i)=>{ctx.beginPath();ctx.moveTo(x-8,cy-58);ctx.lineTo(x,cy-74+i%2*10);ctx.lineTo(x+8,cy-58);ctx.fill();}); break;
-    case 'glasses':    ctx.lineWidth=3;ctx.strokeStyle=_AV.color;[eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,11,0,Math.PI*2);ctx.stroke();});ctx.beginPath();ctx.moveTo(eyeLX+11,eyeY);ctx.lineTo(eyeRX-11,eyeY);ctx.stroke(); break;
-    case 'headphones': ctx.lineWidth=5;ctx.strokeStyle=_AV.color;ctx.beginPath();ctx.arc(cx,cy-20,40,Math.PI*1.1,Math.PI*1.9);ctx.stroke();[cx-40,cx+40].forEach(x=>{ctx.fillRect(x-7,cy-24,14,16);}); break;
-    case 'horns':      [[cx-30,cy-72],[cx+30,cy-72]].forEach(([x,y])=>{ctx.beginPath();ctx.moveTo(x-8,y+16);ctx.lineTo(x,y);ctx.lineTo(x+8,y+16);ctx.fill();}); break;
-  }
-
-  ctx.restore();
-  // Subtle border
-  ctx.strokeStyle = 'rgba(0,0,0,.2)'; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.arc(cx, cy, 99, 0, Math.PI*2); ctx.stroke();
-}
-
-async function applyMakerAvatar() {
-  const canvas = document.getElementById('av-canvas'); if (!canvas) return;
-  const dataUrl = canvas.toDataURL('image/png');
+async function _handleRPMMessage(event) {
+  // Ready Player Me domain kontrolü
+  if (!event.origin.includes('readyplayer.me') && !event.origin.includes('rpm.readyplayer.me')) return;
   try {
-    await DB.updateUser(window._currentUser.username, { avatar_url: dataUrl });
-    window._currentUser.avatar_url = dataUrl;
-    _allUsers[window._currentUser.username].avatar_url = dataUrl;
-    const prev = document.getElementById('avatar-preview');
-    if (prev) prev.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
-    renderMyAvatar();
-    setPeTab('profil');
-    UI.toast('Avatar kaydedildi ✓','success');
-  } catch(e) { UI.toast('Kaydedilemedi: '+e.message,'error'); }
+    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+    if (!data) return;
+
+    // Avatar tamamlandı — GLB URL alındı
+    if (data.source === 'readyplayerme' && data.eventName === 'v1.avatar.exported') {
+      const avatarUrl = data.data?.url;
+      if (!avatarUrl) return;
+
+      // Avatar profil fotoğrafını al (2D önizleme)
+      const previewUrl = avatarUrl.replace('.glb', '.png') + '?scene=fullbody-portrait-v1&blendShapes[Wolf3D_Head][mouthSmile]=0.2';
+
+      const status = document.getElementById('rpm-avatar-status');
+      const prev = document.getElementById('rpm-avatar-preview');
+
+      if (status) status.textContent = 'Kaydediliyor…';
+
+      try {
+        // 2D önizleme resmi al
+        const imgRes = await fetch(previewUrl).catch(() => null);
+        let saveUrl = previewUrl;
+
+        if (prev) prev.innerHTML = `<img src="${saveUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        if (status) status.textContent = '3D Avatar hazır ✓';
+
+        // avatar_data'ya kaydet (avatar_url'ye DOKUNMA)
+        const cu = window._currentUser;
+        localStorage.setItem('cipher_avatar_data_' + cu.username, saveUrl);
+        localStorage.setItem('cipher_avatar_glb_' + cu.username, avatarUrl);
+
+        // DB'de avatar_data alanına kaydet
+        await DB.updateUser(cu.username, { avatar_data: saveUrl });
+        cu.avatar_data = saveUrl;
+        if (_allUsers[cu.username]) _allUsers[cu.username].avatar_data = saveUrl;
+
+        // avatar_url HİÇ DEĞİŞMEDİ — profil fotoğrafı korundu
+        renderMyAvatar();
+        UI.toast('🎉 3D Avatar kaydedildi! Profil fotoğrafın korundu.', 'success', 4000);
+        setTimeout(() => setPeTab('profil'), 1500);
+
+      } catch(e) {
+        if (status) status.textContent = 'Hata: ' + e.message;
+        UI.toast('Avatar kaydedilemedi: ' + e.message, 'error');
+      }
+    }
+
+    // Kullanıcı editörü kapattı
+    if (data.source === 'readyplayerme' && data.eventName === 'v1.user.set') {
+      // kullanıcı giriş yaptı, devam et
+    }
+  } catch {}
+}
+
+// avatar_data'yı görüntülemek için yardımcı (profil kartı vb.)
+function getUserAvatarDisplay(user) {
+  // Öncelik: avatar_url (fotoğraf) > avatar_data (3D) > initials
+  if (user?.avatar_url) return { type: 'photo', src: user.avatar_url };
+  const localData = localStorage.getItem('cipher_avatar_data_' + user?.username);
+  if (user?.avatar_data || localData) return { type: 'avatar3d', src: user?.avatar_data || localData };
+  return { type: 'initials', color: UI.avatarColor(user?.username || '') };
 }
 
 // ─── QR Code ────────────────────────────────────────────────────────
@@ -1835,7 +1808,14 @@ function deleteSavedMsg(idx) {
 }
 
 function goToSavedMsg(convId) {
-  if (convId) openConv(convId);
+  if (!convId) return;
+  UI.closeModal('saved-messages-modal');
+  // Mobilde sidebar'ı kapat, chat'e geç
+  if (window.innerWidth < 768) {
+    document.getElementById('sidebar')?.classList.add('slide-out');
+    document.getElementById('chat-area')?.classList.add('slide-in');
+  }
+  openConv(convId);
 }
 
 // ── Story Görüntüleyenler ───────────────────────────────────────────
