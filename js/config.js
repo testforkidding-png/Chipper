@@ -45,6 +45,9 @@ const CONFIG = {
     admin:    { icon:'⚡', label:'Yönetici',        color:'#FFD700' },
     early:    { icon:'🌟', label:'Erken Kullanıcı', color:'#00FFB3' },
     verified: { icon:'✅', label:'Doğrulanmış',     color:'#0EA5E9' },
+    first_msg:{ icon:'💬', label:'İlk Mesaj',       color:'#9333EA' },
+    chatter:  { icon:'🗣', label:'100 Mesaj',       color:'#F59E0B' },
+    veteran:  { icon:'🏆', label:'Veteran',         color:'#EF4444' },
   },
 
   BANNER_COLORS: ['#0A1628','#1A0A28','#0A2818','#281A0A','#1A0A1A'],
