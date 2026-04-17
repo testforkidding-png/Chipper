@@ -11,7 +11,7 @@ const CONFIG = {
   // GIF API — Tenor (Google) ücretsiz, API key gerekmez
   // Giphy kullanmak istersen: https://developers.giphy.com adresinden key al
   GIPHY_API_KEY: 'MyUO0T9onUDn5nmCE15L2daCuRYitSzl', // opsiyonel - Tenor fallback aktif
-  TENOR_KEY: 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk', // Google Tenor ücretsiz key
+//  TENOR_KEY: 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk', // Google Tenor ücretsiz key
 
   SERVERS: {
     friends: { id:'friends', label:'Arkadaşlar', icon:'👫', color:'#0066FF' },
