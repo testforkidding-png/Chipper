@@ -17,6 +17,7 @@ const CONFIG = {
     friends: { id:'friends', label:'Arkadaşlar', icon:'👫', color:'#0066FF' },
     private: { id:'private', label:'Bana Özel',  icon:'🔒', color:'#9333EA' },
     public:  { id:'public',  label:'Herkese Açık',icon:'🌐',color:'#10B981' },
+    public:  { id:'nacı',  label:'Tux',icon:'🧂',color:'#10B981' },
     family:  { id:'family',  label:'Aile',        icon:'🏠', color:'#F59E0B' },
   },
 
