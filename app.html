@@ -546,7 +546,7 @@
 
 <!-- Profile Edit -->
 <div id="profile-edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:380px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:92dvh;overflow-y:auto;animation:slideUp .25s ease-out">
+  <div id="profile-edit-inner" style="width:100%;max-width:400px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:94dvh;overflow-y:auto;animation:slideUp .25s ease-out;display:flex;flex-direction:column">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45;position:sticky;top:0;background:#0C1220;z-index:1">
       <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">Profili Düzenle</span>
       <button onclick="UI.closeModal('profile-edit-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
@@ -603,40 +603,41 @@
 
     <!-- TAB: Avatar Yap -->
     <!-- TAB: 3D Avatar Yap -->
-    <div id="pe-panel-avatar" style="display:none;padding:0;flex-direction:column;gap:0">
-      <div style="padding:12px 16px 8px;border-bottom:1px solid #1E2D45">
-        <div style="font-size:12px;color:#7A8FA8;line-height:1.6;margin-bottom:8px">
-          🎮 <strong style="color:#DDE8F8">Ready Player Me</strong> ile gerçekçi 3D insan avatarı oluştur. Bitince <strong style="color:#00FFB3">"Done"</strong> butonuna bas, avatar otomatik kaydedilir.
+    <div id="pe-panel-avatar" style="display:none;flex-direction:column;gap:0">
+      <div style="padding:12px 16px 10px;border-bottom:1px solid #1E2D45">
+        <div style="font-size:12px;color:#7A8FA8;line-height:1.6;margin-bottom:10px">
+          🎮 <strong style="color:#DDE8F8">Ready Player Me</strong> ile 3D insan avatarı oluştur. Editörde <strong style="color:#00FFB3">"Done"</strong> butonuna basınca otomatik kaydedilir.
         </div>
-        <div style="display:flex;gap:6px">
-          <div id="rpm-avatar-preview" style="width:48px;height:48px;border-radius:50%;overflow:hidden;border:2px solid #1E2D45;background:#0A1018;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px">🧑</div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div id="rpm-avatar-preview" style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid #1E2D45;background:#0A1018;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px">🧑</div>
           <div style="flex:1;min-width:0">
             <div id="rpm-avatar-status" style="font-size:12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">Henüz avatar oluşturulmadı</div>
-            <div style="font-size:10px;color:#5A6E88;margin-top:2px">Aşağıdaki editörden oluşturursan otomatik kaydedilir</div>
+            <div style="font-size:10px;color:#5A6E88;margin-top:2px">Profil fotoğrafın korunur — avatar ayrı kaydedilir</div>
           </div>
         </div>
       </div>
 
-      <!-- Ready Player Me iframe -->
-      <div style="position:relative;background:#0A1018">
+      <!-- iframe container — src JS tarafından lazy set edilir -->
+      <div style="position:relative;background:#06080F;min-height:460px">
         <iframe
           id="rpm-iframe"
-          src="https://cipher.readyplayer.me/avatar?frameApi&bodyType=fullbody&clearColor=06080F"
-          style="width:100%;height:480px;border:none;display:block"
-          allow="camera *; microphone *; clipboard-write"
+          src=""
+          style="width:100%;height:460px;border:none;display:block;opacity:0;transition:opacity .3s"
+          allow="camera *; microphone *; clipboard-write; accelerometer; gyroscope"
           title="Ready Player Me Avatar Creator">
         </iframe>
-        <div id="rpm-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#06080F;flex-direction:column;gap:12px">
-          <div style="width:32px;height:32px;border:3px solid #1E2D45;border-top-color:#00FFB3;border-radius:50%;animation:spin 1s linear infinite"></div>
-          <div style="font-size:12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">Editör yükleniyor…</div>
+        <div id="rpm-loading" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#06080F">
+          <div style="width:36px;height:36px;border:3px solid #1E2D45;border-top-color:#00FFB3;border-radius:50%;animation:spin 1s linear infinite"></div>
+          <div style="font-size:12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;text-align:center">
+            Avatar editörü yükleniyor…<br>
+            <span style="font-size:10px;color:#5A6E88">(internet bağlantısı gerekli)</span>
+          </div>
+          <button onclick="retryRPMLoad()" style="padding:6px 14px;border-radius:8px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer;font-size:11px;font-family:'JetBrains Mono',monospace">↻ Yeniden Dene</button>
         </div>
       </div>
 
-      <div style="padding:12px 16px;border-top:1px solid #1E2D45;background:#0A1018">
-        <div style="font-size:10px;color:#5A6E88;line-height:1.6;text-align:center">
-          Avatar oluşturduktan sonra editördeki <strong style="color:#DDE8F8">"Done"</strong> butonuna tıkla.<br>
-          Profil fotoğrafın korunur — sadece avatar alanı güncellenir.
-        </div>
+      <div style="padding:10px 16px;border-top:1px solid #1E2D45;background:#0A1018;text-align:center">
+        <div style="font-size:10px;color:#5A6E88">Avatar bittikten sonra <strong style="color:#DDE8F8">Done</strong> butonuna bas → otomatik kaydedilir</div>
       </div>
     </div>
 
