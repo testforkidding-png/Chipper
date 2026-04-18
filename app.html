@@ -39,7 +39,6 @@
     .cursor-pointer{cursor:pointer}.transition{transition:all .15s}
   </style>
   <link rel="stylesheet" href="css/style.css">
-  <script>tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{display:['Syne','sans-serif'],body:['DM Sans','sans-serif'],mono:['JetBrains Mono','monospace']}}}}</script>
 </head>
 <body>
 
@@ -60,7 +59,7 @@
   <div id="sidebar">
 
     <!-- Header -->
-    <div id="sidebar-header" style="display:flex;align-items:center;gap:8px;padding:12px;border-bottom:1px solid #1E2D45;flex-shrink:0">
+    <div id="sidebar-header" style="display:flex;align-items:center;gap:8px;padding:12px;padding-top:max(12px,env(safe-area-inset-top));border-bottom:1px solid #1E2D45;flex-shrink:0">
       <button id="my-avatar" onclick="openProfileEdit()"
         style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid transparent;cursor:pointer;overflow:hidden;flex-shrink:0;transition:border-color .2s;font-family:Syne,sans-serif"
         onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='transparent'">
@@ -621,7 +620,6 @@
     </div>
 
     <!-- TAB: Avatar Yap -->
-    <!-- TAB: Avatar Yap -->
     <div id="pe-panel-avatar" style="display:none;flex-direction:column;gap:0;overflow-y:auto">
       <!-- Önizleme + Kaydet -->
       <div style="padding:14px 16px;border-bottom:1px solid #1E2D45;display:flex;gap:14px;align-items:center;flex-shrink:0">
@@ -674,7 +672,7 @@
 
         <!-- Kıyafet rengi -->
         <div>
-          <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">KIYAFETt RENGİ</div>
+          <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">KIYAFET RENGİ</div>
           <div id="av-outfit-btns" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         </div>
 
@@ -1232,3 +1230,75 @@
 #doc-content pre { background: #0A1018; padding: 10px; border-radius: 8px; font-family: 'JetBrains Mono',monospace; font-size: 13px; border: 1px solid #1E2D45; white-space: pre-wrap; }
 #doc-content ul, #doc-content ol { padding-left: 20px; }
 </style>
+
+<!-- ── SESLİ ARAMA MODAL ─────────────────────────────────────────── -->
+<div id="voice-call-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.97)">
+  <div style="width:100%;max-width:320px;margin:0 12px;display:flex;flex-direction:column;align-items:center;gap:20px;padding:32px 20px">
+
+    <!-- Karşı taraf avatar + isim -->
+    <div style="text-align:center">
+      <div id="vc-avatar" style="width:88px;height:88px;border-radius:50%;margin:0 auto 14px;overflow:hidden;border:3px solid #1E2D45;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:700;font-family:Syne,sans-serif;position:relative">
+        <!-- avatar JS ile doldurulur -->
+        <div id="vc-ring" style="position:absolute;inset:-6px;border-radius:50%;border:3px solid #00FFB3;opacity:0;animation:none"></div>
+      </div>
+      <div id="vc-name" style="font-family:Syne,sans-serif;font-weight:700;font-size:18px;color:#DDE8F8"></div>
+      <div id="vc-status" style="font-size:13px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-top:4px">Bağlanıyor…</div>
+    </div>
+
+    <!-- Ses dalgası animasyonu -->
+    <div id="vc-wave" style="display:flex;align-items:center;gap:4px;height:32px;opacity:0;transition:opacity .3s">
+      <div class="vc-bar" style="width:4px;border-radius:2px;background:#00FFB3;animation:vcBar 1.2s ease-in-out infinite"></div>
+      <div class="vc-bar" style="width:4px;border-radius:2px;background:#00FFB3;animation:vcBar 1.2s ease-in-out infinite .15s"></div>
+      <div class="vc-bar" style="width:4px;border-radius:2px;background:#00FFB3;animation:vcBar 1.2s ease-in-out infinite .3s"></div>
+      <div class="vc-bar" style="width:4px;border-radius:2px;background:#00FFB3;animation:vcBar 1.2s ease-in-out infinite .45s"></div>
+      <div class="vc-bar" style="width:4px;border-radius:2px;background:#00FFB3;animation:vcBar 1.2s ease-in-out infinite .6s"></div>
+    </div>
+
+    <!-- Süre -->
+    <div id="vc-timer" style="font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#DDE8F8;opacity:0;transition:opacity .3s">0:00</div>
+
+    <!-- Kontroller -->
+    <div style="display:flex;gap:20px;align-items:center">
+      <!-- Mikrofon kapat/aç -->
+      <button id="vc-mute-btn" onclick="vcToggleMute()" style="width:52px;height:52px;border-radius:50%;background:#1E2D45;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#DDE8F8;font-size:20px;transition:all .2s" title="Sesi kapat">
+        🎙
+      </button>
+      <!-- Kapat (kırmızı) -->
+      <button onclick="vcHangUp()" style="width:68px;height:68px;border-radius:50%;background:#FF3D6B;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 0 24px rgba(255,61,107,.4);transition:transform .15s" onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
+        📵
+      </button>
+      <!-- Hoparlör -->
+      <button id="vc-speaker-btn" onclick="vcToggleSpeaker()" style="width:52px;height:52px;border-radius:50%;background:#1E2D45;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#DDE8F8;font-size:20px;transition:all .2s" title="Hoparlör">
+        🔈
+      </button>
+    </div>
+
+    <!-- Hata mesajı -->
+    <div id="vc-error" style="display:none;font-size:12px;color:#FF3D6B;font-family:'JetBrains Mono',monospace;text-align:center;padding:8px 14px;border-radius:10px;background:rgba(255,61,107,.08);border:1px solid rgba(255,61,107,.2)"></div>
+  </div>
+</div>
+
+<!-- Gelen arama overlay -->
+<div id="incoming-call-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.95)">
+  <div style="width:100%;max-width:300px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:24px;padding:28px 20px;text-align:center;animation:slideUp .3s ease-out">
+    <div id="ic-avatar" style="width:72px;height:72px;border-radius:50%;margin:0 auto 12px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;font-family:Syne,sans-serif;border:3px solid rgba(0,255,179,.4)"></div>
+    <div id="ic-name" style="font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:#DDE8F8;margin-bottom:4px"></div>
+    <div style="font-size:12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:24px">Sesli arama geliyor…</div>
+    <div style="display:flex;gap:20px;justify-content:center">
+      <button onclick="vcAccept()" style="width:60px;height:60px;border-radius:50%;background:#00FFB3;border:none;cursor:pointer;font-size:24px;box-shadow:0 0 20px rgba(0,255,179,.4)">📞</button>
+      <button onclick="vcDecline()" style="width:60px;height:60px;border-radius:50%;background:#FF3D6B;border:none;cursor:pointer;font-size:24px;box-shadow:0 0 20px rgba(255,61,107,.3)">📵</button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes vcBar {
+  0%,100%{height:8px} 50%{height:28px}
+}
+@keyframes vcRing {
+  0%{transform:scale(1);opacity:.8} 100%{transform:scale(1.4);opacity:0}
+}
+</style>
+
+</body>
+</html>
