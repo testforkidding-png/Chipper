@@ -247,3 +247,27 @@ html.light-mode #server-bar{background:#EEF3FB;border-color:#C8D6EA}
 #ss-overlay.show{display:flex}
 
 @supports(height:100dvh){#app{height:100dvh}}
+
+/* ── iOS PWA safe area ──────────────────────────────────────────── */
+/* black-translucent status bar: content starts under notch */
+/* Sidebar header gets top padding so it's not under the notch */
+@supports (padding-top: env(safe-area-inset-top)) {
+  #sidebar-header {
+    padding-top: max(12px, env(safe-area-inset-top)) !important;
+  }
+  /* Chat header too */
+  #chat-area > #chat-view > div:first-child {
+    padding-top: max(10px, env(safe-area-inset-top));
+  }
+  /* Bottom nav safe area already handled inline but reinforce */
+  #sidebar > div:last-child {
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
+}
+
+/* PWA standalone: only apply when actually in app mode */
+@media (display-mode: standalone) {
+  #sidebar-header {
+    padding-top: max(12px, env(safe-area-inset-top)) !important;
+  }
+}
