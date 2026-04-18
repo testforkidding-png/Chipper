@@ -954,7 +954,8 @@ async function leaveGroup(convId) {
     document.getElementById('empty-state').style.display = 'flex';
     UI.closeModal('group-panel-modal');
     renderChatList();
-  UI.toast('Gruptan çıkıldı', 'info');
+    UI.toast('Gruptan çıkıldı', 'info');
+  } catch(e) { UI.toast('Gruptan çıkılamadı: ' + e.message, 'error'); }
 }
 
 // ── Contacts tab ────────────────────────────────────────────────────
@@ -3105,7 +3106,322 @@ function setupScreenshotDetection() {
   });
 }
 
-function startVoiceCall() { UI.toast('📞 Sesli arama (Demo)','info'); setTimeout(()=>UI.toast('Yanıt verilmiyor.','warn'),2500); }
+// ── Sesli Arama — WebRTC ───────────────────────────────────────────
+const VC = (() => {
+  let _pc = null;          // RTCPeerConnection
+  let _localStream = null; // getUserMedia stream
+  let _remoteAudio = null; // Audio element for remote
+  let _timerInterval = null;
+  let _callStart = 0;
+  let _muted = false;
+  let _speaker = true;
+  let _targetUser = null;
+  let _isCaller = false;
+  let _sigChannel = null;  // Supabase realtime channel for signaling
+
+  const _SIG_KEY = u => 'cipher_vc_sig_' + u;
+
+  // ── Signaling via localStorage (works for same-device) + Supabase broadcast ──
+  function _sendSignal(toUser, payload) {
+    const msg = JSON.stringify({ ...payload, from: window._currentUser?.username, ts: Date.now() });
+    // localStorage cross-tab
+    localStorage.setItem(_SIG_KEY(toUser), msg);
+    localStorage.removeItem(_SIG_KEY(toUser)); // trigger storage event
+    // Supabase broadcast (cross-device)
+    try {
+      const sb = window._sb || (typeof supabase !== 'undefined' && supabase.createClient?.(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY));
+      if (sb && !CONFIG.SUPABASE_URL?.includes('YOUR_PROJECT')) {
+        sb.channel('vc_' + toUser)
+          .send({ type: 'broadcast', event: 'signal', payload: { ...payload, from: window._currentUser?.username } })
+          .catch(() => {});
+      }
+    } catch {}
+  }
+
+  function _listenSignals() {
+    const cu = window._currentUser?.username;
+    if (!cu) return;
+    // localStorage events
+    window.addEventListener('storage', e => {
+      if (e.key === _SIG_KEY(cu) && e.newValue) {
+        try { _handleSignal(JSON.parse(e.newValue)); } catch {}
+      }
+    });
+    // Supabase broadcast
+    try {
+      const sb = window._sb || (typeof supabase !== 'undefined' && supabase?.createClient?.(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY));
+      if (sb && !CONFIG.SUPABASE_URL?.includes('YOUR_PROJECT')) {
+        _sigChannel = sb.channel('vc_' + cu)
+          .on('broadcast', { event: 'signal' }, ({ payload }) => { if (payload) _handleSignal(payload); })
+          .subscribe();
+      }
+    } catch {}
+  }
+
+  async function _handleSignal(sig) {
+    console.debug('[VC] Signal:', sig.type, 'from:', sig.from);
+    if (!sig.from || sig.from === window._currentUser?.username) return;
+
+    if (sig.type === 'offer') {
+      _targetUser = sig.from;
+      _isCaller = false;
+      _showIncomingCall(sig.from, sig.offer);
+    } else if (sig.type === 'answer' && _pc) {
+      try { await _pc.setRemoteDescription(new RTCSessionDescription(sig.answer)); }
+      catch(e) { console.warn('[VC] setRemoteDescription error:', e); }
+    } else if (sig.type === 'ice' && _pc) {
+      try { await _pc.addIceCandidate(new RTCIceCandidate(sig.candidate)); }
+      catch(e) { console.warn('[VC] addIceCandidate error:', e); }
+    } else if (sig.type === 'hangup') {
+      _vcEnd(false);
+    } else if (sig.type === 'decline') {
+      _vcEnd(false);
+      UI.toast('📵 Arama reddedildi', 'info');
+    }
+  }
+
+  function _showIncomingCall(fromUser, offer) {
+    const u = window._allUsers?.[fromUser] || { username: fromUser, display_name: fromUser };
+    const color = UI.avatarColor(u.username);
+    const icAv = document.getElementById('ic-avatar');
+    const icName = document.getElementById('ic-name');
+    if (icAv) {
+      icAv.style.background = u.avatar_url ? 'transparent' : `${color}22`;
+      icAv.style.color = color;
+      icAv.innerHTML = u.avatar_url
+        ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover">`
+        : UI.initials(u.display_name || u.username);
+    }
+    if (icName) icName.textContent = u.display_name || u.username;
+    // Store offer for accept
+    window._vcPendingOffer = offer;
+    // Ringtone
+    _playRingtone();
+    UI.openModal('incoming-call-modal');
+  }
+
+  function _playRingtone() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const play = (freq, start, dur) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'sine';
+        gain.gain.setValueAtTime(0, ctx.currentTime + start);
+        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + start + 0.05);
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+        osc.start(ctx.currentTime + start);
+        osc.stop(ctx.currentTime + start + dur + 0.1);
+      };
+      play(880, 0, 0.4); play(880, 0.5, 0.4); play(880, 1.0, 0.4);
+      window._vcRingtoneCtx = ctx;
+    } catch {}
+  }
+
+  function _stopRingtone() {
+    try { window._vcRingtoneCtx?.close(); window._vcRingtoneCtx = null; } catch {}
+  }
+
+  async function _createPC(targetUser) {
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+      ]
+    };
+    _pc = new RTCPeerConnection(config);
+
+    _pc.onicecandidate = e => {
+      if (e.candidate) _sendSignal(targetUser, { type: 'ice', candidate: e.candidate.toJSON() });
+    };
+
+    _pc.ontrack = e => {
+      console.debug('[VC] Remote track received');
+      if (!_remoteAudio) {
+        _remoteAudio = new Audio();
+        _remoteAudio.autoplay = true;
+      }
+      _remoteAudio.srcObject = e.streams[0];
+      document.getElementById('vc-status').textContent = 'Bağlandı';
+      document.getElementById('vc-wave').style.opacity = '1';
+      document.getElementById('vc-timer').style.opacity = '1';
+      document.getElementById('vc-ring').style.animation = 'vcRing 1.5s ease-out infinite';
+      _callStart = Date.now();
+      _timerInterval = setInterval(_updateTimer, 1000);
+    };
+
+    _pc.onconnectionstatechange = () => {
+      const s = _pc?.connectionState;
+      console.debug('[VC] Connection state:', s);
+      const statusEl = document.getElementById('vc-status');
+      if (s === 'failed' || s === 'disconnected') {
+        if (statusEl) statusEl.textContent = 'Bağlantı kesildi';
+        _vcEnd(false);
+      }
+    };
+
+    _pc.onsignalingstatechange = () => console.debug('[VC] Signaling:', _pc?.signalingState);
+
+    return _pc;
+  }
+
+  function _updateTimer() {
+    if (!_callStart) return;
+    const s = Math.floor((Date.now() - _callStart) / 1000);
+    const m = Math.floor(s / 60), sec = s % 60;
+    const el = document.getElementById('vc-timer');
+    if (el) el.textContent = `${m}:${sec.toString().padStart(2,'0')}`;
+  }
+
+  function _showCallUI(user) {
+    const color = UI.avatarColor(user.username);
+    const vcAv = document.getElementById('vc-avatar');
+    if (vcAv) {
+      vcAv.style.background = user.avatar_url ? 'transparent' : `${color}22`;
+      vcAv.style.color = color;
+      const ring = vcAv.querySelector('#vc-ring');
+      vcAv.innerHTML = user.avatar_url
+        ? `<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+        : `<span style="font-weight:700;font-size:28px;color:${color}">${UI.initials(user.display_name||user.username)}</span>`;
+      if (ring) vcAv.appendChild(ring);
+    }
+    const vcName = document.getElementById('vc-name');
+    if (vcName) vcName.textContent = user.display_name || user.username;
+    const vcStatus = document.getElementById('vc-status');
+    if (vcStatus) vcStatus.textContent = 'Bağlanıyor…';
+    document.getElementById('vc-wave').style.opacity = '0';
+    document.getElementById('vc-timer').style.opacity = '0';
+    document.getElementById('vc-error').style.display = 'none';
+    UI.openModal('voice-call-modal');
+  }
+
+  function _vcEnd(sendHangup = true) {
+    _stopRingtone();
+    clearInterval(_timerInterval); _timerInterval = null; _callStart = 0;
+    if (sendHangup && _targetUser) _sendSignal(_targetUser, { type: 'hangup' });
+    if (_localStream) { _localStream.getTracks().forEach(t => t.stop()); _localStream = null; }
+    if (_remoteAudio) { _remoteAudio.srcObject = null; _remoteAudio = null; }
+    if (_pc) { _pc.close(); _pc = null; }
+    _muted = false; _speaker = true; _targetUser = null;
+    document.getElementById('vc-mute-btn').textContent = '🎙';
+    document.getElementById('vc-speaker-btn').textContent = '🔈';
+    UI.closeModal('voice-call-modal');
+    UI.closeModal('incoming-call-modal');
+  }
+
+  // ── Public API ─────────────────────────────────────────────────
+  async function call(targetUsername) {
+    if (_pc) { UI.toast('Zaten bir arama var', 'warn'); return; }
+    const u = window._allUsers?.[targetUsername];
+    if (!u) { UI.toast('Kullanıcı bulunamadı', 'error'); return; }
+
+    // Mikrofon izni
+    try {
+      _localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch(e) {
+      UI.toast('Mikrofon erişimi reddedildi: ' + e.message, 'error'); return;
+    }
+
+    _targetUser = targetUsername;
+    _isCaller = true;
+    _showCallUI(u);
+
+    await _createPC(targetUsername);
+    _localStream.getTracks().forEach(t => _pc.addTrack(t, _localStream));
+
+    try {
+      const offer = await _pc.createOffer({ offerToReceiveAudio: true });
+      await _pc.setLocalDescription(offer);
+      _sendSignal(targetUsername, { type: 'offer', offer: _pc.localDescription.toJSON() });
+    } catch(e) {
+      console.error('[VC] Offer error:', e);
+      document.getElementById('vc-error').textContent = 'Bağlantı kurulamadı: ' + e.message;
+      document.getElementById('vc-error').style.display = 'block';
+    }
+  }
+
+  async function accept() {
+    _stopRingtone();
+    UI.closeModal('incoming-call-modal');
+    const offer = window._vcPendingOffer;
+    const u = window._allUsers?.[_targetUser] || { username: _targetUser, display_name: _targetUser };
+    _showCallUI(u);
+
+    try {
+      _localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch(e) {
+      document.getElementById('vc-error').textContent = 'Mikrofon erişimi reddedildi';
+      document.getElementById('vc-error').style.display = 'block';
+      return;
+    }
+
+    await _createPC(_targetUser);
+    _localStream.getTracks().forEach(t => _pc.addTrack(t, _localStream));
+
+    try {
+      await _pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await _pc.createAnswer();
+      await _pc.setLocalDescription(answer);
+      _sendSignal(_targetUser, { type: 'answer', answer: _pc.localDescription.toJSON() });
+    } catch(e) {
+      console.error('[VC] Answer error:', e);
+      document.getElementById('vc-error').textContent = 'Yanıt gönderilemedi: ' + e.message;
+      document.getElementById('vc-error').style.display = 'block';
+    }
+  }
+
+  function decline() {
+    _stopRingtone();
+    if (_targetUser) _sendSignal(_targetUser, { type: 'decline' });
+    _targetUser = null;
+    window._vcPendingOffer = null;
+    UI.closeModal('incoming-call-modal');
+  }
+
+  function hangUp() { _vcEnd(true); }
+
+  function toggleMute() {
+    if (!_localStream) return;
+    _muted = !_muted;
+    _localStream.getAudioTracks().forEach(t => { t.enabled = !_muted; });
+    const btn = document.getElementById('vc-mute-btn');
+    if (btn) btn.textContent = _muted ? '🔇' : '🎙';
+    if (btn) btn.style.background = _muted ? 'rgba(255,61,107,.3)' : '#1E2D45';
+    UI.toast(_muted ? '🔇 Mikrofon kapatıldı' : '🎙 Mikrofon açıldı', 'info', 1500);
+  }
+
+  function toggleSpeaker() {
+    _speaker = !_speaker;
+    if (_remoteAudio) _remoteAudio.volume = _speaker ? 1 : 0;
+    const btn = document.getElementById('vc-speaker-btn');
+    if (btn) btn.textContent = _speaker ? '🔈' : '🔇';
+    if (btn) btn.style.background = _speaker ? '#1E2D45' : 'rgba(255,165,53,.3)';
+    UI.toast(_speaker ? '🔈 Hoparlör açık' : '🔕 Hoparlör kapalı', 'info', 1500);
+  }
+
+  function init() { _listenSignals(); }
+
+  return { call, accept, decline, hangUp, toggleMute, toggleSpeaker, init };
+})();
+
+function startVoiceCall() {
+  const conv = _convs.find(c => c.id === window._currentConvId);
+  if (!conv || conv.type !== 'direct') {
+    UI.toast('Sesli arama sadece birebir sohbetlerde çalışır', 'info'); return;
+  }
+  const other = conv.participants?.find(p => p !== window._currentUser.username);
+  if (!other) return;
+  VC.call(other);
+}
+
+function vcAccept()        { VC.accept(); }
+function vcDecline()       { VC.decline(); }
+function vcHangUp()        { VC.hangUp(); }
+function vcToggleMute()    { VC.toggleMute(); }
+function vcToggleSpeaker() { VC.toggleSpeaker(); }
 
 // ── CCode (Promosyon Kodu) ─────────────────────────────────────────
 const _CCODE_USED_KEY = () => 'cipher_ccode_used_' + (window._currentUser?.username || '');
@@ -3233,6 +3549,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await bootApp();
   Messages.initEvents();
   setupScreenshotDetection();
+  VC.init();
 
   // Long-press delegation for chat list pin (avoids per-item listeners)
   let _clPressTimer = null, _clPressId = null;
