@@ -1415,13 +1415,20 @@ function toggleNotifs() { _settings.notifs=!_settings.notifs; saveSettings(); up
 // ── Profile edit ──────────────────────────────────────────────────────
 function setPeTab(tab) {
   ['profil','avatar','qr'].forEach(t => {
-    const btn = document.getElementById('pe-tab-'+t);
+    const btn   = document.getElementById('pe-tab-'+t);
     const panel = document.getElementById('pe-panel-'+t);
-    if (btn) { btn.style.color = t===tab ? '#00FFB3' : '#7A8FA8'; btn.style.borderBottomColor = t===tab ? '#00FFB3' : 'transparent'; }
+    if (btn) {
+      btn.style.color             = t===tab ? '#00FFB3' : '#7A8FA8';
+      btn.style.borderBottomColor = t===tab ? '#00FFB3' : 'transparent';
+    }
     if (panel) panel.style.display = t===tab ? 'flex' : 'none';
   });
+  // Avatar tabında modal scroll'u kapat (iframe için gerekli)
+  const inner = document.getElementById('profile-edit-inner');
+  if (inner) inner.style.overflowY = tab === 'avatar' ? 'hidden' : 'auto';
+
   if (tab === 'avatar') initAvatarMaker();
-  if (tab === 'qr') initQRCode();
+  if (tab === 'qr')     initQRCode();
 }
 
 function openProfileEdit() {
@@ -1451,97 +1458,164 @@ function openProfileEdit() {
 }
 
 // ─── Avatar Maker — Ready Player Me 3D ─────────────────────────────
-// Avatar, avatar_data alanına kaydedilir. avatar_url (profil fotoğrafı) DOKUNULMAZ.
+// avatar_data alanına kaydedilir. avatar_url (profil fotoğrafı) DOKUNULMAZ.
+
+const RPM_URL = 'https://readyplayer.me/avatar-creator?frameApi=true&bodyType=fullbody&quickStart=false&clearColor=06080F&language=tr';
+let _rpmLoaded = false;
 
 function initAvatarMaker() {
-  // iframe yükleme overlay'i gizle
-  const iframe = document.getElementById('rpm-iframe');
-  const loading = document.getElementById('rpm-loading');
-  if (iframe) {
-    iframe.onload = () => { if (loading) loading.style.display = 'none'; };
-  }
-
-  // Mevcut avatar_data varsa önizlemede göster
   const cu = window._currentUser;
-  const existingAvatarData = cu.avatar_data || localStorage.getItem('cipher_avatar_data_' + cu.username);
-  if (existingAvatarData) {
+
+  // Mevcut avatar_data göster
+  const localData = localStorage.getItem('cipher_avatar_data_' + cu.username);
+  const existing = cu.avatar_data || localData;
+  if (existing) {
     const prev = document.getElementById('rpm-avatar-preview');
     const status = document.getElementById('rpm-avatar-status');
-    if (prev) prev.innerHTML = `<img src="${existingAvatarData}" style="width:100%;height:100%;object-fit:cover">`;
-    if (status) status.textContent = 'Mevcut 3D avatarın';
+    if (prev) prev.innerHTML = `<img src="${existing}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+    if (status) status.textContent = 'Mevcut avatarın aktif ✓';
   }
 
-  // Ready Player Me'den mesaj dinle
+  // Global mesaj dinleyici — sadece bir kez ekle
   if (!window._rpmListenerAdded) {
     window.addEventListener('message', _handleRPMMessage);
     window._rpmListenerAdded = true;
+    console.debug('[RPM] postMessage listener registered');
+  }
+
+  // Lazy: iframe src sadece ilk açılışta set et
+  const iframe = document.getElementById('rpm-iframe');
+  if (!iframe) { console.error('[RPM] iframe element not found'); return; }
+
+  if (!_rpmLoaded) {
+    _rpmLoaded = true;
+    console.debug('[RPM] Setting iframe src:', RPM_URL);
+
+    const loading = document.getElementById('rpm-loading');
+
+    // Timeout — 15sn'de hala yüklenmediyse retry butonu göster
+    let _loadTimeout = setTimeout(() => {
+      console.warn('[RPM] Load timeout — showing retry');
+      if (loading) {
+        const spinner = loading.querySelector('div');
+        if (spinner) spinner.style.display = 'none';
+        const msg = loading.querySelector('div:last-of-type');
+        if (msg) msg.innerHTML = '⚠️ Yüklenemedi. Bağlantını kontrol et.';
+      }
+    }, 15000);
+
+    iframe.onload = () => {
+      clearTimeout(_loadTimeout);
+      console.debug('[RPM] iframe loaded successfully');
+      if (loading) loading.style.display = 'none';
+      iframe.style.opacity = '1';
+    };
+
+    iframe.onerror = () => {
+      clearTimeout(_loadTimeout);
+      console.error('[RPM] iframe error');
+      if (loading) {
+        loading.innerHTML = `<div style="text-align:center;padding:20px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="font-size:13px;color:#FF3D6B;margin-bottom:8px">Editör yüklenemedi</div><div style="font-size:11px;color:#7A8FA8;margin-bottom:14px">İnternet bağlantısını kontrol et</div><button onclick="retryRPMLoad()" style="padding:8px 18px;border-radius:8px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;border:none;cursor:pointer;font-size:12px;font-weight:700">↻ Yeniden Dene</button></div>`;
+      }
+    };
+
+    iframe.src = RPM_URL;
   }
 }
 
-async function _handleRPMMessage(event) {
-  // Ready Player Me domain kontrolü
-  if (!event.origin.includes('readyplayer.me') && !event.origin.includes('rpm.readyplayer.me')) return;
-  try {
-    const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    if (!data) return;
-
-    // Avatar tamamlandı — GLB URL alındı
-    if (data.source === 'readyplayerme' && data.eventName === 'v1.avatar.exported') {
-      const avatarUrl = data.data?.url;
-      if (!avatarUrl) return;
-
-      // Avatar profil fotoğrafını al (2D önizleme)
-      const previewUrl = avatarUrl.replace('.glb', '.png') + '?scene=fullbody-portrait-v1&blendShapes[Wolf3D_Head][mouthSmile]=0.2';
-
-      const status = document.getElementById('rpm-avatar-status');
-      const prev = document.getElementById('rpm-avatar-preview');
-
-      if (status) status.textContent = 'Kaydediliyor…';
-
-      try {
-        // 2D önizleme resmi al
-        const imgRes = await fetch(previewUrl).catch(() => null);
-        let saveUrl = previewUrl;
-
-        if (prev) prev.innerHTML = `<img src="${saveUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
-        if (status) status.textContent = '3D Avatar hazır ✓';
-
-        // avatar_data'ya kaydet (avatar_url'ye DOKUNMA)
-        const cu = window._currentUser;
-        localStorage.setItem('cipher_avatar_data_' + cu.username, saveUrl);
-        localStorage.setItem('cipher_avatar_glb_' + cu.username, avatarUrl);
-
-        // DB'de avatar_data alanına kaydet
-        await DB.updateUser(cu.username, { avatar_data: saveUrl });
-        cu.avatar_data = saveUrl;
-        if (_allUsers[cu.username]) _allUsers[cu.username].avatar_data = saveUrl;
-
-        // avatar_url HİÇ DEĞİŞMEDİ — profil fotoğrafı korundu
-        renderMyAvatar();
-        UI.toast('🎉 3D Avatar kaydedildi! Profil fotoğrafın korundu.', 'success', 4000);
-        setTimeout(() => setPeTab('profil'), 1500);
-
-      } catch(e) {
-        if (status) status.textContent = 'Hata: ' + e.message;
-        UI.toast('Avatar kaydedilemedi: ' + e.message, 'error');
-      }
-    }
-
-    // Kullanıcı editörü kapattı
-    if (data.source === 'readyplayerme' && data.eventName === 'v1.user.set') {
-      // kullanıcı giriş yaptı, devam et
-    }
-  } catch {}
+function retryRPMLoad() {
+  _rpmLoaded = false;
+  const loading = document.getElementById('rpm-loading');
+  const iframe = document.getElementById('rpm-iframe');
+  if (loading) {
+    loading.style.display = 'flex';
+    loading.innerHTML = `<div style="width:36px;height:36px;border:3px solid #1E2D45;border-top-color:#00FFB3;border-radius:50%;animation:spin 1s linear infinite"></div><div style="font-size:12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;text-align:center">Avatar editörü yükleniyor…<br><span style="font-size:10px;color:#5A6E88">(internet bağlantısı gerekli)</span></div><button onclick="retryRPMLoad()" style="padding:6px 14px;border-radius:8px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer;font-size:11px;font-family:'JetBrains Mono',monospace">↻ Yeniden Dene</button>`;
+  }
+  if (iframe) { iframe.src = ''; iframe.style.opacity = '0'; }
+  setTimeout(() => initAvatarMaker(), 300);
 }
 
-// avatar_data'yı görüntülemek için yardımcı (profil kartı vb.)
+async function _handleRPMMessage(event) {
+  // Sadece readyplayer.me kaynaklı mesajları işle
+  if (!event.origin || (!event.origin.includes('readyplayer.me'))) return;
+
+  console.debug('[RPM] Message from:', event.origin, 'data:', event.data);
+
+  let data;
+  try {
+    data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+  } catch(e) {
+    console.debug('[RPM] Non-JSON message, skipping');
+    return;
+  }
+  if (!data || typeof data !== 'object') return;
+
+  const src = data.source || '';
+  const ev  = data.eventName || data.event || '';
+
+  // Avatar oluşturuldu / export edildi
+  if (src === 'readyplayerme' && (ev === 'v1.avatar.exported' || ev === 'avatar.exported')) {
+    const avatarGlbUrl = data.data?.url || data.url;
+    if (!avatarGlbUrl) { console.error('[RPM] No avatar URL in event data:', data); return; }
+
+    console.debug('[RPM] Avatar exported:', avatarGlbUrl);
+
+    const status = document.getElementById('rpm-avatar-status');
+    const prev   = document.getElementById('rpm-avatar-preview');
+    if (status) status.textContent = 'Kaydediliyor…';
+
+    // 2D PNG önizleme URL'si (RPM standart endpoint)
+    const previewUrl = avatarGlbUrl.replace('.glb', '') + '.png?scene=fullbody-portrait-v1&blendShapes[Wolf3D_Head][mouthSmile]=0.2&w=128&h=128';
+
+    try {
+      if (prev) prev.innerHTML = `<img src="${previewUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='🧑'">`;
+      if (status) status.textContent = '3D Avatar hazır ✓';
+
+      const cu = window._currentUser;
+      // localStorage'a kaydet
+      localStorage.setItem('cipher_avatar_data_' + cu.username, previewUrl);
+      localStorage.setItem('cipher_avatar_glb_'  + cu.username, avatarGlbUrl);
+
+      // DB'ye kaydet — avatar_url'ye DOKUNMA
+      await DB.updateUser(cu.username, { avatar_data: previewUrl }).catch(e => {
+        console.warn('[RPM] DB save failed (avatar_data column may not exist):', e.message);
+        // DB'de alan yoksa localStorage yeterli
+      });
+      cu.avatar_data = previewUrl;
+      if (_allUsers[cu.username]) _allUsers[cu.username].avatar_data = previewUrl;
+
+      console.debug('[RPM] Avatar saved. avatar_url NOT touched:', cu.avatar_url);
+      renderMyAvatar();
+      UI.toast('🎉 3D Avatar kaydedildi!', 'success', 4000);
+      setTimeout(() => setPeTab('profil'), 1800);
+
+    } catch(e) {
+      console.error('[RPM] Save error:', e);
+      if (status) status.textContent = 'Hata: ' + e.message;
+      UI.toast('Avatar kaydedilemedi: ' + e.message, 'error');
+    }
+  }
+
+  // Frame API hazır — subscribe ol
+  if (src === 'readyplayerme' && ev === 'v1.frame.ready') {
+    console.debug('[RPM] Frame API ready — subscribing to events');
+    const iframe = document.getElementById('rpm-iframe');
+    iframe?.contentWindow?.postMessage(
+      JSON.stringify({ target: 'readyplayerme', type: 'subscribe', eventName: 'v1.avatar.exported' }),
+      '*'
+    );
+  }
+}
+
+// avatar_data'yı görüntülemek için yardımcı
 function getUserAvatarDisplay(user) {
-  // Öncelik: avatar_url (fotoğraf) > avatar_data (3D) > initials
   if (user?.avatar_url) return { type: 'photo', src: user.avatar_url };
   const localData = localStorage.getItem('cipher_avatar_data_' + user?.username);
-  if (user?.avatar_data || localData) return { type: 'avatar3d', src: user?.avatar_data || localData };
+  const src = user?.avatar_data || localData;
+  if (src) return { type: 'avatar3d', src };
   return { type: 'initials', color: UI.avatarColor(user?.username || '') };
 }
+
 
 // ─── QR Code ────────────────────────────────────────────────────────
 function initQRCode() {
