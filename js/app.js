@@ -1777,10 +1777,350 @@ function clearNowPlaying() {
 }
 
 function renderNowPlaying(user) {
-  // Profil kartında ve user profile modalda göster
   const np = user?.now_playing || localStorage.getItem('cipher_nowplaying_' + user?.username);
   return np ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(30,215,96,.08);border:1px solid rgba(30,215,96,.2);margin-top:6px"><span style="font-size:14px">🎵</span><div style="min-width:0"><div style="font-size:11px;color:#1ED760;font-weight:600">Şu an dinliyor</div><div style="font-size:12px;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(np)}</div></div></div>` : '';
 }
+
+// ── Spotify Entegrasyonu ───────────────────────────────────────────
+const Spotify = (() => {
+  const _KEY_ID     = 'cipher_spotify_client_id';
+  const _KEY_SECRET = 'cipher_spotify_client_secret';
+  const _KEY_TOKEN  = 'cipher_spotify_token';
+  const _KEY_EXPIRY = 'cipher_spotify_token_expiry';
+  let _pollTimer = null;
+
+  function isConnected() {
+    return !!(localStorage.getItem(_KEY_ID) && localStorage.getItem(_KEY_SECRET));
+  }
+
+  async function _getToken() {
+    const id     = localStorage.getItem(_KEY_ID);
+    const secret = localStorage.getItem(_KEY_SECRET);
+    if (!id || !secret) return null;
+
+    const expiry = parseInt(localStorage.getItem(_KEY_EXPIRY) || '0');
+    if (Date.now() < expiry - 30000) return localStorage.getItem(_KEY_TOKEN);
+
+    try {
+      const res = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Basic ' + btoa(id + ':' + secret)
+        },
+        body: 'grant_type=client_credentials'
+      });
+      if (!res.ok) throw new Error('Token alınamadı: ' + res.status);
+      const data = await res.json();
+      localStorage.setItem(_KEY_TOKEN, data.access_token);
+      localStorage.setItem(_KEY_EXPIRY, String(Date.now() + data.expires_in * 1000));
+      return data.access_token;
+    } catch(e) {
+      console.warn('[Spotify] Token error:', e.message);
+      return null;
+    }
+  }
+
+  async function getNowPlaying() {
+    // Client Credentials flow — kişisel dinleme verisine erişemez
+    // Kullanıcı manuel girişini Spotify arama ile zenginleştirir
+    const token = await _getToken();
+    if (!token) return null;
+
+    const q = localStorage.getItem('cipher_nowplaying_' + window._currentUser?.username);
+    if (!q) return null;
+
+    try {
+      const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=1`, {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const track = data.tracks?.items?.[0];
+      if (!track) return null;
+      return {
+        name:    track.name,
+        artist:  track.artists.map(a => a.name).join(', '),
+        album:   track.album?.name,
+        image:   track.album?.images?.[1]?.url || track.album?.images?.[0]?.url,
+        url:     track.external_urls?.spotify,
+        preview: track.preview_url,
+      };
+    } catch { return null; }
+  }
+
+  function startPoll() {
+    if (_pollTimer) return;
+    _pollTimer = setInterval(async () => {
+      if (!isConnected()) { stopPoll(); return; }
+      const track = await getNowPlaying();
+      if (track) _updateSpotifyUI(track);
+    }, 30000); // 30s
+  }
+
+  function stopPoll() {
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  }
+
+  function _updateSpotifyUI(track) {
+    if (!track) return;
+    const label = `${track.name} — ${track.artist}`;
+    // now_playing localStorage güncelle
+    const cu = window._currentUser;
+    if (cu) {
+      localStorage.setItem('cipher_nowplaying_' + cu.username, label);
+      const inp = document.getElementById('pe-nowplaying');
+      if (inp) inp.value = label;
+    }
+    // Spotify modal'ı güncelle
+    const npEl = document.getElementById('spotify-now-playing');
+    const stEl = document.getElementById('spotify-status-text');
+    if (npEl) npEl.textContent = label;
+    if (stEl) stEl.textContent = 'Bağlı ✓';
+  }
+
+  function openModal() {
+    const connected = isConnected();
+    const cSec = document.getElementById('spotify-connect-section');
+    const dSec = document.getElementById('spotify-disconnect-section');
+    const refBtn = document.getElementById('spotify-refresh-btn');
+    const icon = document.getElementById('spotify-status-icon');
+    const stEl = document.getElementById('spotify-status-text');
+    const npEl = document.getElementById('spotify-now-playing');
+
+    if (cSec) cSec.style.display  = connected ? 'none' : 'block';
+    if (dSec) dSec.style.display  = connected ? 'block' : 'none';
+    if (refBtn) refBtn.style.display = connected ? 'flex' : 'none';
+    if (icon) icon.textContent = connected ? '✅' : '🔗';
+    if (stEl) stEl.textContent = connected ? 'Bağlı' : 'Bağlı değil';
+
+    if (connected) {
+      const np = localStorage.getItem('cipher_nowplaying_' + window._currentUser?.username);
+      if (npEl) npEl.textContent = np || 'Şu an bir şey çalmıyor';
+      // Client ID'yi forma doldur
+      const idInp = document.getElementById('spotify-client-id');
+      if (idInp) idInp.value = localStorage.getItem(_KEY_ID) || '';
+    }
+
+    // Settings label güncelle
+    const settingsLabel = document.getElementById('settings-spotify-label');
+    if (settingsLabel) settingsLabel.textContent = connected ? '🎵 Spotify Bağlı' : 'Spotify Bağla';
+
+    UI.openModal('spotify-modal');
+  }
+
+  async function connect() {
+    const id     = document.getElementById('spotify-client-id')?.value.trim();
+    const secret = document.getElementById('spotify-client-secret')?.value.trim();
+    if (!id || !secret) { UI.toast('Client ID ve Secret girin', 'error'); return; }
+
+    const stEl = document.getElementById('spotify-status-text');
+    if (stEl) stEl.textContent = 'Bağlanıyor…';
+
+    localStorage.setItem(_KEY_ID, id);
+    localStorage.setItem(_KEY_SECRET, secret);
+    localStorage.removeItem(_KEY_TOKEN);
+    localStorage.removeItem(_KEY_EXPIRY);
+
+    const token = await _getToken();
+    if (!token) {
+      localStorage.removeItem(_KEY_ID);
+      localStorage.removeItem(_KEY_SECRET);
+      UI.toast('Bağlantı başarısız — Client ID/Secret doğru mu?', 'error');
+      if (stEl) stEl.textContent = 'Bağlantı başarısız';
+      return;
+    }
+
+    UI.toast('🎵 Spotify bağlandı!', 'success');
+    openModal(); // Refresh UI
+    startPoll();
+
+    // İlk arama
+    const np = localStorage.getItem('cipher_nowplaying_' + window._currentUser?.username);
+    if (np) {
+      const track = await getNowPlaying();
+      if (track) _updateSpotifyUI(track);
+    }
+  }
+
+  function disconnect() {
+    stopPoll();
+    localStorage.removeItem(_KEY_ID);
+    localStorage.removeItem(_KEY_SECRET);
+    localStorage.removeItem(_KEY_TOKEN);
+    localStorage.removeItem(_KEY_EXPIRY);
+    const settingsLabel = document.getElementById('settings-spotify-label');
+    if (settingsLabel) settingsLabel.textContent = 'Spotify Bağla';
+    UI.closeModal('spotify-modal');
+    UI.toast('Spotify bağlantısı kesildi', 'info');
+  }
+
+  async function refresh() {
+    if (!isConnected()) return;
+    const q = document.getElementById('pe-nowplaying')?.value || localStorage.getItem('cipher_nowplaying_' + window._currentUser?.username);
+    if (!q) { UI.toast('Önce şarkı adı gir', 'info'); return; }
+    localStorage.setItem('cipher_nowplaying_' + window._currentUser?.username, q);
+    const track = await getNowPlaying();
+    if (track) { _updateSpotifyUI(track); UI.toast('Güncellendi ✓', 'success', 1500); }
+    else UI.toast('Şarkı bulunamadı', 'warn');
+  }
+
+  function init() {
+    if (isConnected()) startPoll();
+  }
+
+  return { openModal, connect, disconnect, refresh, init, isConnected, getNowPlaying };
+})();
+
+function openSpotify()      { Spotify.openModal(); }
+function spotifyConnect()   { Spotify.connect(); }
+function spotifyDisconnect(){ Spotify.disconnect(); }
+function spotifyRefresh()   { Spotify.refresh(); }
+
+// ── Çok Dil Sistemi (i18n) ─────────────────────────────────────────
+const I18N = (() => {
+  const _KEY = 'cipher_language';
+
+  const langs = [
+    { code:'tr', label:'Türkçe',    flag:'🇹🇷' },
+    { code:'en', label:'English',   flag:'🇬🇧' },
+    { code:'es', label:'Español',   flag:'🇪🇸' },
+    { code:'hi', label:'हिन्दी',    flag:'🇮🇳' },
+    { code:'fr', label:'Français',  flag:'🇫🇷' },
+    { code:'ru', label:'Русский',   flag:'🇷🇺' },
+    { code:'de', label:'Deutsch',   flag:'🇩🇪' },
+    { code:'pt', label:'Português', flag:'🇧🇷' },
+  ];
+
+  const strings = {
+    tr: {
+      nav_profile:'Profil', nav_messages:'Mesajlar', nav_contacts:'Kişiler', nav_updates:'Güncellemeler',
+      settings_language:'Dil', send:'Gönder', search:'Ara', save:'Kaydet', cancel:'İptal',
+      loading:'Yükleniyor…', online:'Çevrimiçi', offline:'Çevrimdışı', typing:'Yazıyor…',
+      no_convs:'Henüz sohbet yok', new_msg:'Yeni mesaj', group:'Grup', you:'Sen',
+      today:'Bugün', yesterday:'Dün', members:'üye', admin:'Yönetici',
+      call:'Sesli Arama', mute:'Sessiz', block:'Engelle', report:'Bildir',
+      profile:'Profil', settings:'Ayarlar', logout:'Çıkış Yap',
+    },
+    en: {
+      nav_profile:'Profile', nav_messages:'Messages', nav_contacts:'Contacts', nav_updates:'Updates',
+      settings_language:'Language', send:'Send', search:'Search', save:'Save', cancel:'Cancel',
+      loading:'Loading…', online:'Online', offline:'Offline', typing:'Typing…',
+      no_convs:'No conversations yet', new_msg:'New message', group:'Group', you:'You',
+      today:'Today', yesterday:'Yesterday', members:'members', admin:'Admin',
+      call:'Voice Call', mute:'Mute', block:'Block', report:'Report',
+      profile:'Profile', settings:'Settings', logout:'Log Out',
+    },
+    es: {
+      nav_profile:'Perfil', nav_messages:'Mensajes', nav_contacts:'Contactos', nav_updates:'Novedades',
+      settings_language:'Idioma', send:'Enviar', search:'Buscar', save:'Guardar', cancel:'Cancelar',
+      loading:'Cargando…', online:'En línea', offline:'Desconectado', typing:'Escribiendo…',
+      no_convs:'Sin conversaciones', new_msg:'Nuevo mensaje', group:'Grupo', you:'Tú',
+      today:'Hoy', yesterday:'Ayer', members:'miembros', admin:'Admin',
+      call:'Llamada de voz', mute:'Silenciar', block:'Bloquear', report:'Reportar',
+      profile:'Perfil', settings:'Ajustes', logout:'Cerrar sesión',
+    },
+    hi: {
+      nav_profile:'प्रोफ़ाइल', nav_messages:'संदेश', nav_contacts:'संपर्क', nav_updates:'अपडेट',
+      settings_language:'भाषा', send:'भेजें', search:'खोजें', save:'सहेजें', cancel:'रद्द करें',
+      loading:'लोड हो रहा है…', online:'ऑनलाइन', offline:'ऑफ़लाइन', typing:'टाइप कर रहे हैं…',
+      no_convs:'कोई बातचीत नहीं', new_msg:'नया संदेश', group:'समूह', you:'आप',
+      today:'आज', yesterday:'कल', members:'सदस्य', admin:'व्यवस्थापक',
+      call:'वॉइस कॉल', mute:'म्यूट', block:'ब्लॉक', report:'रिपोर्ट',
+      profile:'प्रोफ़ाइल', settings:'सेटिंग्स', logout:'लॉग आउट',
+    },
+    fr: {
+      nav_profile:'Profil', nav_messages:'Messages', nav_contacts:'Contacts', nav_updates:'Actualités',
+      settings_language:'Langue', send:'Envoyer', search:'Chercher', save:'Sauvegarder', cancel:'Annuler',
+      loading:'Chargement…', online:'En ligne', offline:'Hors ligne', typing:'En train d\'écrire…',
+      no_convs:'Aucune conversation', new_msg:'Nouveau message', group:'Groupe', you:'Vous',
+      today:'Aujourd\'hui', yesterday:'Hier', members:'membres', admin:'Admin',
+      call:'Appel vocal', mute:'Muet', block:'Bloquer', report:'Signaler',
+      profile:'Profil', settings:'Paramètres', logout:'Se déconnecter',
+    },
+    ru: {
+      nav_profile:'Профиль', nav_messages:'Сообщения', nav_contacts:'Контакты', nav_updates:'Обновления',
+      settings_language:'Язык', send:'Отправить', search:'Поиск', save:'Сохранить', cancel:'Отмена',
+      loading:'Загрузка…', online:'В сети', offline:'Не в сети', typing:'Печатает…',
+      no_convs:'Нет разговоров', new_msg:'Новое сообщение', group:'Группа', you:'Вы',
+      today:'Сегодня', yesterday:'Вчера', members:'участников', admin:'Администратор',
+      call:'Голосовой звонок', mute:'Без звука', block:'Заблокировать', report:'Пожаловаться',
+      profile:'Профиль', settings:'Настройки', logout:'Выйти',
+    },
+    de: {
+      nav_profile:'Profil', nav_messages:'Nachrichten', nav_contacts:'Kontakte', nav_updates:'Neuigkeiten',
+      settings_language:'Sprache', send:'Senden', search:'Suchen', save:'Speichern', cancel:'Abbrechen',
+      loading:'Laden…', online:'Online', offline:'Offline', typing:'Tippt…',
+      no_convs:'Keine Gespräche', new_msg:'Neue Nachricht', group:'Gruppe', you:'Du',
+      today:'Heute', yesterday:'Gestern', members:'Mitglieder', admin:'Admin',
+      call:'Sprachanruf', mute:'Stummschalten', block:'Blockieren', report:'Melden',
+      profile:'Profil', settings:'Einstellungen', logout:'Abmelden',
+    },
+    pt: {
+      nav_profile:'Perfil', nav_messages:'Mensagens', nav_contacts:'Contatos', nav_updates:'Atualizações',
+      settings_language:'Idioma', send:'Enviar', search:'Pesquisar', save:'Salvar', cancel:'Cancelar',
+      loading:'Carregando…', online:'Online', offline:'Offline', typing:'Digitando…',
+      no_convs:'Sem conversas', new_msg:'Nova mensagem', group:'Grupo', you:'Você',
+      today:'Hoje', yesterday:'Ontem', members:'membros', admin:'Admin',
+      call:'Chamada de voz', mute:'Silenciar', block:'Bloquear', report:'Denunciar',
+      profile:'Perfil', settings:'Configurações', logout:'Sair',
+    },
+  };
+
+  let _current = localStorage.getItem(_KEY) || 'tr';
+
+  function t(key) {
+    return strings[_current]?.[key] || strings['tr']?.[key] || key;
+  }
+
+  function apply(code) {
+    if (!strings[code]) return;
+    _current = code;
+    localStorage.setItem(_KEY, code);
+    // data-i18n attribute'larını güncelle
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (val) el.textContent = val;
+    });
+    // Settings dil label
+    const lang = langs.find(l => l.code === code);
+    const label = document.getElementById('settings-lang-label');
+    if (label && lang) label.textContent = lang.flag + ' ' + lang.label;
+    UI.closeModal('language-modal');
+    UI.toast((lang?.flag || '') + ' ' + (lang?.label || code), 'success', 1500);
+  }
+
+  function openModal() {
+    const list = document.getElementById('language-list');
+    if (!list) return;
+    list.innerHTML = '';
+    langs.forEach(lang => {
+      const btn = document.createElement('button');
+      const active = lang.code === _current;
+      btn.style.cssText = `display:flex;align-items:center;gap:12px;width:100%;padding:10px 14px;border-radius:10px;border:none;background:${active?'rgba(0,255,179,.1)':'transparent'};cursor:pointer;transition:background .12s;text-align:left`;
+      btn.innerHTML = `<span style="font-size:22px">${lang.flag}</span><span style="font-size:13px;color:${active?'#00FFB3':'#DDE8F8'};font-weight:${active?'700':'400'};flex:1">${lang.label}</span>${active?'<span style="color:#00FFB3;font-size:14px">✓</span>':''}`;
+      btn.onmouseenter = () => { if(!active) btn.style.background='#131D30'; };
+      btn.onmouseleave = () => { if(!active) btn.style.background='transparent'; };
+      btn.onclick = () => apply(lang.code);
+      list.appendChild(btn);
+    });
+    UI.openModal('language-modal');
+  }
+
+  function init() {
+    apply(_current);
+    // Settings label init
+    const lang = langs.find(l => l.code === _current);
+    const label = document.getElementById('settings-lang-label');
+    if (label && lang) label.textContent = lang.flag + ' ' + lang.label;
+  }
+
+  return { t, apply, openModal, init, current: () => _current };
+})();
+
+function openLanguage() { I18N.openModal(); }
+function setLanguage(code) { I18N.apply(code); }
 
 // ── Filter ───────────────────────────────────────────────────────────
 function setFilter(f) {
@@ -1904,19 +2244,33 @@ const _AV = {
   bgLabels:  ['Siyah','Lacivert','Mor','Koyu Yeşil','Koyu Kırmızı','Antrasit','Kahve','Gece'],
 
   accs: {
-    'lorelei':    ['','earringsStuds','earringsHoop'],
-    'avataaars':  ['','kurt','round','prescription01','prescription02','sunglasses','wayfarers'],
-    'big-smile':  ['','glasses01','glasses02','glasses03'],
-    'personas':   ['','glasses'],
-    'micah':      ['','glasses'],
-    'default':    ['','glasses','sunglasses'],
+    'lorelei':    ['','earringsStuds','earringsHoop','earringsRing','earringsTag','flower','hat','headphones'],
+    'avataaars':  ['','kurt','round','prescription01','prescription02','sunglasses','wayfarers','fancy','hipster','hearts','blocky'],
+    'big-smile':  ['','glasses01','glasses02','glasses03','glasses04','glasses05','sunglasses','sunglasses01','sunglasses02','noGlasses'],
+    'personas':   ['','glasses','glasses2','glasses3','sunglasses','browline','heart','mask'],
+    'micah':      ['','glasses','sunglasses','goggles','circleGlasses','rectangleGlasses','catGlasses','shieldGlasses'],
+    'notionists': ['','glasses','sunglasses','star','heart','diamond'],
+    'open-peeps': ['','glasses','sunglasses','goggles','squares','hexagon'],
+    'adventurer': ['','glasses','sunglasses','goggles','hipsterGlasses','tinyGlasses','wireframeGlasses'],
+    'default':    ['','glasses','sunglasses','goggles','cat','heart','star'],
   },
   accLabels: {
-    '': 'Yok',
-    'glasses':'Gözlük','glasses01':'Gözlük 1','glasses02':'Gözlük 2','glasses03':'Gözlük 3',
-    'sunglasses':'Güneş','wayfarers':'Wayfarers','prescription01':'Reçeteli 1',
-    'prescription02':'Reçeteli 2','kurt':'Kurt','round':'Yuvarlak',
-    'earringsStuds':'Küpe','earringsHoop':'Halka Küpe',
+    '':'Yok',
+    'glasses':'Gözlük','glasses2':'Gözlük 2','glasses3':'Gözlük 3',
+    'glasses01':'Gözlük 1','glasses02':'Gözlük 2','glasses03':'Gözlük 3',
+    'glasses04':'Gözlük 4','glasses05':'Gözlük 5',
+    'sunglasses':'Güneş Gözlüğü','sunglasses01':'Güneş 1','sunglasses02':'Güneş 2',
+    'wayfarers':'Wayfarer','prescription01':'Reçeteli 1','prescription02':'Reçeteli 2',
+    'kurt':'Kurt','round':'Yuvarlak','fancy':'Fantezi','hipster':'Hipster',
+    'hearts':'Kalp','blocky':'Kalın Çerçeve','hipsterGlasses':'Hipster',
+    'tinyGlasses':'Küçük','wireframeGlasses':'Tel Çerçeve',
+    'browline':'Browline','heart':'Kalp','mask':'Maske',
+    'goggles':'Goggle','circleGlasses':'Yuvarlak','rectangleGlasses':'Dikdörtgen',
+    'catGlasses':'Kedi','shieldGlasses':'Kalkan',
+    'earringsStuds':'Küpe','earringsHoop':'Halka Küpe','earringsRing':'Ring Küpe',
+    'earringsTag':'Tag Küpe','flower':'Çiçek','hat':'Şapka','headphones':'Kulaklık',
+    'star':'Yıldız','diamond':'Elmas','squares':'Kare','hexagon':'Altıgen',
+    'noGlasses':'Yok',
   },
 };
 
@@ -1948,10 +2302,22 @@ function _avUrl(overrides = {}) {
   if (['lorelei','avataaars','big-smile','personas'].includes(style)) {
     params.set('eyesColor', eye);
   }
-  if (acc && acc !== '') {
-    const accParam = style === 'avataaars' ? 'accessoriesType' : 'glasses';
-    if (style === 'avataaars') params.set(accParam, acc);
-    else if (acc !== '') params.set('glassesProbability', '100');
+  if (acc && acc !== '' && acc !== 'noGlasses') {
+    if (style === 'avataaars') {
+      params.set('accessories', acc);
+      params.set('accessoriesProbability', '100');
+    } else if (style === 'lorelei') {
+      // earrings / hat / headphones
+      if (acc.startsWith('earrings')) params.set('earrings', acc);
+      else if (acc === 'hat') params.set('freckles', '');
+      else params.set('earrings', acc);
+    } else if (['micah','personas'].includes(style)) {
+      params.set('glassesProbability', '100');
+      params.set('glasses', acc);
+    } else {
+      // big-smile, open-peeps, adventurer, notionists
+      params.set('glassesProbability', '100');
+    }
   }
 
   return `${base}?${params.toString()}`;
@@ -3486,6 +3852,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   Messages.initEvents();
   setupScreenshotDetection();
   VC.init();
+  Spotify.init();
+  I18N.init();
 
   // Long-press delegation for chat list pin (avoids per-item listeners)
   let _clPressTimer = null, _clPressId = null;
