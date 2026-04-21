@@ -150,22 +150,22 @@
 
     <!-- Bottom Navigation -->
     <div style="display:flex;border-top:1px solid #1E2D45;background:#0C1220;flex-shrink:0;padding-bottom:max(0px,env(safe-area-inset-bottom))">
+      <!-- Profil en solda -->
+      <button id="bottom-nav-avatar" onclick="openProfileEdit()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;border:none;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent">
+        <div id="bottom-nav-avatar-inner" style="width:32px;height:32px;border-radius:50%;overflow:hidden;border:2px solid #1E2D45;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:Syne,sans-serif;flex-shrink:0"></div>
+        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#7A8FA8" data-i18n="nav_profile">Profil</span>
+      </button>
       <button data-tab="messages" class="bottom-tab active" onclick="setTab('messages')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#00FFB3;-webkit-tap-highlight-color:transparent;transition:color .15s">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace">Mesajlar</span>
+        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace" data-i18n="nav_messages">Mesajlar</span>
       </button>
       <button data-tab="contacts" class="bottom-tab" onclick="setTab('contacts')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#7A8FA8;-webkit-tap-highlight-color:transparent;transition:color .15s">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace">Kişiler</span>
-      </button>
-      <!-- Orta avatar butonu -->
-      <button id="bottom-nav-avatar" onclick="openProfileEdit()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;border:none;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent">
-        <div id="bottom-nav-avatar-inner" style="width:32px;height:32px;border-radius:50%;overflow:hidden;border:2px solid #1E2D45;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:Syne,sans-serif;flex-shrink:0"></div>
-        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#7A8FA8">Profil</span>
+        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace" data-i18n="nav_contacts">Kişiler</span>
       </button>
       <button data-tab="updates" class="bottom-tab" onclick="setTab('updates')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#7A8FA8;-webkit-tap-highlight-color:transparent;transition:color .15s">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace">Güncellemeler</span>
+        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace" data-i18n="nav_updates">Güncellemeler</span>
       </button>
     </div>
   </div>
@@ -420,6 +420,58 @@
 
 <!-- ════════════ MODALS ════════════ -->
 
+<!-- ── SPOTİFY BAĞLA MODAL ─────────────────────────────────────── -->
+<div id="spotify-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
+  <div style="width:100%;max-width:380px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .25s ease-out">
+    <div style="background:linear-gradient(135deg,#1DB954,#1ed760);padding:20px;text-align:center">
+      <div style="font-size:40px;margin-bottom:6px">🎵</div>
+      <div style="font-family:Syne,sans-serif;font-weight:800;font-size:17px;color:#000">Spotify Bağla</div>
+      <div style="font-size:12px;color:rgba(0,0,0,.7);margin-top:3px">Şu an dinlediklerini profilinde göster</div>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
+      <div id="spotify-status-box" style="padding:12px 14px;border-radius:12px;background:#06080F;border:1px solid #1E2D45;display:flex;align-items:center;gap:10px">
+        <div id="spotify-status-icon" style="font-size:20px">🔗</div>
+        <div style="flex:1;min-width:0">
+          <div id="spotify-status-text" style="font-size:13px;color:#DDE8F8;font-weight:600">Bağlı değil</div>
+          <div id="spotify-now-playing" style="font-size:11px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px"></div>
+        </div>
+        <button id="spotify-refresh-btn" onclick="spotifyRefresh()" style="display:none;padding:4px 8px;border-radius:6px;background:#131D30;color:#1DB954;border:1px solid rgba(29,185,84,.2);cursor:pointer;font-size:11px">↻</button>
+      </div>
+
+      <div id="spotify-connect-section">
+        <div style="font-size:11px;color:#7A8FA8;line-height:1.6;margin-bottom:10px">
+          Spotify hesabını bağlamak için Spotify Client ID gir.<br>
+          <a href="https://developer.spotify.com/dashboard" target="_blank" style="color:#1DB954;text-decoration:none">developer.spotify.com</a> → Create App → Client ID
+        </div>
+        <label style="display:block;font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px;letter-spacing:.06em">CLIENT ID</label>
+        <input id="spotify-client-id" type="text" placeholder="a1b2c3d4e5f6..." class="modal-inp" style="margin-bottom:8px;font-family:'JetBrains Mono',monospace;font-size:13px">
+        <label style="display:block;font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px;letter-spacing:.06em">CLIENT SECRET</label>
+        <input id="spotify-client-secret" type="password" placeholder="••••••••••••••••" class="modal-inp" style="margin-bottom:12px">
+        <button onclick="spotifyConnect()" style="width:100%;padding:11px;border-radius:12px;background:#1DB954;color:#000;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:Syne,sans-serif">Bağlan</button>
+      </div>
+
+      <div id="spotify-disconnect-section" style="display:none">
+        <button onclick="spotifyDisconnect()" style="width:100%;padding:10px;border-radius:10px;background:rgba(255,61,107,.08);color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer;font-size:13px">Bağlantıyı Kes</button>
+      </div>
+
+      <button onclick="UI.closeModal('spotify-modal')" style="padding:9px;border-radius:10px;background:transparent;border:1px solid #1E2D45;color:#7A8FA8;cursor:pointer;font-size:13px">Kapat</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── DİL SEÇİMİ MODAL ───────────────────────────────────────── -->
+<div id="language-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
+  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🌐 Dil Seç</span>
+      <button onclick="UI.closeModal('language-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+    </div>
+    <div style="padding:8px">
+      <div id="language-list" style="display:flex;flex-direction:column;gap:2px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Settings -->
 <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
   <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:90dvh;overflow-y:auto;animation:slideUp .25s ease-out">
@@ -438,6 +490,12 @@
         <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">KİŞİSELLEŞTİRME</div>
         <button onclick="UI.closeModal('settings-modal');openCustomize()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
           <span style="font-size:20px">🎨</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Kişiselleştir</div><div style="font-size:11px;color:#7A8FA8">Logo, arkaplan, tema rengi</div></div>
+        </button>
+        <button onclick="UI.closeModal('settings-modal');openSpotify()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#1DB954'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🎵</span><div><div id="settings-spotify-label" style="font-size:13px;color:#DDE8F8;font-weight:500">Spotify Bağla</div><div style="font-size:11px;color:#7A8FA8">Şu an dinlediklerini göster</div></div>
+        </button>
+        <button onclick="UI.closeModal('settings-modal');openLanguage()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🌐</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500" data-i18n="settings_language">Dil</div><div id="settings-lang-label" style="font-size:11px;color:#7A8FA8">Türkçe</div></div>
         </button>
         <button onclick="UI.closeModal('settings-modal');openSavedMessages()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
           <span style="font-size:20px">📌</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Kaydedilen Mesajlar</div><div style="font-size:11px;color:#7A8FA8">Kaydettiğin mesajları gör</div></div>
@@ -577,13 +635,7 @@
             <input type="file" class="hidden" accept="image/*" onchange="uploadAvatar(this)">
           </label>
         </div>
-        <div style="width:100%">
-          <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">BİTMOJİ / FOTOĞRAF URL</label>
-          <div style="display:flex;gap:6px">
-            <input id="pe-avatar-url" type="url" placeholder="https://sdk.bitmoji.com/render/panel/..." style="flex:1;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:8px 12px;font-size:13px;color:#DDE8F8;outline:none;transition:border-color .2s;font-family:'DM Sans',sans-serif" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
-            <button onclick="applyAvatarUrl()" style="padding:8px 14px;border-radius:10px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.25);cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace;white-space:nowrap">Uygula</button>
-          </div>
-        </div>
+
       </div>
       <div>
         <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">GÖRÜNEN AD</label>
