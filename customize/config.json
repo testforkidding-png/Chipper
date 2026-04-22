@@ -28,7 +28,14 @@
     {
       "category": "Doğa",
       "items": [
-        { "id": "bg-7", "file": "backgrounds/bg-7.png", "label": "Doğa" },
+        { "id": "bg-7", "file": "backgrounds/bg-7.png", "label": "Tepeler" },
+        { "id": "bg-8", "file": "backgrounds/Wild.png", "label": "Yayla" },
+        { "id": "bg-9", "file": "backgrounds/Wild1.png", "label": "Uçurum" },
+        { "id": "bg-10", "file": "backgrounds/wild2.png", "label": "Şelale" },
+        { "id": "bg-11", "file": "backgrounds/wild3.png", "label": "Günbatımı" },
+        { "id": "bg-12", "file": "backgrounds/wild4.png", "label": "Deniz" },
+        { "id": "bg-13", "file": "backgrounds/wild5.png", "label": "Kutup Işıkları" },
+        { "id": "bg-14", "file": "backgrounds/wild6.png", "label": "Kanyon" },
         { "id": "bg-8", "file": "backgrounds/bg-8.png", "label": "Ufuk Tepeleri" }
       ]
     },
