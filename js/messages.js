@@ -263,50 +263,61 @@ const Messages = (() => {
   // Tenor API helper (free, no quota issues)
   async function _fetchTenor(q) {
     const key = CONFIG.TENOR_KEY || 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk';
-    const endpoint = q
-      ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${key}&limit=20&media_filter=gif,tinygif&locale=tr_TR`
-      : `https://tenor.googleapis.com/v2/featured?key=${key}&limit=20&media_filter=gif,tinygif&locale=tr_TR`;
-    const res = await fetch(endpoint);
+    // Tenor API v2 — mediafilter (no comma, use 'gif' only for stability)
+    const base = q
+      ? 'https://tenor.googleapis.com/v2/search?q=' + encodeURIComponent(q) + '&key=' + key + '&limit=20&mediafilter=gif&locale=tr_TR&contentfilter=medium'
+      : 'https://tenor.googleapis.com/v2/featured?key=' + key + '&limit=20&mediafilter=gif&locale=tr_TR&contentfilter=medium';
+    const res = await fetch(base);
     if (!res.ok) throw new Error('Tenor HTTP ' + res.status);
     const json = await res.json();
-    // Normalize Tenor results to Giphy format for renderGifs()
-    return (json.results || []).map(r => ({
-      id: r.id,
-      title: r.content_description || '',
-      images: {
-        fixed_height_small: { url: r.media_formats?.tinygif?.url || r.media_formats?.gif?.url },
-        fixed_height:        { url: r.media_formats?.gif?.url },
-        original:            { url: r.media_formats?.gif?.url },
-      }
-    }));
+    return (json.results || []).map(r => {
+      const gifUrl = r.media_formats?.gif?.url || r.media_formats?.tinygif?.url || '';
+      const smallUrl = r.media_formats?.tinygif?.url || gifUrl;
+      return {
+        id: r.id,
+        title: r.content_description || r.title || '',
+        images: {
+          fixed_height_small: { url: smallUrl },
+          fixed_height:        { url: gifUrl },
+          original:            { url: gifUrl },
+        }
+      };
+    });
   }
 
   async function searchGifs(q=''){
     if(_gifLoading)return; _gifLoading=true;
     const grid=document.getElementById('gif-grid');if(!grid){_gifLoading=false;return;}
     _gifResults=[];
-    grid.innerHTML=Array(6).fill(0).map(()=>'<div style="border-radius:10px;aspect-ratio:1;background:linear-gradient(90deg,#0C1220 0%,#1A2535 50%,#0C1220 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite"></div>').join('');
+    // Skeleton loading
+    grid.innerHTML=Array(6).fill('<div style="border-radius:10px;aspect-ratio:1;background:linear-gradient(90deg,#0C1220 0%,#1A2535 50%,#0C1220 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite"></div>').join('');
     try{
-      // Try Tenor first (free, reliable)
       _gifResults = await _fetchTenor(q);
-      if(!q) _gifCache = _gifResults;
+      if(!q){_gifCache=_gifResults;_gifCacheTs=Date.now();}
       renderGifs();
     }catch(e1){
-      console.warn('Tenor failed, trying Giphy:', e1.message);
+      console.warn('[GIF] Tenor failed:', e1.message);
+      // Fallback: Giphy
       try{
-        // Fallback: Giphy
         const qs=q
           ?`search?api_key=${CONFIG.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg`
           :`trending?api_key=${CONFIG.GIPHY_API_KEY}&limit=18&rating=pg`;
-        const res=await fetch(`https://api.giphy.com/v1/gifs/${qs}`);
-        if(!res.ok)throw new Error('HTTP '+res.status);
+        const res=await fetch('https://api.giphy.com/v1/gifs/'+qs);
+        if(!res.ok)throw new Error('Giphy HTTP '+res.status);
         const json=await res.json();
-        _gifResults=json.data||[];
+        _gifResults=(json.data||[]).map(g=>({
+          id:g.id, title:g.title||'',
+          images:{
+            fixed_height_small:{url:g.images?.fixed_height_small?.url||g.images?.downsized?.url||''},
+            fixed_height:{url:g.images?.fixed_height?.url||g.images?.original?.url||''},
+            original:{url:g.images?.original?.url||''},
+          }
+        }));
         if(!q){_gifCache=_gifResults;_gifCacheTs=Date.now();}
         renderGifs();
       }catch(e2){
-        console.warn('Giphy also failed:', e2.message);
-        grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px">GIF yüklenemedi</div>';
+        console.warn('[GIF] Giphy also failed:', e2.message);
+        if(grid)grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px;font-family:\'JetBrains Mono\',monospace">⚠️ GIF yüklenemedi<br><span style="color:#7A8FA8;font-size:11px">İnternet bağlantısını kontrol et</span></div>';
       }
     }
     _gifLoading=false;
@@ -316,9 +327,8 @@ const Messages = (() => {
     if(!_gifResults.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Sonuç bulunamadı</div>';return;}
     const frag=document.createDocumentFragment();
     _gifResults.forEach(g=>{
-      // Prefer fixed_height_small for faster loading, fallback to others
       const url=g.images?.fixed_height_small?.url||g.images?.fixed_height?.url||g.images?.downsized?.url||g.images?.original?.url;
-      if(!url)return;
+      if(!url||url.trim()==='')return; // skip empty URLs
       const previewUrl=g.images?.fixed_height_still?.url||url; // static preview while loading
       const div=document.createElement('div');
       div.className='gif-item';
