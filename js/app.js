@@ -357,23 +357,29 @@ function sendPushNotif(title, body, convId) {
 function renderMyAvatar() {
   const cu = window._currentUser;
   if (!cu) return;
+  // Öncelik: avatar_url (fotoğraf) > avatar_data (yapıcı) > initials
+  const avatarSrc = cu.avatar_url || cu.avatar_data || localStorage.getItem('cipher_avatar_data_' + cu.username);
+
   const el = document.getElementById('my-avatar');
-  if (!el || !cu) return;
-  if (cu.avatar_url) {
-    el.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">`;
-  } else {
-    const c = UI.avatarColor(cu.username);
-    el.style.cssText = `background:linear-gradient(135deg,${c},${c}99);color:#fff`;
-    el.textContent = UI.initials(cu.display_name || cu.username);
+  if (el) {
+    if (avatarSrc) {
+      el.innerHTML = `<img src="${avatarSrc}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">`;
+      el.style.cssText = '';
+    } else {
+      const c = UI.avatarColor(cu.username);
+      el.style.cssText = `background:linear-gradient(135deg,${c},${c}99);color:#fff`;
+      el.textContent = UI.initials(cu.display_name || cu.username);
+    }
   }
+
   const nameEl = document.getElementById('my-name');
   if (nameEl) nameEl.textContent = cu.display_name || cu.username;
 
-  // Bottom nav avatar butonu da güncelle
+  // Bottom nav avatar
   const bnInner = document.getElementById('bottom-nav-avatar-inner');
   if (bnInner) {
-    if (cu.avatar_url) {
-      bnInner.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`;
+    if (avatarSrc) {
+      bnInner.innerHTML = `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" loading="lazy">`;
       bnInner.style.background = 'transparent';
     } else {
       const c = UI.avatarColor(cu.username);
@@ -475,44 +481,51 @@ function _doRenderChatList() {
     const other = conv.type === 'direct' ? _allUsers[conv.participants?.find(p => p !== cu.username)] : null;
     const unread = conv.unread_for?.[cu.username] || 0;
     const isActive = conv.id === window._currentConvId;
+    const hasUnread = unread > 0;
 
     const div = document.createElement('div');
-    div.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:13px;cursor:pointer;margin:1px 5px;transition:background .12s;background:${isActive ? '#151E30' : 'transparent'}`;
+    div.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:13px;cursor:pointer;margin:1px 5px;transition:all .12s;background:${isActive ? '#151E30' : 'transparent'};${hasUnread ? 'border-left:3px solid #00FFB3;padding-left:9px' : 'border-left:3px solid transparent;padding-left:9px'}`;
     div.addEventListener('mouseenter', () => { if (!isActive) div.style.background = '#0C1220'; });
     div.addEventListener('mouseleave', () => { div.style.background = isActive ? '#151E30' : 'transparent'; });
     div.dataset.convId = conv.id;
     div.addEventListener('click', () => openConv(conv.id));
 
-    // Avatar
+    // Avatar — unread ise yeşil halka
     let avHtml;
+    const avRing = hasUnread ? `box-shadow:0 0 0 2.5px #00FFB3` : '';
     if (other?.avatar_url) {
-      avHtml = `<img src="${_safeUrl(other.avatar_url)||''}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;flex-shrink:0" loading="lazy">`;
+      avHtml = `<div style="position:relative;flex-shrink:0"><img src="${_safeUrl(other.avatar_url)||''}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;${avRing}" loading="lazy"></div>`;
     } else if (conv.type === 'group') {
       const gIcon = conv.avatar || UI.initials(name);
       const isEmoji = gIcon.length <= 2 && gIcon.codePointAt(0) > 127;
-      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:${isEmoji?'22px':'14px'};font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${gIcon}</div>`;
+      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:${isEmoji?'22px':'14px'};font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0;${avRing}border-radius:14px">${gIcon}</div>`;
     } else {
-      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(name)}</div>`;
+      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0;${avRing}">${UI.initials(name)}</div>`;
     }
 
     // Last message preview
     const lastText = (conv.last_msg || '').slice(0, 40).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-    let previewHtml = `<span style="font-size:12px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lastText}</span>`;
+    let previewHtml = `<span style="font-size:12px;color:${hasUnread?'#9DB8D8':'#7A8FA8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${hasUnread?'font-weight:500':''}">${lastText}</span>`;
     if (conv.type === 'group' && conv.last_from) {
       const senderName = conv.last_from === cu.username ? 'Sen' : (_allUsers[conv.last_from]?.display_name || conv.last_from);
-      previewHtml = `<span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:#00FFB3;font-weight:600">${senderName}: </span><span style="color:#7A8FA8">${lastText}</span></span>`;
+      previewHtml = `<span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:#00FFB3;font-weight:600">${senderName}: </span><span style="color:${hasUnread?'#9DB8D8':'#7A8FA8'}">${lastText}</span></span>`;
     }
+
+    // Unread badge — mesaj sayısı, bakılmadıkça kalır
+    const badgeHtml = hasUnread
+      ? `<span style="min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:#00FFB3;color:#062B1F;flex-shrink:0;margin-left:6px;font-family:'JetBrains Mono',monospace">${unread > 99 ? '99+' : unread}</span>`
+      : '';
 
     div.innerHTML = `${avHtml}
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-          <span style="font-weight:600;font-size:13px;font-family:Syne,sans-serif;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:4px">${name}</span>
+          <span style="font-weight:${hasUnread?'700':'600'};font-size:13px;font-family:Syne,sans-serif;color:${hasUnread?'#FFFFFF':'#DDE8F8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:4px">${name}</span>
           ${_pinnedSet.has(conv.id) ? '<span style="font-size:10px;color:#FFB830;margin-right:4px">📌</span>' : ''}
-          <span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;flex-shrink:0">${conv.last_time ? UI.fmtTime(conv.last_time) : ''}</span>
+          <span style="font-size:10px;color:${hasUnread?'#00FFB3':'#7A8FA8'};font-family:'JetBrains Mono',monospace;flex-shrink:0;${hasUnread?'font-weight:600':''}">${conv.last_time ? UI.fmtTime(conv.last_time) : ''}</span>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between">
           ${previewHtml}
-          ${unread > 0 ? `<span style="min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:var(--accent,#00FFB3);color:#062B1F;flex-shrink:0;margin-left:6px">${unread > 99 ? '99+' : unread}</span>` : ''}
+          ${badgeHtml}
         </div>
       </div>`;
     frag.appendChild(div);
@@ -1787,440 +1800,8 @@ function renderNowPlaying(user) {
   return np ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(30,215,96,.08);border:1px solid rgba(30,215,96,.2);margin-top:6px"><span style="font-size:14px">🎵</span><div style="min-width:0"><div style="font-size:11px;color:#1ED760;font-weight:600">Şu an dinliyor</div><div style="font-size:12px;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(np)}</div></div></div>` : '';
 }
 
-// ── Spotify Entegrasyonu ───────────────────────────────────────────
-const Spotify = (() => {
-  const _KEY_ID     = 'cipher_spotify_client_id';
-  const _KEY_SECRET = 'cipher_spotify_client_secret';
-  const _KEY_TOKEN  = 'cipher_spotify_token';
-  const _KEY_EXPIRY = 'cipher_spotify_token_expiry';
-  let _pollTimer = null;
-
-  function isConnected() {
-    return !!(localStorage.getItem(_KEY_ID) && localStorage.getItem(_KEY_SECRET));
-  }
-
-  async function _getToken() {
-    const id     = localStorage.getItem(_KEY_ID);
-    const secret = localStorage.getItem(_KEY_SECRET);
-    if (!id || !secret) return null;
-
-    const expiry = parseInt(localStorage.getItem(_KEY_EXPIRY) || '0');
-    if (Date.now() < expiry - 30000) return localStorage.getItem(_KEY_TOKEN);
-
-    try {
-      const res = await fetch('https://accounts.spotify.com/api/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Authorization': 'Basic ' + btoa(id + ':' + secret)
-        },
-        body: 'grant_type=client_credentials'
-      });
-      if (!res.ok) throw new Error('Token alınamadı: ' + res.status);
-      const data = await res.json();
-      localStorage.setItem(_KEY_TOKEN, data.access_token);
-      localStorage.setItem(_KEY_EXPIRY, String(Date.now() + data.expires_in * 1000));
-      return data.access_token;
-    } catch(e) {
-      console.warn('[Spotify] Token error:', e.message);
-      return null;
-    }
-  }
-
-  async function getNowPlaying() {
-    // Client Credentials flow — kişisel dinleme verisine erişemez
-    // Kullanıcı manuel girişini Spotify arama ile zenginleştirir
-    const token = await _getToken();
-    if (!token) return null;
-
-    const q = localStorage.getItem('cipher_nowplaying_' + window._currentUser?.username);
-    if (!q) return null;
-
-    try {
-      const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(q)}&type=track&limit=1`, {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      const track = data.tracks?.items?.[0];
-      if (!track) return null;
-      return {
-        name:    track.name,
-        artist:  track.artists.map(a => a.name).join(', '),
-        album:   track.album?.name,
-        image:   track.album?.images?.[1]?.url || track.album?.images?.[0]?.url,
-        url:     track.external_urls?.spotify,
-        preview: track.preview_url,
-      };
-    } catch { return null; }
-  }
-
-  function startPoll() {
-    if (_pollTimer) return;
-    _pollTimer = setInterval(async () => {
-      if (!isConnected()) { stopPoll(); return; }
-      const track = await getNowPlaying();
-      if (track) _updateSpotifyUI(track);
-    }, 30000); // 30s
-  }
-
-  function stopPoll() {
-    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
-  }
-
-  function _updateSpotifyUI(track) {
-    if (!track) return;
-    const label = `${track.name} — ${track.artist}`;
-    // now_playing localStorage güncelle
-    const cu = window._currentUser;
-    if (cu) {
-      localStorage.setItem('cipher_nowplaying_' + cu.username, label);
-      const inp = document.getElementById('pe-nowplaying');
-      if (inp) inp.value = label;
-    }
-    // Spotify modal'ı güncelle
-    const npEl = document.getElementById('spotify-now-playing');
-    const stEl = document.getElementById('spotify-status-text');
-    if (npEl) npEl.textContent = label;
-    if (stEl) stEl.textContent = 'Bağlı ✓';
-  }
-
-  function openModal() {
-    const connected = isConnected();
-    const cSec = document.getElementById('spotify-connect-section');
-    const dSec = document.getElementById('spotify-disconnect-section');
-    const refBtn = document.getElementById('spotify-refresh-btn');
-    const icon = document.getElementById('spotify-status-icon');
-    const stEl = document.getElementById('spotify-status-text');
-    const npEl = document.getElementById('spotify-now-playing');
-
-    if (cSec) cSec.style.display  = connected ? 'none' : 'block';
-    if (dSec) dSec.style.display  = connected ? 'block' : 'none';
-    if (refBtn) refBtn.style.display = connected ? 'flex' : 'none';
-    if (icon) icon.textContent = connected ? '✅' : '🔗';
-    if (stEl) stEl.textContent = connected ? 'Bağlı' : 'Bağlı değil';
-
-    if (connected) {
-      const np = localStorage.getItem('cipher_nowplaying_' + window._currentUser?.username);
-      if (npEl) npEl.textContent = np || 'Şu an bir şey çalmıyor';
-      // Client ID'yi forma doldur
-      const idInp = document.getElementById('spotify-client-id');
-      if (idInp) idInp.value = localStorage.getItem(_KEY_ID) || '';
-    }
-
-    // Settings label güncelle
-    const settingsLabel = document.getElementById('settings-spotify-label');
-    if (settingsLabel) settingsLabel.textContent = connected ? '🎵 Spotify Bağlı' : 'Spotify Bağla';
-
-    UI.openModal('spotify-modal');
-  }
-
-  async function connect() {
-    const id     = document.getElementById('spotify-client-id')?.value.trim();
-    const secret = document.getElementById('spotify-client-secret')?.value.trim();
-    if (!id || !secret) { UI.toast('Client ID ve Secret girin', 'error'); return; }
-
-    const stEl = document.getElementById('spotify-status-text');
-    if (stEl) stEl.textContent = 'Bağlanıyor…';
-
-    localStorage.setItem(_KEY_ID, id);
-    localStorage.setItem(_KEY_SECRET, secret);
-    localStorage.removeItem(_KEY_TOKEN);
-    localStorage.removeItem(_KEY_EXPIRY);
-
-    const token = await _getToken();
-    if (!token) {
-      localStorage.removeItem(_KEY_ID);
-      localStorage.removeItem(_KEY_SECRET);
-      UI.toast('Bağlantı başarısız — Client ID/Secret doğru mu?', 'error');
-      if (stEl) stEl.textContent = 'Bağlantı başarısız';
-      return;
-    }
-
-    UI.toast('🎵 Spotify bağlandı!', 'success');
-    openModal(); // Refresh UI
-    startPoll();
-
-    // İlk arama
-    const np = localStorage.getItem('cipher_nowplaying_' + window._currentUser?.username);
-    if (np) {
-      const track = await getNowPlaying();
-      if (track) _updateSpotifyUI(track);
-    }
-  }
-
-  function disconnect() {
-    stopPoll();
-    localStorage.removeItem(_KEY_ID);
-    localStorage.removeItem(_KEY_SECRET);
-    localStorage.removeItem(_KEY_TOKEN);
-    localStorage.removeItem(_KEY_EXPIRY);
-    const settingsLabel = document.getElementById('settings-spotify-label');
-    if (settingsLabel) settingsLabel.textContent = 'Spotify Bağla';
-    UI.closeModal('spotify-modal');
-    UI.toast('Spotify bağlantısı kesildi', 'info');
-  }
-
-  async function refresh() {
-    if (!isConnected()) return;
-    const q = document.getElementById('pe-nowplaying')?.value || localStorage.getItem('cipher_nowplaying_' + window._currentUser?.username);
-    if (!q) { UI.toast('Önce şarkı adı gir', 'info'); return; }
-    localStorage.setItem('cipher_nowplaying_' + window._currentUser?.username, q);
-    const track = await getNowPlaying();
-    if (track) { _updateSpotifyUI(track); UI.toast('Güncellendi ✓', 'success', 1500); }
-    else UI.toast('Şarkı bulunamadı', 'warn');
-  }
-
-  function init() {
-    if (isConnected()) startPoll();
-  }
-
-  return { openModal, connect, disconnect, refresh, init, isConnected, getNowPlaying };
-})();
-
-function openSpotify()      { Spotify.openModal(); }
-function spotifyConnect()   { Spotify.connect(); }
 function spotifyDisconnect(){ Spotify.disconnect(); }
 function spotifyRefresh()   { Spotify.refresh(); }
-
-// ── Çok Dil Sistemi (i18n) ─────────────────────────────────────────
-const I18N = (() => {
-  const _KEY = 'cipher_language';
-
-  const langs = [
-    { code:'tr', label:'Türkçe',    flag:'🇹🇷', dir:'ltr' },
-    { code:'en', label:'English',   flag:'🇬🇧', dir:'ltr' },
-    { code:'es', label:'Español',   flag:'🇪🇸', dir:'ltr' },
-    { code:'hi', label:'हिन्दी',    flag:'🇮🇳', dir:'ltr' },
-    { code:'fr', label:'Français',  flag:'🇫🇷', dir:'ltr' },
-    { code:'ru', label:'Русский',   flag:'🇷🇺', dir:'ltr' },
-    { code:'de', label:'Deutsch',   flag:'🇩🇪', dir:'ltr' },
-    { code:'pt', label:'Português', flag:'🇧🇷', dir:'ltr' },
-  ];
-
-  // Her dil için tüm UI string'leri
-  const T = {
-    tr: {
-      nav_profile:'Profil', nav_messages:'Mesajlar', nav_contacts:'Kişiler', nav_updates:'Güncellemeler',
-      settings_language:'Dil',
-      // Sohbet
-      type_message:'Mesaj yaz…', send:'Gönder', search_chat:'Sohbet ara…',
-      new_chat:'Yeni Sohbet', new_group:'Yeni Grup', voice_call:'Sesli Arama',
-      // Sidebar
-      all_filter:'Tümü', unread_filter:'Okunmamış', groups_filter:'Gruplar',
-      no_convs:'Henüz sohbet yok', loading:'Yükleniyor…',
-      // Mesaj
-      you:'Sen', today:'Bugün', yesterday:'Dün', online:'Çevrimiçi', offline:'Çevrimdışı',
-      typing:'Yazıyor…', read:'Okundu', delivered:'İletildi',
-      // Profil
-      edit_profile:'Profili Düzenle', display_name:'Görünen Ad', bio:'Biyografi',
-      status:'Durum', save:'Kaydet', cancel:'İptal',
-      // Ayarlar
-      settings:'Ayarlar', logout:'Çıkış Yap', dark_mode:'Karanlık Mod',
-      notifications:'Bildirimler', low_data:'Düşük Veri',
-      // Grup
-      group_name:'Grup Adı', members:'Üyeler', admin:'Yönetici', leave_group:'Gruptan Çık',
-      // Hata/Bilgi
-      error:'Hata', success:'Başarılı', copied:'Kopyalandı', saved:'Kaydedildi',
-      no_mic:'Mikrofon erişimi reddedildi', connecting:'Bağlanıyor…',
-    },
-    en: {
-      nav_profile:'Profile', nav_messages:'Messages', nav_contacts:'Contacts', nav_updates:'Updates',
-      settings_language:'Language',
-      type_message:'Type a message…', send:'Send', search_chat:'Search chats…',
-      new_chat:'New Chat', new_group:'New Group', voice_call:'Voice Call',
-      all_filter:'All', unread_filter:'Unread', groups_filter:'Groups',
-      no_convs:'No conversations yet', loading:'Loading…',
-      you:'You', today:'Today', yesterday:'Yesterday', online:'Online', offline:'Offline',
-      typing:'Typing…', read:'Read', delivered:'Delivered',
-      edit_profile:'Edit Profile', display_name:'Display Name', bio:'Bio',
-      status:'Status', save:'Save', cancel:'Cancel',
-      settings:'Settings', logout:'Log Out', dark_mode:'Dark Mode',
-      notifications:'Notifications', low_data:'Low Data',
-      group_name:'Group Name', members:'Members', admin:'Admin', leave_group:'Leave Group',
-      error:'Error', success:'Success', copied:'Copied', saved:'Saved',
-      no_mic:'Microphone access denied', connecting:'Connecting…',
-    },
-    es: {
-      nav_profile:'Perfil', nav_messages:'Mensajes', nav_contacts:'Contactos', nav_updates:'Novedades',
-      settings_language:'Idioma',
-      type_message:'Escribe un mensaje…', send:'Enviar', search_chat:'Buscar chats…',
-      new_chat:'Nuevo chat', new_group:'Nuevo grupo', voice_call:'Llamada de voz',
-      all_filter:'Todo', unread_filter:'No leído', groups_filter:'Grupos',
-      no_convs:'Sin conversaciones', loading:'Cargando…',
-      you:'Tú', today:'Hoy', yesterday:'Ayer', online:'En línea', offline:'Desconectado',
-      typing:'Escribiendo…', read:'Leído', delivered:'Entregado',
-      edit_profile:'Editar perfil', display_name:'Nombre visible', bio:'Biografía',
-      status:'Estado', save:'Guardar', cancel:'Cancelar',
-      settings:'Ajustes', logout:'Cerrar sesión', dark_mode:'Modo oscuro',
-      notifications:'Notificaciones', low_data:'Datos reducidos',
-      group_name:'Nombre del grupo', members:'Miembros', admin:'Admin', leave_group:'Salir del grupo',
-      error:'Error', success:'Éxito', copied:'Copiado', saved:'Guardado',
-      no_mic:'Acceso al micrófono denegado', connecting:'Conectando…',
-    },
-    hi: {
-      nav_profile:'प्रोफ़ाइल', nav_messages:'संदेश', nav_contacts:'संपर्क', nav_updates:'अपडेट',
-      settings_language:'भाषा',
-      type_message:'संदेश लिखें…', send:'भेजें', search_chat:'चैट खोजें…',
-      new_chat:'नई चैट', new_group:'नया समूह', voice_call:'वॉइस कॉल',
-      all_filter:'सभी', unread_filter:'अपठित', groups_filter:'समूह',
-      no_convs:'अभी तक कोई बातचीत नहीं', loading:'लोड हो रहा है…',
-      you:'आप', today:'आज', yesterday:'कल', online:'ऑनलाइन', offline:'ऑफ़लाइन',
-      typing:'टाइप कर रहे हैं…', read:'पढ़ा', delivered:'डिलीवर हुआ',
-      edit_profile:'प्रोफ़ाइल संपादित करें', display_name:'प्रदर्शन नाम', bio:'बायो',
-      status:'स्थिति', save:'सहेजें', cancel:'रद्द करें',
-      settings:'सेटिंग्स', logout:'लॉग आउट', dark_mode:'डार्क मोड',
-      notifications:'सूचनाएं', low_data:'कम डेटा',
-      group_name:'समूह नाम', members:'सदस्य', admin:'व्यवस्थापक', leave_group:'समूह छोड़ें',
-      error:'त्रुटि', success:'सफलता', copied:'कॉपी किया', saved:'सहेजा गया',
-      no_mic:'माइक्रोफ़ोन एक्सेस अस्वीकृत', connecting:'कनेक्ट हो रहा है…',
-    },
-    fr: {
-      nav_profile:'Profil', nav_messages:'Messages', nav_contacts:'Contacts', nav_updates:'Actualités',
-      settings_language:'Langue',
-      type_message:'Écrire un message…', send:'Envoyer', search_chat:'Rechercher…',
-      new_chat:'Nouvelle conversation', new_group:'Nouveau groupe', voice_call:'Appel vocal',
-      all_filter:'Tous', unread_filter:'Non lus', groups_filter:'Groupes',
-      no_convs:'Aucune conversation', loading:'Chargement…',
-      you:'Vous', today:"Aujourd'hui", yesterday:'Hier', online:'En ligne', offline:'Hors ligne',
-      typing:"En train d'écrire…", read:'Lu', delivered:'Livré',
-      edit_profile:'Modifier le profil', display_name:'Nom affiché', bio:'Bio',
-      status:'Statut', save:'Sauvegarder', cancel:'Annuler',
-      settings:'Paramètres', logout:'Se déconnecter', dark_mode:'Mode sombre',
-      notifications:'Notifications', low_data:'Économie de données',
-      group_name:'Nom du groupe', members:'Membres', admin:'Admin', leave_group:'Quitter le groupe',
-      error:'Erreur', success:'Succès', copied:'Copié', saved:'Sauvegardé',
-      no_mic:'Accès au microphone refusé', connecting:'Connexion…',
-    },
-    ru: {
-      nav_profile:'Профиль', nav_messages:'Сообщения', nav_contacts:'Контакты', nav_updates:'Обновления',
-      settings_language:'Язык',
-      type_message:'Написать сообщение…', send:'Отправить', search_chat:'Поиск чатов…',
-      new_chat:'Новый чат', new_group:'Новая группа', voice_call:'Голосовой звонок',
-      all_filter:'Все', unread_filter:'Непрочитанные', groups_filter:'Группы',
-      no_convs:'Нет разговоров', loading:'Загрузка…',
-      you:'Вы', today:'Сегодня', yesterday:'Вчера', online:'В сети', offline:'Не в сети',
-      typing:'Печатает…', read:'Прочитано', delivered:'Доставлено',
-      edit_profile:'Редактировать профиль', display_name:'Отображаемое имя', bio:'Биография',
-      status:'Статус', save:'Сохранить', cancel:'Отмена',
-      settings:'Настройки', logout:'Выйти', dark_mode:'Тёмный режим',
-      notifications:'Уведомления', low_data:'Экономия трафика',
-      group_name:'Название группы', members:'Участники', admin:'Администратор', leave_group:'Покинуть группу',
-      error:'Ошибка', success:'Успешно', copied:'Скопировано', saved:'Сохранено',
-      no_mic:'Доступ к микрофону запрещён', connecting:'Подключение…',
-    },
-    de: {
-      nav_profile:'Profil', nav_messages:'Nachrichten', nav_contacts:'Kontakte', nav_updates:'Neuigkeiten',
-      settings_language:'Sprache',
-      type_message:'Nachricht schreiben…', send:'Senden', search_chat:'Chats suchen…',
-      new_chat:'Neuer Chat', new_group:'Neue Gruppe', voice_call:'Sprachanruf',
-      all_filter:'Alle', unread_filter:'Ungelesen', groups_filter:'Gruppen',
-      no_convs:'Noch keine Gespräche', loading:'Laden…',
-      you:'Du', today:'Heute', yesterday:'Gestern', online:'Online', offline:'Offline',
-      typing:'Tippt…', read:'Gelesen', delivered:'Zugestellt',
-      edit_profile:'Profil bearbeiten', display_name:'Anzeigename', bio:'Bio',
-      status:'Status', save:'Speichern', cancel:'Abbrechen',
-      settings:'Einstellungen', logout:'Abmelden', dark_mode:'Dunkler Modus',
-      notifications:'Benachrichtigungen', low_data:'Datensparmodell',
-      group_name:'Gruppenname', members:'Mitglieder', admin:'Admin', leave_group:'Gruppe verlassen',
-      error:'Fehler', success:'Erfolg', copied:'Kopiert', saved:'Gespeichert',
-      no_mic:'Mikrofonzugriff verweigert', connecting:'Verbinden…',
-    },
-    pt: {
-      nav_profile:'Perfil', nav_messages:'Mensagens', nav_contacts:'Contatos', nav_updates:'Atualizações',
-      settings_language:'Idioma',
-      type_message:'Escreva uma mensagem…', send:'Enviar', search_chat:'Pesquisar chats…',
-      new_chat:'Novo chat', new_group:'Novo grupo', voice_call:'Chamada de voz',
-      all_filter:'Tudo', unread_filter:'Não lidas', groups_filter:'Grupos',
-      no_convs:'Sem conversas ainda', loading:'Carregando…',
-      you:'Você', today:'Hoje', yesterday:'Ontem', online:'Online', offline:'Offline',
-      typing:'Digitando…', read:'Lido', delivered:'Entregue',
-      edit_profile:'Editar perfil', display_name:'Nome de exibição', bio:'Bio',
-      status:'Status', save:'Salvar', cancel:'Cancelar',
-      settings:'Configurações', logout:'Sair', dark_mode:'Modo escuro',
-      notifications:'Notificações', low_data:'Economizar dados',
-      group_name:'Nome do grupo', members:'Membros', admin:'Admin', leave_group:'Sair do grupo',
-      error:'Erro', success:'Sucesso', copied:'Copiado', saved:'Salvo',
-      no_mic:'Acesso ao microfone negado', connecting:'Conectando…',
-    },
-  };
-
-  let _cur = localStorage.getItem(_KEY) || 'tr';
-
-  function t(key) {
-    return T[_cur]?.[key] || T['tr']?.[key] || key;
-  }
-
-  function apply(code) {
-    if (!T[code]) return;
-    _cur = code;
-    localStorage.setItem(_KEY, code);
-
-    // data-i18n attribute'larını güncelle
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.getAttribute('data-i18n');
-      const val = t(key);
-      if (val) {
-        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.placeholder = val;
-        else el.textContent = val;
-      }
-    });
-
-    // Placeholder'ları güncelle
-    const msgInput = document.getElementById('msg-input');
-    if (msgInput) msgInput.placeholder = t('type_message');
-
-    const searchInput = document.getElementById('search-input');
-    if (searchInput) searchInput.placeholder = t('search_chat');
-
-    // Filter pill'leri
-    const fa = document.getElementById('filter-all');
-    const fu = document.getElementById('filter-unread');
-    const fg = document.getElementById('filter-groups');
-    if (fa) fa.textContent = t('all_filter');
-    if (fu) fu.textContent = t('unread_filter');
-    if (fg) fg.textContent = t('groups_filter');
-
-    // Settings dil label
-    const lang = langs.find(l => l.code === code);
-    const label = document.getElementById('settings-lang-label');
-    if (label && lang) label.textContent = lang.flag + ' ' + lang.label;
-
-    UI.closeModal('language-modal');
-    if (lang) UI.toast(lang.flag + ' ' + lang.label, 'success', 1500);
-  }
-
-  function openModal() {
-    const list = document.getElementById('language-list');
-    if (!list) return;
-    list.innerHTML = '';
-    langs.forEach(lang => {
-      const active = lang.code === _cur;
-      const btn = document.createElement('button');
-      btn.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;padding:10px 14px;border-radius:10px;border:none;background:' + (active ? 'rgba(0,255,179,.1)' : 'transparent') + ';cursor:pointer;transition:background .12s;text-align:left;-webkit-tap-highlight-color:transparent';
-      btn.innerHTML = '<span style="font-size:24px">' + lang.flag + '</span>' +
-        '<span style="flex:1;font-size:14px;color:' + (active?'#00FFB3':'#DDE8F8') + ';font-weight:' + (active?'700':'400') + '">' + lang.label + '</span>' +
-        (active ? '<span style="color:#00FFB3;font-size:16px">✓</span>' : '');
-      btn.onmouseenter = () => { if (!active) btn.style.background = '#131D30'; };
-      btn.onmouseleave = () => { if (!active) btn.style.background = 'transparent'; };
-      btn.onclick = () => apply(lang.code);
-      list.appendChild(btn);
-    });
-    UI.openModal('language-modal');
-  }
-
-  function init() {
-    // Kaydedilmiş dili uygula (data-i18n + placeholders)
-    const code = localStorage.getItem(_KEY) || 'tr';
-    _cur = code;
-    // Kısa gecikme — DOM hazır olsun
-    setTimeout(() => apply(code), 100);
-  }
-
-  return { t, apply, openModal, init, current: () => _cur, langs };
-})();
-function openLanguage() { I18N.openModal(); }
-function setLanguage(code) { I18N.apply(code); }
 
 // ── Filter ───────────────────────────────────────────────────────────
 function setFilter(f) {
@@ -3958,7 +3539,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   Messages.initEvents();
   setupScreenshotDetection();
   VC.init();
-  Spotify.init();
   I18N.init();
 
   // Long-press delegation for chat list pin (avoids per-item listeners)
@@ -4739,3 +4319,91 @@ setInterval(async () => {
   }
   if (toSend.length) UI.toast(`⏰ ${toSend.length} zamanlanmış mesaj gönderildi`, 'success');
 }, 15000);
+
+// ── Çok Dil Sistemi (i18n) ─────────────────────────────────────────
+const I18N = (() => {
+  const _KEY = 'cipher_language';
+  const langs = [
+    { code:'tr', label:'Türkçe',    flag:'🇹🇷' },
+    { code:'en', label:'English',   flag:'🇬🇧' },
+    { code:'es', label:'Español',   flag:'🇪🇸' },
+    { code:'hi', label:'हिन्दी',    flag:'🇮🇳' },
+    { code:'fr', label:'Français',  flag:'🇫🇷' },
+    { code:'ru', label:'Русский',   flag:'🇷🇺' },
+    { code:'de', label:'Deutsch',   flag:'🇩🇪' },
+    { code:'pt', label:'Português', flag:'🇧🇷' },
+  ];
+  const T = {
+    tr:{ nav_profile:'Profil', nav_messages:'Mesajlar', nav_contacts:'Kişiler', nav_updates:'Güncellemeler', settings_language:'Dil', type_message:'Mesaj yaz…', all_filter:'Tümü', unread_filter:'Okunmamış', groups_filter:'Gruplar', search_chat:'Sohbet ara…' },
+    en:{ nav_profile:'Profile', nav_messages:'Messages', nav_contacts:'Contacts', nav_updates:'Updates', settings_language:'Language', type_message:'Type a message…', all_filter:'All', unread_filter:'Unread', groups_filter:'Groups', search_chat:'Search chats…' },
+    es:{ nav_profile:'Perfil', nav_messages:'Mensajes', nav_contacts:'Contactos', nav_updates:'Novedades', settings_language:'Idioma', type_message:'Escribe un mensaje…', all_filter:'Todo', unread_filter:'No leído', groups_filter:'Grupos', search_chat:'Buscar chats…' },
+    hi:{ nav_profile:'प्रोफ़ाइल', nav_messages:'संदेश', nav_contacts:'संपर्क', nav_updates:'अपडेट', settings_language:'भाषा', type_message:'संदेश लिखें…', all_filter:'सभी', unread_filter:'अपठित', groups_filter:'समूह', search_chat:'चैट खोजें…' },
+    fr:{ nav_profile:'Profil', nav_messages:'Messages', nav_contacts:'Contacts', nav_updates:'Actualités', settings_language:'Langue', type_message:'Écrire un message…', all_filter:'Tous', unread_filter:'Non lus', groups_filter:'Groupes', search_chat:'Rechercher…' },
+    ru:{ nav_profile:'Профиль', nav_messages:'Сообщения', nav_contacts:'Контакты', nav_updates:'Обновления', settings_language:'Язык', type_message:'Написать сообщение…', all_filter:'Все', unread_filter:'Непрочитанные', groups_filter:'Группы', search_chat:'Поиск чатов…' },
+    de:{ nav_profile:'Profil', nav_messages:'Nachrichten', nav_contacts:'Kontakte', nav_updates:'Neuigkeiten', settings_language:'Sprache', type_message:'Nachricht schreiben…', all_filter:'Alle', unread_filter:'Ungelesen', groups_filter:'Gruppen', search_chat:'Chats suchen…' },
+    pt:{ nav_profile:'Perfil', nav_messages:'Mensagens', nav_contacts:'Contatos', nav_updates:'Atualizações', settings_language:'Idioma', type_message:'Escreva uma mensagem…', all_filter:'Tudo', unread_filter:'Não lidas', groups_filter:'Grupos', search_chat:'Pesquisar chats…' },
+  };
+  let _cur = localStorage.getItem(_KEY) || 'tr';
+
+  function t(key) { return T[_cur]?.[key] || T.tr?.[key] || key; }
+
+  function apply(code) {
+    if (!T[code]) return;
+    _cur = code;
+    localStorage.setItem(_KEY, code);
+    // data-i18n elements
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const v = t(el.getAttribute('data-i18n'));
+      if (!v) return;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.placeholder = v;
+      else el.textContent = v;
+    });
+    // Placeholders
+    const mi = document.getElementById('msg-input');
+    if (mi) mi.placeholder = t('type_message');
+    const si = document.getElementById('search-input');
+    if (si) si.placeholder = t('search_chat');
+    // Filter pills
+    const fa = document.getElementById('filter-all');
+    const fu = document.getElementById('filter-unread');
+    const fg = document.getElementById('filter-groups');
+    if (fa) fa.textContent = t('all_filter');
+    if (fu) fu.textContent = t('unread_filter');
+    if (fg) fg.textContent = t('groups_filter');
+    // Settings label
+    const lang = langs.find(l => l.code === code);
+    const lbl = document.getElementById('settings-lang-label');
+    if (lbl && lang) lbl.textContent = lang.flag + ' ' + lang.label;
+    UI.closeModal('language-modal');
+    if (lang) UI.toast(lang.flag + ' ' + lang.label, 'success', 1500);
+  }
+
+  function openModal() {
+    const list = document.getElementById('language-list');
+    if (!list) return;
+    list.innerHTML = '';
+    langs.forEach(lang => {
+      const active = lang.code === _cur;
+      const btn = document.createElement('button');
+      btn.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border-radius:10px;border:none;background:' + (active ? 'rgba(0,255,179,.12)' : 'transparent') + ';cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent';
+      btn.innerHTML = '<span style="font-size:24px;flex-shrink:0">' + lang.flag + '</span>' +
+        '<span style="flex:1;font-size:14px;color:' + (active ? '#00FFB3' : '#DDE8F8') + ';font-weight:' + (active ? '700' : '400') + ';text-align:left">' + lang.label + '</span>' +
+        (active ? '<span style="color:#00FFB3;font-size:18px">✓</span>' : '');
+      btn.onmouseenter = () => { if (!active) btn.style.background = '#131D30'; };
+      btn.onmouseleave = () => { if (!active) btn.style.background = 'transparent'; };
+      btn.onclick = () => apply(lang.code);
+      list.appendChild(btn);
+    });
+    UI.openModal('language-modal');
+  }
+
+  function init() {
+    _cur = localStorage.getItem(_KEY) || 'tr';
+    setTimeout(() => apply(_cur), 150);
+  }
+
+  return { t, apply, openModal, init, current: () => _cur };
+})();
+
+function openLanguage() { I18N.openModal(); }
+function setLanguage(code) { I18N.apply(code); }
