@@ -85,7 +85,14 @@ const Messages = (() => {
         .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
         .replace(/\*([^*]+)\*/g,'<em>$1</em>')
         .replace(/~~([^~]+)~~/g,'<s>$1</s>')
-        .replace(/\n/g,'<br>');
+        .replace(/\n/g,'<br>')
+        // 4. Linkify — must run after HTML escape
+        .replace(/(https?:\/\/[^\s<>"]+)/g, function(url) {
+          var clean = url.replace(/[.,;:!?\)\]]+$/, '');
+          var trail = url.slice(clean.length);
+          var short = clean.length > 45 ? clean.slice(0,45) + '\u2026' : clean;
+          return '<a href="' + clean + '" target="_blank" rel="noopener noreferrer" style="color:#00FFB3;text-decoration:underline;word-break:break-all">' + short + '</a>' + trail;
+        });
     }
 
     let text = recalled ? '↩ Bu mesaj geri çekildi.' : (msg.text||'');
@@ -117,7 +124,7 @@ const Messages = (() => {
           </div>`;
         } catch{ contentHtml='<div style="color:#FF3D6B;font-size:12px">Anket yüklenemedi</div>'; }
       } else if (msg.type==='gif' && msg.gif_url) {
-        contentHtml=`<img src="${msg.gif_url}" style="max-width:220px;max-height:180px;border-radius:10px;display:block;margin-top:4px;cursor:pointer" onclick="Messages._lightbox('${msg.gif_url}')">`;
+        contentHtml = '<img src="' + (msg.gif_url||'') + '" data-lightbox="1" style="max-width:220px;max-height:180px;border-radius:10px;display:block;margin-top:4px;cursor:pointer;object-fit:cover" loading="lazy">';
       } else if (msg.type==='sticker' && msg.sticker) {
         contentHtml=`<div style="font-size:52px;line-height:1;padding:4px 0">${msg.sticker}</div>`;
       } else if (msg.type==='file' && msg.file_data) {
@@ -465,6 +472,9 @@ const Messages = (() => {
       if(pill&&pill.dataset.msgid&&pill.dataset.emoji){
         _toggleReaction(pill.dataset.msgid,pill.dataset.emoji);
       }
+      // GIF/image lightbox via data-lightbox
+      const lb=e.target.closest('[data-lightbox]');
+      if(lb&&lb.src) _lightbox(lb.src);
     });
     const area=document.getElementById('messages');
     if(area){
