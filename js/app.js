@@ -508,7 +508,7 @@ function _doRenderChatList() {
     let previewHtml = `<span style="font-size:12px;color:${hasUnread?'#9DB8D8':'#7A8FA8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${hasUnread?'font-weight:500':''}">${lastText}</span>`;
     if (conv.type === 'group' && conv.last_from) {
       const senderName = conv.last_from === cu.username ? 'Sen' : (_allUsers[conv.last_from]?.display_name || conv.last_from);
-      previewHtml = `<span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:#00FFB3;font-weight:600">${senderName}: </span><span style="color:${hasUnread?'#9DB8D8':'#7A8FA8'}">${lastText}</span></span>`;
+      previewHtml = `<span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:var(--accent);font-weight:600">${senderName}: </span><span style="color:${hasUnread?'#9DB8D8':'#7A8FA8'}">${lastText}</span></span>`;
     }
 
     // Unread badge — mesaj sayısı, bakılmadıkça kalır
@@ -762,16 +762,16 @@ function openUserProfile(user) {
     </div>
     <div style="padding:48px 20px 20px">
       <div style="font-family:Syne,sans-serif;font-weight:700;font-size:20px;color:#DDE8F8">${user.display_name || user.username}</div>
-      <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:4px">@${user.username}</div>
+      <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:4px">@${user.username}</div>
       <div style="font-size:12px;color:${st.color};margin-bottom:${user.status ? '6px' : '10px'}">${st.text}</div>
       ${user.status ? `<div style="font-size:13px;color:#B0C4D8;margin-bottom:10px">${user.status_emoji || ''} ${user.status}</div>` : ''}
-      ${user.bio ? `<div style="font-size:13px;color:#9AB0C8;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:#06080F;border-radius:10px;border:1px solid #1E2D45">${(user.bio||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>` : ''}
+      ${user.bio ? `<div style="font-size:13px;color:#9AB0C8;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:10px;border:1px solid #1E2D45">${(user.bio||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>` : ''}
       ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${badges}</div>` : ''}
-      <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:3px">ÜYE OLDU</div>
-      <div style="font-size:12px;color:#DDE8F8;margin-bottom:16px">${user.created_at ? UI.fmtDate(user.created_at) : ''}</div>
+      <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:3px">ÜYE OLDU</div>
+      <div style="font-size:12px;color:var(--text);margin-bottom:16px">${user.created_at ? UI.fmtDate(user.created_at) : ''}</div>
       <div style="display:flex;gap:8px">
         <button id="profile-dm-btn" style="flex:1;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">💬 Mesaj Gönder</button>
-        <button id="profile-more-btn" style="padding:11px 14px;border-radius:12px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;cursor:pointer;-webkit-tap-highlight-color:transparent">⋯</button>
+        <button id="profile-more-btn" style="padding:11px 14px;border-radius:12px;background:var(--elev);color:var(--muted);border:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent">⋯</button>
       </div>
     </div>`;
 
@@ -791,21 +791,21 @@ function openGroupPanel(conv) {
   const isAdmin = conv.admin === window._currentUser.username || window._currentUser.is_admin;
 
   el.innerHTML = `
-    <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid #1E2D45;margin-bottom:16px">
+    <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:16px">
       <div style="width:64px;height:64px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;font-family:Syne,sans-serif;margin:0 auto 10px">${conv.avatar || UI.initials(conv.name)}</div>
       ${isAdmin
         ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:6px">
             <button onclick="openGroupIconEdit('${conv.id}')" style="font-size:28px;background:rgba(0,0,0,.2);border:1.5px dashed #1E2D45;border-radius:14px;width:52px;height:52px;cursor:pointer;transition:border-color .2s" title="İkon değiştir" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">${conv.avatar || UI.initials(conv.name)}</button>
             <div style="display:flex;align-items:center;gap:8px">
-              <input id="gp-name-inp" value="${conv.name || ''}" style="background:#06080F;border:1.5px solid #1E2D45;border-radius:8px;padding:5px 10px;font-size:14px;font-weight:700;color:#DDE8F8;font-family:Syne,sans-serif;text-align:center;outline:none;max-width:160px" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+              <input id="gp-name-inp" value="${conv.name || ''}" style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:14px;font-weight:700;color:var(--text);font-family:Syne,sans-serif;text-align:center;outline:none;max-width:160px" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
               <button id="gp-save-btn" style="padding:6px 12px;border-radius:8px;background:#00FFB3;color:#062B1F;font-weight:700;font-size:12px;border:none;cursor:pointer">Kaydet</button>
             </div>
           </div>`
-        : `<div style="font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:#DDE8F8;margin-bottom:4px">${conv.name}</div>`}
+        : `<div style="font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:var(--text);margin-bottom:4px">${conv.name}</div>`}
       <div style="font-size:12px;color:#7A8FA8">${conv.participants?.length || 0} üye</div>
     </div>
-    ${isAdmin ? '<div style="margin-bottom:12px"><button id="gp-add-btn" style="width:100%;padding:10px;border-radius:10px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:13px;cursor:pointer;font-family:\'JetBrains Mono\',monospace">+ Üye Ekle</button></div>' : ''}
-    <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace;margin-bottom:8px">ÜYELER</div>`;
+    ${isAdmin ? '<div style="margin-bottom:12px"><button id="gp-add-btn" style="width:100%;padding:10px;border-radius:10px;background:var(--elev);color:var(--accent);border:1px solid rgba(0,255,179,.2);font-size:13px;cursor:pointer;font-family:\'JetBrains Mono\',monospace">+ Üye Ekle</button></div>' : ''}
+    <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:\'JetBrains Mono\',monospace;margin-bottom:8px">ÜYELER</div>`;
 
   const saveBtn = document.getElementById('gp-save-btn');
   if (saveBtn) saveBtn.onclick = () => saveGroupName(conv.id);
@@ -829,13 +829,13 @@ function openGroupPanel(conv) {
     row.onclick = () => { const usr = _allUsers[uid]; if (usr) openUserProfile(usr); };
     row.innerHTML = `${av}
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div>
-        <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${uid}${isOwner ? ' · Yönetici ⚡' : ''}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${uid}${isOwner ? ' · Yönetici ⚡' : ''}</div>
       </div>`;
 
     if (isAdmin && uid !== window._currentUser.username) {
       const btn = document.createElement('button');
-      btn.style.cssText = 'font-size:11px;padding:4px 8px;border-radius:7px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer;flex-shrink:0';
+      btn.style.cssText = 'font-size:11px;padding:4px 8px;border-radius:7px;background:var(--elev);color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer;flex-shrink:0';
       btn.textContent = 'Çıkar';
       btn.onclick = e => { e.stopPropagation(); removeFromGroup(conv.id, uid); };
       row.appendChild(btn);
@@ -904,7 +904,7 @@ function openAddMemberModal(convId) {
   });
 
   if (!candidates.length) {
-    gc.innerHTML = '<div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Eklenebilecek kullanıcı yok</div>';
+    gc.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Eklenebilecek kullanıcı yok</div>';
   }
   candidates.forEach(u => {
     const c = UI.avatarColor(u.username);
@@ -912,9 +912,9 @@ function openAddMemberModal(convId) {
     div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;transition:background .12s';
     div.onmouseenter = () => div.style.background = '#131D30';
     div.onmouseleave = () => div.style.background = 'transparent';
-    div.innerHTML = `<input type="checkbox" value="${u.username}" style="width:16px;height:16px;accent-color:#00FFB3;flex-shrink:0">
+    div.innerHTML = `<input type="checkbox" value="${u.username}" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0">
       <div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>
-      <div><div style="font-size:13px;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
+      <div><div style="font-size:13px;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
     div.onclick = e => { if (e.target.tagName !== 'INPUT') div.querySelector('input').click(); };
     gc.appendChild(div);
   });
@@ -1005,7 +1005,7 @@ function renderContactsList(searchQ) {
   users.sort((a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username, 'tr'));
 
   if (!users.length) {
-    list.innerHTML = `<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">${q ? `"${q}" için sonuç yok` : 'Henüz kullanıcı yok'}</div>`;
+    list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">${q ? `"${q}" için sonuç yok` : 'Henüz kullanıcı yok'}</div>`;
     return;
   }
 
@@ -1041,11 +1041,11 @@ function renderContactsList(searchQ) {
 
     div.innerHTML = `${av}
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div>
         <div style="font-size:11px;color:${st.color}">${st.text}</div>
         ${serverBadges}
       </div>
-      <button data-uid="${u.username}" class="contact-msg-btn" style="padding:6px 12px;border-radius:8px;background:#131D30;color:var(--accent,#00FFB3);border:1px solid rgba(0,255,179,.2);font-size:12px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;font-weight:600">Mesaj</button>`;
+      <button data-uid="${u.username}" class="contact-msg-btn" style="padding:6px 12px;border-radius:8px;background:var(--elev);color:var(--accent,#00FFB3);border:1px solid rgba(0,255,179,.2);font-size:12px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;font-weight:600">Mesaj</button>`;
 
     div.querySelector('.contact-msg-btn').addEventListener('click', e => {
       e.stopPropagation();
@@ -1072,8 +1072,8 @@ function renderUpdatesTab() {
 
   const updates = [
     { v:'6.0.0', badge:'YENİ', color:'#00FFB3', items:['🔧 Debug & optimizasyon güncellemesi','📊 Debounced render — daha az CPU','🧹 Hata yakalama iyileştirildi','👥 Sunucu filtresi — kullanıcılar sunucuya göre','📱 Kişiler sekmesi — online durum göstergesi','🗑 Şifre sıfırlama kaldırıldı','📌 Sol menü gizlendi (kod korundu)'] },
-    { v:'5.0.0', badge:'', color:'#7A8FA8', items:['🌐 Supabase çok cihaz desteği','📝 Kayıt sistemi fallback ile','🔔 Cihaz push bildirimleri','⌚ Online durum & süre takibi','🏠 4 sunucu sistemi','✏️ Ad değiştirme'] },
-    { v:'4.0.0', badge:'', color:'#7A8FA8', items:['👤 Profil modal','👥 Grup yönetim paneli','📋 Kişiler sekmesi','💬 Alt navigasyon (3 sekme)','🔍 Filtreler üstte'] },
+    { v:'5.0.0', badge:'', color:'var(--muted)', items:['🌐 Supabase çok cihaz desteği','📝 Kayıt sistemi fallback ile','🔔 Cihaz push bildirimleri','⌚ Online durum & süre takibi','🏠 4 sunucu sistemi','✏️ Ad değiştirme'] },
+    { v:'4.0.0', badge:'', color:'var(--muted)', items:['👤 Profil modal','👥 Grup yönetim paneli','📋 Kişiler sekmesi','💬 Alt navigasyon (3 sekme)','🔍 Filtreler üstte'] },
   ];
 
   el.innerHTML = `<div style="padding:16px">
@@ -1083,7 +1083,7 @@ function renderUpdatesTab() {
       <div style="font-size:12px;color:#7A8FA8">Güncelleme Notları</div>
     </div>
     ${updates.map(r => `
-      <div style="margin-bottom:14px;padding:14px;border-radius:14px;background:#06080F;border:1px solid #1E2D45">
+      <div style="margin-bottom:14px;padding:14px;border-radius:14px;background:var(--bg);border:1px solid #1E2D45">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px;color:#DDE8F8">v${r.v}</span>
           ${r.badge ? `<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:${r.color}22;color:${r.color};border:1px solid ${r.color}44;font-family:'JetBrains Mono',monospace">${r.badge}</span>` : ''}
@@ -1110,7 +1110,7 @@ async function renderStories() {
   myBtn.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0';
   const myC = UI.avatarColor(cu.username);
   const myAv = cu.avatar_url ? `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">` : `<span style="font-weight:700;font-size:11px;color:#fff;font-family:Syne,sans-serif">${UI.initials(cu.display_name || cu.username)}</span>`;
-  myBtn.innerHTML = `<div style="width:48px;height:48px;border-radius:50%;background:${myC};display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">${myAv}<div style="position:absolute;bottom:0;right:0;width:16px;height:16px;border-radius:50%;background:#00FFB3;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#062B1F;border:2px solid #06080F">+</div></div><span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">Sen</span>`;
+  myBtn.innerHTML = `<div style="width:48px;height:48px;border-radius:50%;background:${myC};display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">${myAv}<div style="position:absolute;bottom:0;right:0;width:16px;height:16px;border-radius:50%;background:#00FFB3;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#062B1F;border:2px solid #06080F">+</div></div><span style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">Sen</span>`;
   myBtn.onclick = addStory;
   strip.appendChild(myBtn);
 
@@ -1180,7 +1180,7 @@ function openNewChat() {
     div.onmouseenter = () => div.style.background = '#131D30';
     div.onmouseleave = () => div.style.background = 'transparent';
     const av = u.avatar_url ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;min-width:36px;border-radius:50%;object-fit:cover" loading="lazy">` : `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`;
-    div.innerHTML = `${av}<div style="min-width:0"><div style="font-size:13px;font-weight:500;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
+    div.innerHTML = `${av}<div style="min-width:0"><div style="font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
     div.onclick = () => { UI.closeModal('new-chat-modal'); startDM(u.username); };
     frag.appendChild(div);
   });
@@ -1255,10 +1255,10 @@ function openGroupIconEdit(convId) {
     modal.id = 'group-icon-edit-modal';
     modal.className = 'fixed inset-0 z-50 hidden items-center justify-center';
     modal.style.background = 'rgba(6,8,15,.92)';
-    modal.innerHTML = `<div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:18px;overflow:hidden;animation:slideUp .2s ease-out">
+    modal.innerHTML = `<div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:18px;overflow:hidden;animation:slideUp .2s ease-out">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
         <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">Grup İkonu</span>
-        <button onclick="UI.closeModal('group-icon-edit-modal')" style="color:#7A8FA8;background:transparent;border:none;cursor:pointer;font-size:18px">✕</button>
+        <button onclick="UI.closeModal('group-icon-edit-modal')" style="color:var(--muted);background:transparent;border:none;cursor:pointer;font-size:18px">✕</button>
       </div>
       <div style="padding:14px">
         <div id="group-icon-edit-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
@@ -1336,7 +1336,7 @@ function openGroupCreate() {
       div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;transition:background .12s';
       div.onmouseenter = () => div.style.background = '#131D30';
       div.onmouseleave = () => div.style.background = 'transparent';
-      div.innerHTML = `<input type="checkbox" value="${u.username}" style="width:16px;height:16px;accent-color:#00FFB3;flex-shrink:0">
+      div.innerHTML = `<input type="checkbox" value="${u.username}" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0">
         <div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>
         <span style="font-size:13px;color:#DDE8F8">${_esc(u.display_name||u.username)}</span>`;
       div.onclick = e => { if (e.target.tagName !== 'INPUT') div.querySelector('input').click(); };
@@ -1393,7 +1393,7 @@ function updateInfoPanel(conv) {
     const info = document.createElement('div');
     info.style.textAlign = 'center';
     info.appendChild(avEl);
-    info.innerHTML += `<div style="font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8">${_esc(other.display_name||other.username)}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${_esc(other.username)}</div><div style="font-size:11px;color:${st.color};margin-top:3px">${st.text}</div>`;
+    info.innerHTML += `<div style="font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8">${_esc(other.display_name||other.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(other.username)}</div><div style="font-size:11px;color:${st.color};margin-top:3px">${st.text}</div>`;
     el.appendChild(info);
   } else {
     const header = document.createElement('div');
@@ -1432,7 +1432,7 @@ function closeUniversalSearch() {
   const inp = document.getElementById('universal-search-input');
   if (inp) inp.value = '';
   const res = document.getElementById('universal-search-results');
-  if (res) res.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#7A8FA8;font-size:13px"><div style="font-size:28px;margin-bottom:8px">🔍</div>Aramak istediğiniz kelimeyi yazın</div>';
+  if (res) res.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px"><div style="font-size:28px;margin-bottom:8px">🔍</div>Aramak istediğiniz kelimeyi yazın</div>';
 }
 
 function setUTab(tab) {
@@ -1455,10 +1455,10 @@ async function _doUniversalSearch(q) {
   const res = document.getElementById('universal-search-results');
   if (!res) return;
   if (!q) {
-    res.innerHTML = '<div style="text-align:center;padding:40px 20px;color:#7A8FA8;font-size:13px"><div style="font-size:28px;margin-bottom:8px">🔍</div>Aramak istediğiniz kelimeyi yazın</div>';
+    res.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px"><div style="font-size:28px;margin-bottom:8px">🔍</div>Aramak istediğiniz kelimeyi yazın</div>';
     return;
   }
-  res.innerHTML = '<div style="text-align:center;padding:24px;color:#7A8FA8;font-size:12px;font-family:\'JetBrains Mono\',monospace">Aranıyor…</div>';
+  res.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px;font-family:\'JetBrains Mono\',monospace">Aranıyor…</div>';
 
   const ql = q.toLocaleLowerCase('tr-TR');
   const cu = window._currentUser;
@@ -1554,7 +1554,7 @@ async function _doUniversalSearch(q) {
 
   res.innerHTML = '';
   if (!totalResults) {
-    res.innerHTML = `<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px"><div style="font-size:28px;margin-bottom:8px">😕</div>"${_esc(q)}" için sonuç bulunamadı</div>`;
+    res.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px"><div style="font-size:28px;margin-bottom:8px">😕</div>"${_esc(q)}" için sonuç bulunamadı</div>`;
   } else {
     res.appendChild(frag);
   }
@@ -1562,7 +1562,7 @@ async function _doUniversalSearch(q) {
 
 function _usSection(title, count) {
   const d = document.createElement('div');
-  d.style.cssText = 'padding:8px 14px 4px;font-size:10px;font-weight:700;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace;letter-spacing:.08em;display:flex;justify-content:space-between';
+  d.style.cssText = 'padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--muted);font-family:\'JetBrains Mono\',monospace;letter-spacing:.08em;display:flex;justify-content:space-between';
   d.innerHTML = `<span>${title}</span><span>${count}</span>`;
   return d;
 }
@@ -1572,7 +1572,7 @@ function _usRow(avHtml, title, subtitle, onClick) {
   d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;transition:background .12s';
   d.onmouseenter = () => d.style.background = '#131D30';
   d.onmouseleave = () => d.style.background = 'transparent';
-  d.innerHTML = `${avHtml}<div style="flex:1;min-width:0"><div style="font-size:13px;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div><div style="font-size:11px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div></div>`;
+  d.innerHTML = `${avHtml}<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div><div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div></div>`;
   d.onclick = onClick;
   return d;
 }
@@ -1580,7 +1580,7 @@ function _usRow(avHtml, title, subtitle, onClick) {
 function _usHighlight(text, q) {
   if (!q || !text) return text || '';
   const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
-  return text.replace(re, '<mark style="background:rgba(0,255,179,.3);color:#DDE8F8;border-radius:2px;padding:0 1px">$1</mark>');
+  return text.replace(re, '<mark style="background:rgba(0,255,179,.3);color:var(--text);border-radius:2px;padding:0 1px">$1</mark>');
 }
 
 // ── Medya Galerisi ─────────────────────────────────────────────────
@@ -1610,7 +1610,7 @@ async function _loadGallery() {
   const grid = document.getElementById('gallery-grid');
   const countEl = document.getElementById('gallery-count');
   if (!grid) return;
-  grid.innerHTML = '<div style="text-align:center;padding:24px;color:#7A8FA8;font-size:12px">Yükleniyor…</div>';
+  grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Yükleniyor…</div>';
   try {
     const msgs = await DB.getMessages(window._currentConvId);
     let items = msgs.filter(m => {
@@ -1621,7 +1621,7 @@ async function _loadGallery() {
     }).reverse();
 
     if (countEl) countEl.textContent = items.length + ' öğe';
-    if (!items.length) { grid.innerHTML = '<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">Bu kategoride medya yok</div>'; return; }
+    if (!items.length) { grid.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Bu kategoride medya yok</div>'; return; }
 
     const frag = document.createDocumentFragment();
 
@@ -1646,9 +1646,9 @@ async function _loadGallery() {
       const fileItems = items.filter(m => m.type==='file' && !m.file_type?.startsWith('image/'));
       fileItems.forEach(m => {
         const d = document.createElement('div');
-        d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:#06080F;border:1px solid #1E2D45;margin-bottom:6px';
+        d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:6px';
         const ext = (m.file_name||'').split('.').pop().toUpperCase().slice(0,4) || 'FILE';
-        d.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(0,255,179,.1);color:#00FFB3;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0">${ext}</div><div style="flex:1;min-width:0"><div style="font-size:12px;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(m.file_name||'Dosya')}</div><div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${UI.fmtTime(m.created_at)}</div></div><a href="${m.file_data}" download="${_esc(m.file_name||'file')}" style="color:#00FFB3;text-decoration:none;font-size:18px" onclick="event.stopPropagation()">↓</a>`;
+        d.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(0,255,179,.1);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0">${ext}</div><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(m.file_name||'Dosya')}</div><div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">${UI.fmtTime(m.created_at)}</div></div><a href="${m.file_data}" download="${_esc(m.file_name||'file')}" style="color:var(--accent);text-decoration:none;font-size:18px" onclick="event.stopPropagation()">↓</a>`;
         frag.appendChild(d);
       });
     }
@@ -1659,8 +1659,8 @@ async function _loadGallery() {
         const urls = m.text.match(/https?:\/\/\S+/gi) || [];
         urls.forEach(url => {
           const d = document.createElement('div');
-          d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:#06080F;border:1px solid #1E2D45;margin-bottom:6px;cursor:pointer';
-          d.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(14,165,233,.1);color:#0EA5E9;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🔗</div><div style="flex:1;min-width:0"><div style="font-size:12px;color:#0EA5E9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(url.slice(0,60))}</div><div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">${UI.fmtTime(m.created_at)}</div></div>`;
+          d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:6px;cursor:pointer';
+          d.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(14,165,233,.1);color:#0EA5E9;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🔗</div><div style="flex:1;min-width:0"><div style="font-size:12px;color:#0EA5E9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(url.slice(0,60))}</div><div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">${UI.fmtTime(m.created_at)}</div></div>`;
           d.onclick = () => window.open(url, '_blank', 'noopener');
           frag.appendChild(d);
         });
@@ -1677,7 +1677,7 @@ async function openChatStats() {
   if (!window._currentConvId) return;
   const content = document.getElementById('chat-stats-content');
   if (!content) return;
-  content.innerHTML = '<div style="text-align:center;padding:24px;color:#7A8FA8;font-size:12px">Hesaplanıyor…</div>';
+  content.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Hesaplanıyor…</div>';
   UI.openModal('chat-stats-modal');
 
   try {
@@ -1721,7 +1721,7 @@ async function openChatStats() {
 
     // HTML oluştur
     const _stat = (icon, label, value, color='#DDE8F8') =>
-      `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;background:#06080F;border:1px solid #1E2D45"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">${icon}</span><span style="font-size:13px;color:#7A8FA8">${label}</span></div><span style="font-size:14px;font-weight:700;color:${color};font-family:'JetBrains Mono',monospace">${value}</span></div>`;
+      `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;background:var(--bg);border:1px solid #1E2D45"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">${icon}</span><span style="font-size:13px;color:#7A8FA8">${label}</span></div><span style="font-size:14px;font-weight:700;color:${color};font-family:'JetBrains Mono',monospace">${value}</span></div>`;
 
     // Sohbet süresi
     const durationMs = lastMsg.created_at - firstMsg.created_at;
@@ -1737,7 +1737,7 @@ async function openChatStats() {
     }).join('');
 
     content.innerHTML = `
-      <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em">GENEL</div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">GENEL</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${_stat('💬','Toplam Mesaj', total.toLocaleString('tr-TR'), '#00FFB3')}
         ${_stat('📅','Sohbet Süresi', durationStr)}
@@ -1745,7 +1745,7 @@ async function openChatStats() {
         ${_stat('✏️','Toplam Karakter', totalChars.toLocaleString('tr-TR'))}
       </div>
 
-      <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em">İÇERİK</div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">İÇERİK</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${_stat('🖼','Medya', mediaCount)}
         ${_stat('🎬','GIF', gifCount)}
@@ -1754,27 +1754,27 @@ async function openChatStats() {
         ${_stat('🔗','Link', linkCount)}
       </div>
 
-      <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em">EN AKTİF</div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">EN AKTİF</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${_stat('⏰','En Aktif Saat', `${peakHour}:00 – ${peakHour+1}:00`, '#FFA535')}
         ${_stat('📆','En Aktif Gün', peakDay, '#FFA535')}
       </div>
 
-      <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em">SAATLİK DAĞILIM</div>
-      <div style="background:#06080F;border:1px solid #1E2D45;border-radius:10px;padding:10px">
+      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">SAATLİK DAĞILIM</div>
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px">
         <div style="display:flex;align-items:flex-end;gap:1px;height:40px">${hourBars}</div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:#5A6E88;font-family:'JetBrains Mono',monospace">
+        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--muted2);font-family:'JetBrains Mono',monospace">
           <span>0</span><span>6</span><span>12</span><span>18</span><span>23</span>
         </div>
       </div>
 
-      <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em">KATILIMCI SIRALAMASI</div>
+      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">KATILIMCI SIRALAMASI</div>
       <div style="display:flex;flex-direction:column;gap:6px">
         ${topUsers.map(([uid, count], i) => {
           const u = _allUsers[uid] || { username: uid, display_name: uid };
           const pct = Math.round(count/total*100);
           const color = ['#FFD700','#C0C0C0','#CD7F32','#7A8FA8','#7A8FA8'][i];
-          return `<div style="padding:8px 12px;border-radius:10px;background:#06080F;border:1px solid #1E2D45">
+          return `<div style="padding:8px 12px;border-radius:10px;background:var(--bg);border:1px solid #1E2D45">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
               <span style="font-size:12px;color:#DDE8F8">${i+1}. ${_esc(u.display_name||u.username)}</span>
               <span style="font-size:11px;color:${color};font-family:'JetBrains Mono',monospace">${count} (${pct}%)</span>
@@ -1797,7 +1797,7 @@ function clearNowPlaying() {
 
 function renderNowPlaying(user) {
   const np = user?.now_playing || localStorage.getItem('cipher_nowplaying_' + user?.username);
-  return np ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(30,215,96,.08);border:1px solid rgba(30,215,96,.2);margin-top:6px"><span style="font-size:14px">🎵</span><div style="min-width:0"><div style="font-size:11px;color:#1ED760;font-weight:600">Şu an dinliyor</div><div style="font-size:12px;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(np)}</div></div></div>` : '';
+  return np ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(30,215,96,.08);border:1px solid rgba(30,215,96,.2);margin-top:6px"><span style="font-size:14px">🎵</span><div style="min-width:0"><div style="font-size:11px;color:#1ED760;font-weight:600">Şu an dinliyor</div><div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(np)}</div></div></div>` : '';
 }
 
 function spotifyDisconnect(){ Spotify.disconnect(); }
@@ -2350,7 +2350,7 @@ function openBlockReport() {
   window._brTarget = u.username;
   const blocked = getBlockedList();
   const color = UI.avatarColor(u.username);
-  document.getElementById('br-user-info').innerHTML = `${u.avatar_url?`<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover" loading="lazy">`:`<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`}<div><div style="font-size:13px;font-weight:600;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
+  document.getElementById('br-user-info').innerHTML = `${u.avatar_url?`<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover" loading="lazy">`:`<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`}<div><div style="font-size:13px;font-weight:600;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
   document.getElementById('br-block-btn').innerHTML = blocked.includes(u.username) ? `<span style="font-size:18px">✅</span><div><div style="font-size:13px;font-weight:600">Engeli Kaldır</div></div>` : `<span style="font-size:18px">🚫</span><div><div style="font-size:13px;font-weight:600">Engelle</div></div>`;
   UI.openModal('block-report-modal');
 }
@@ -2405,17 +2405,17 @@ function openNotifs() {
   _notifs.forEach(n=>n.read=true); updateNotifBadge();
   const list=document.getElementById('notif-list');
   if(!list)return;
-  if(!_notifs.length){list.innerHTML='<div style="text-align:center;padding:24px;color:#7A8FA8;font-size:13px">Henüz bildirim yok</div>';UI.openModal('notif-modal');return;}
+  if(!_notifs.length){list.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Henüz bildirim yok</div>';UI.openModal('notif-modal');return;}
   const frag=document.createDocumentFragment();
   _notifs.forEach(n=>{
     const u=_allUsers[n.from]||{username:n.from,display_name:n.from};
     const c=UI.avatarColor(u.username);
     const div=document.createElement('div');
-    div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;cursor:pointer;background:#06080F;border:1px solid #1E2D45;transition:background .12s;margin-bottom:6px';
+    div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;cursor:pointer;background:var(--bg);border:1px solid var(--border);transition:background .12s;margin-bottom:6px';
     div.onmouseenter=()=>div.style.background='#0C1220';
     div.onmouseleave=()=>div.style.background='#06080F';
     div.onclick=()=>{UI.closeModal('notif-modal');openConv(n.convId);};
-    div.innerHTML=`<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.msg}</div></div><span style="font-size:10px;color:#7A8FA8;flex-shrink:0">${UI.fmtTime(n.time)}</span>`;
+    div.innerHTML=`<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.msg}</div></div><span style="font-size:10px;color:var(--muted);flex-shrink:0">${UI.fmtTime(n.time)}</span>`;
     frag.appendChild(div);
   });
   list.innerHTML=''; list.appendChild(frag);
@@ -2440,13 +2440,13 @@ function openSavedMessages() {
   if (!list) return;
   const saved = JSON.parse(localStorage.getItem(_SAVED_KEY()) || '[]');
   if (!saved.length) {
-    list.innerHTML = '<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">Henüz kaydedilen mesaj yok.<br><br>Mesaja uzun bas → 📌 Kaydet</div>';
+    list.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Henüz kaydedilen mesaj yok.<br><br>Mesaja uzun bas → 📌 Kaydet</div>';
   } else {
     list.innerHTML = '';
     saved.forEach((m, i) => {
       const div = document.createElement('div');
-      div.style.cssText = 'padding:10px 12px;border-radius:12px;background:#06080F;border:1px solid #1E2D45;display:flex;gap:10px;align-items:start';
-      div.innerHTML = `<div style="flex:1;min-width:0"><div style="font-size:13px;color:#DDE8F8;line-height:1.5;word-break:break-word">${String(m.text||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div><div style="font-size:10px;color:#5A6E88;font-family:'JetBrains Mono',monospace;margin-top:4px">${UI.fmtDate(m.time)}</div></div><div style="display:flex;gap:4px;flex-shrink:0"><button onclick="goToSavedMsg('${m.convId}');UI.closeModal('saved-messages-modal')" style="font-size:11px;padding:4px 8px;border-radius:6px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer">Git</button><button onclick="deleteSavedMsg(${i})" style="font-size:11px;padding:4px 8px;border-radius:6px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer">✕</button></div>`;
+      div.style.cssText = 'padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);display:flex;gap:10px;align-items:start';
+      div.innerHTML = `<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);line-height:1.5;word-break:break-word">${String(m.text||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div><div style="font-size:10px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:4px">${UI.fmtDate(m.time)}</div></div><div style="display:flex;gap:4px;flex-shrink:0"><button onclick="goToSavedMsg('${m.convId}');UI.closeModal('saved-messages-modal')" style="font-size:11px;padding:4px 8px;border-radius:6px;background:var(--elev);color:var(--accent);border:1px solid rgba(0,255,179,.2);cursor:pointer">Git</button><button onclick="deleteSavedMsg(${i})" style="font-size:11px;padding:4px 8px;border-radius:6px;background:var(--elev);color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer">✕</button></div>`;
       list.appendChild(div);
     });
   }
@@ -2481,7 +2481,7 @@ function openStoryViewers(storyId) {
     const list = document.getElementById('story-viewers-list');
     if (!list) return;
     if (!viewers.length) {
-      list.innerHTML = '<div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Henüz kimse görmedi</div>';
+      list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Henüz kimse görmedi</div>';
     } else {
       list.innerHTML = '';
       viewers.forEach(uid => {
@@ -2492,7 +2492,7 @@ function openStoryViewers(storyId) {
         const av = u.avatar_url
           ? `<div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`
           : `<div style="width:32px;height:32px;border-radius:50%;background:${c}22;color:${c};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${UI.initials(u.display_name||u.username)}</div>`;
-        div.innerHTML = `${av}<div><div style="font-size:13px;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div><span style="margin-left:auto;font-size:16px">👁</span>`;
+        div.innerHTML = `${av}<div><div style="font-size:13px;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div><span style="margin-left:auto;font-size:16px">👁</span>`;
         list.appendChild(div);
       });
     }
@@ -2692,7 +2692,7 @@ function showBotCommands() {
       row.style.cssText = 'display:flex;align-items:start;gap:10px;padding:8px 10px;border-radius:8px;width:100%;text-align:left;background:transparent;border:none;cursor:pointer;transition:background .12s';
       row.onmouseenter = () => row.style.background = '#131D30';
       row.onmouseleave = () => row.style.background = 'transparent';
-      row.innerHTML = `<span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:#00FFB3;flex-shrink:0;min-width:120px">${cmd}</span><span style="font-size:12px;color:#7A8FA8">${desc}</span>`;
+      row.innerHTML = `<span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--accent);flex-shrink:0;min-width:120px">${cmd}</span><span style="font-size:12px;color:#7A8FA8">${desc}</span>`;
       row.onclick = () => {
         const input = document.getElementById('msg-input');
         if (input) { input.value = cmd.includes('<') ? cmd.split('<')[0].trim() + ' ' : cmd + ' '; input.focus(); }
@@ -3054,7 +3054,7 @@ function openForwardModal(msgId) {
 
   const list=document.createElement('div');
   list.style.overflow='auto'; list.appendChild(frag);
-  modal.innerHTML=`<div style="width:100%;max-width:320px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0"><span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">↪ Mesajı İlet</span><button onclick="UI.closeModal('forward-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button></div></div>`;
+  modal.innerHTML=`<div style="width:100%;max-width:320px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">↪ Mesajı İlet</span><button onclick="UI.closeModal('forward-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button></div></div>`;
   modal.querySelector('div').appendChild(list);
   UI.openModal('forward-modal');
 }
@@ -3801,10 +3801,10 @@ function _renderCustomizeModal() {
         const wrap = document.createElement('button');
         wrap.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:6px;background:transparent;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent`;
         const box = document.createElement('div');
-        box.style.cssText = `width:56px;height:56px;border-radius:14px;overflow:hidden;border:2.5px solid ${active ? 'var(--accent)' : '#1E2D45'};background:#131D30;display:flex;align-items:center;justify-content:center;transition:border-color .15s;flex-shrink:0`;
+        box.style.cssText = `width:56px;height:56px;border-radius:14px;overflow:hidden;border:2.5px solid ${active ? 'var(--accent)' : '#1E2D45'};background:var(--elev);display:flex;align-items:center;justify-content:center;transition:border-color .15s;flex-shrink:0`;
         box.innerHTML = `<img src="customize/${l.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=font-size:22px>🔒</span>'">`;
         const lbl = document.createElement('span');
-        lbl.style.cssText = 'font-size:10px;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace';
+        lbl.style.cssText = 'font-size:10px;color:var(--muted);font-family:\'JetBrains Mono\',monospace';
         lbl.textContent = l.label;
         wrap.appendChild(box);
         wrap.appendChild(lbl);
@@ -3874,7 +3874,7 @@ function _renderCustomizeModal() {
           if (b.file) box.innerHTML = `<img src="customize/${b.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.background='#0D1424'">`;
           else box.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2A3A50">∅</div>';
           const lbl = document.createElement('span');
-          lbl.style.cssText = "font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace";
+          lbl.style.cssText = "font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace";
           lbl.textContent = b.label;
           wrap.appendChild(box); wrap.appendChild(lbl);
           wrap.onclick = () => selectBg(b, box);
@@ -3886,7 +3886,7 @@ function _renderCustomizeModal() {
         const tab = document.createElement('button');
         tab.dataset.c = cat.category;
         tab.textContent = cat.category;
-        tab.style.cssText = "padding:5px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap;border:1px solid #1E2D45;color:#7A8FA8;background:transparent;flex-shrink:0";
+        tab.style.cssText = "padding:5px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap;border:1px solid var(--border);color:var(--muted);background:transparent;flex-shrink:0";
         tab.onclick = () => showCat(cat.category);
         tabBar.appendChild(tab);
       });
@@ -3908,7 +3908,7 @@ function _renderCustomizeModal() {
         if (b.file) box.innerHTML = `<img src="customize/${b.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.background='#0D1424'">`;
         else box.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2A3A50">∅</div>';
         const lbl = document.createElement('span');
-        lbl.style.cssText = "font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace";
+        lbl.style.cssText = "font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace";
         lbl.textContent = b.label;
         wrap.appendChild(box); wrap.appendChild(lbl);
         wrap.onclick = () => selectBg(b, box);
@@ -3964,8 +3964,8 @@ function openScheduler() {
   bar.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00E5FF" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     <span style="font-size:11px;color:#00E5FF;font-family:'JetBrains Mono',monospace;flex-shrink:0">Zamanlanmış:</span>
     <input type="datetime-local" id="schedule-dt" min="${now.toISOString().slice(0,16)}"
-      style="background:transparent;border:none;outline:none;font-size:11px;color:#DDE8F8;font-family:'JetBrains Mono',monospace;cursor:pointer;flex:1">
-    <button onclick="clearScheduler()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:16px">✕</button>`;
+      style="background:transparent;border:none;outline:none;font-size:11px;color:var(--text);font-family:'JetBrains Mono',monospace;cursor:pointer;flex:1">
+    <button onclick="clearScheduler()" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:16px">✕</button>`;
   const compose = document.getElementById('compose');
   if (compose) compose.insertBefore(bar, compose.firstChild);
 }
@@ -4113,10 +4113,10 @@ function switchDocTab(tab) {
   document.getElementById('doc-draw-panel').style.display = tab === 'draw' ? 'flex' : 'none';
   document.getElementById('doc-tab-text').style.cssText = tab === 'text'
     ? 'padding:5px 14px;border-radius:8px;border:1px solid var(--accent,#00FFB3);background:rgba(0,255,179,.12);color:var(--accent,#00FFB3);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-weight:600'
-    : 'padding:5px 14px;border-radius:8px;border:1px solid #1E2D45;background:transparent;color:#7A8FA8;font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
+    : 'padding:5px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
   document.getElementById('doc-tab-draw').style.cssText = tab === 'draw'
     ? 'padding:5px 14px;border-radius:8px;border:1px solid var(--accent,#00FFB3);background:rgba(0,255,179,.12);color:var(--accent,#00FFB3);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-weight:600'
-    : 'padding:5px 14px;border-radius:8px;border:1px solid #1E2D45;background:transparent;color:#7A8FA8;font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
+    : 'padding:5px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
   if (tab === 'draw') requestAnimationFrame(() => initCanvas());
 }
 
@@ -4280,12 +4280,12 @@ function openDocViewer(msgId) {
   overlay.id = 'doc-viewer-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(6,8,15,.98);display:flex;flex-direction:column';
   overlay.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #1E2D45;background:#0A1018;flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0">
       <span style="font-size:18px">📄</span>
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8;flex:1">${msg.text||'Döküman'}</span>
-      <button onclick="document.getElementById('doc-viewer-overlay').remove()" style="width:32px;height:32px;border-radius:8px;background:#131D30;border:1px solid #1E2D45;color:#7A8FA8;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text);flex:1">${msg.text||'Döküman'}</span>
+      <button onclick="document.getElementById('doc-viewer-overlay').remove()" style="width:32px;height:32px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
-    <div id="doc-viewer-body" style="flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;color:#DDE8F8;font-size:15px;line-height:1.7;font-family:'DM Sans',sans-serif"></div>`;
+    <div id="doc-viewer-body" style="flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;color:var(--text);font-size:15px;line-height:1.7;font-family:'DM Sans',sans-serif"></div>`;
   document.body.appendChild(overlay);
   // Safe injection: only allow formatting tags, no scripts
   const body = overlay.querySelector('#doc-viewer-body');
@@ -4388,7 +4388,7 @@ const I18N = (() => {
       btn.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border-radius:10px;border:none;background:' + (active ? 'rgba(0,255,179,.12)' : 'transparent') + ';cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent';
       btn.innerHTML = '<span style="font-size:24px;flex-shrink:0">' + lang.flag + '</span>' +
         '<span style="flex:1;font-size:14px;color:' + (active ? '#00FFB3' : '#DDE8F8') + ';font-weight:' + (active ? '700' : '400') + ';text-align:left">' + lang.label + '</span>' +
-        (active ? '<span style="color:#00FFB3;font-size:18px">✓</span>' : '');
+        (active ? '<span style="color:var(--accent);font-size:18px">✓</span>' : '');
       btn.onmouseenter = () => { if (!active) btn.style.background = '#131D30'; };
       btn.onmouseleave = () => { if (!active) btn.style.background = 'transparent'; };
       btn.onclick = () => apply(lang.code);
@@ -4407,3 +4407,110 @@ const I18N = (() => {
 
 function openLanguage() { I18N.openModal(); }
 function setLanguage(code) { I18N.apply(code); }
+
+// ── Avatar Kırpma — Cropper.js ─────────────────────────────────────
+let _cropper = null;
+
+function openCropModal(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  if (file.size > (CONFIG.MAX_FILE_MB || 5) * 1024 * 1024) {
+    UI.toast(`Maks. ${CONFIG.MAX_FILE_MB || 5}MB`, 'error'); return;
+  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = document.getElementById('crop-image');
+    if (!img) return;
+
+    // Destroy previous cropper
+    if (_cropper) { _cropper.destroy(); _cropper = null; }
+
+    img.src = e.target.result;
+    img.onload = () => {
+      if (typeof Cropper === 'undefined') {
+        // Cropper.js yüklenmemişse doğrudan uygula
+        _applyCropFallback(e.target.result);
+        return;
+      }
+      _cropper = new Cropper(img, {
+        aspectRatio: 1,
+        viewMode: 1,
+        dragMode: 'move',
+        autoCropArea: 0.85,
+        restore: false,
+        guides: false,
+        center: true,
+        highlight: false,
+        cropBoxMovable: false,
+        cropBoxResizable: false,
+        toggleDragModeOnDblclick: false,
+        preview: '#crop-preview-wrap',
+        ready() {
+          // Preview img'yi circle olarak göster
+          const pw = document.querySelector('#crop-preview-wrap .cropper-preview');
+          if (pw) pw.style.borderRadius = '50%';
+        }
+      });
+      document.getElementById('crop-modal')?.classList.replace('hidden', 'flex');
+    };
+  };
+  reader.readAsDataURL(file);
+  // Input'u sıfırla ki aynı dosya tekrar seçilebilsin
+  input.value = '';
+}
+
+function closeCropModal() {
+  if (_cropper) { _cropper.destroy(); _cropper = null; }
+  document.getElementById('crop-modal')?.classList.replace('flex', 'hidden');
+}
+
+function cropRotate(deg)  { _cropper?.rotate(deg); }
+function cropFlip()       { _cropper?.scaleX((_cropper.getData().scaleX || 1) * -1); }
+function cropZoom(ratio)  { _cropper?.zoom(ratio); }
+
+async function applyCrop() {
+  if (!_cropper) return;
+  try {
+    // 400×400 yüksek çözünürlüklü canvas
+    const canvas = _cropper.getCroppedCanvas({ width: 400, height: 400, imageSmoothingEnabled: true, imageSmoothingQuality: 'high' });
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    closeCropModal();
+    await _saveAvatarUrl(dataUrl);
+  } catch(e) {
+    UI.toast('Kırpma hatası: ' + e.message, 'error');
+  }
+}
+
+async function _applyCropFallback(dataUrl) {
+  // Cropper yüklenmediyse doğrudan canvas'a yükle ve kırp
+  closeCropModal();
+  const img = new Image();
+  img.onload = async () => {
+    const size = Math.min(img.width, img.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 400;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, (img.width-size)/2, (img.height-size)/2, size, size, 0, 0, 400, 400);
+    await _saveAvatarUrl(canvas.toDataURL('image/jpeg', 0.9));
+  };
+  img.src = dataUrl;
+}
+
+async function _saveAvatarUrl(dataUrl) {
+  const cu = window._currentUser;
+  try {
+    await DB.updateUser(cu.username, { avatar_url: dataUrl });
+    cu.avatar_url = dataUrl;
+    if (_allUsers[cu.username]) _allUsers[cu.username].avatar_url = dataUrl;
+    const prev = document.getElementById('avatar-preview');
+    if (prev) prev.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">';
+    renderMyAvatar();
+    UI.toast('Profil fotoğrafı güncellendi ✓', 'success');
+  } catch(e) {
+    UI.toast('Kaydedilemedi: ' + e.message, 'error');
+  }
+}
+
+// uploadAvatar artık openCropModal'a yönlendiriyor —
+// eski fonksiyonu da çalışır tut (backup)
+async function uploadAvatar(input) { openCropModal(input); }
