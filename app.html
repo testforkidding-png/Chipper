@@ -39,6 +39,7 @@
     .cursor-pointer{cursor:pointer}.transition{transition:all .15s}
   </style>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 </head>
 <body>
 
@@ -46,8 +47,8 @@
 <div id="ss-overlay">
   <div style="text-align:center;padding:32px">
     <div style="font-size:64px;margin-bottom:16px">⚠️</div>
-    <div style="font-size:22px;font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8;margin-bottom:8px">Ekran Görüntüsü Engellendi</div>
-    <div style="font-size:13px;color:#7A8FA8;margin-bottom:24px">Bu konuşma şifrelidir.</div>
+    <div style="font-size:22px;font-weight:700;font-family:Syne,sans-serif;color:var(--text);margin-bottom:8px">Ekran Görüntüsü Engellendi</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:24px">Bu konuşma şifrelidir.</div>
     <button onclick="document.getElementById('ss-overlay').classList.remove('show')" style="padding:10px 28px;border-radius:12px;background:#00FFB3;color:#062B1F;font-weight:700;border:none;cursor:pointer">Anladım</button>
   </div>
 </div>
@@ -59,13 +60,13 @@
   <div id="sidebar">
 
     <!-- Header -->
-    <div id="sidebar-header" style="display:flex;align-items:center;gap:8px;padding:12px;padding-top:max(12px,env(safe-area-inset-top));border-bottom:1px solid #1E2D45;flex-shrink:0">
+    <div id="sidebar-header" style="display:flex;align-items:center;gap:8px;padding:12px;padding-top:max(12px,env(safe-area-inset-top));border-bottom:1px solid var(--border);flex-shrink:0">
       <button id="my-avatar" onclick="openProfileEdit()"
         style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;border:2px solid transparent;cursor:pointer;overflow:hidden;flex-shrink:0;transition:border-color .2s;font-family:Syne,sans-serif"
         onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='transparent'">
       </button>
       <div style="flex:1;min-width:0">
-        <div id="my-name" style="font-weight:700;font-size:13px;font-family:Syne,sans-serif;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+        <div id="my-name" style="font-weight:700;font-size:13px;font-family:Syne,sans-serif;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
         <div style="display:flex;align-items:center;gap:4px">
           <div style="width:6px;height:6px;border-radius:50%;background:#00E676;animation:pulseDot 2s infinite"></div>
           <span style="font-size:9px;font-family:'JetBrains Mono',monospace;color:#00E676">ÇEVRİMİÇİ</span>
@@ -73,22 +74,22 @@
       </div>
       <div style="display:flex;gap:2px">
         <button onclick="openNewChat()" data-tip="Yeni Sohbet"
-          style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+          style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
           onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="10" y1="11" x2="14" y2="11"/></svg>
         </button>
         <button onclick="openGroupCreate()" data-tip="Grup Oluştur"
-          style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+          style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
           onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </button>
         <button id="notif-btn" onclick="openNotifs()" data-tip="Bildirimler"
-          style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s;position:relative"
+          style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s;position:relative"
           onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </button>
         <button onclick="UI.openModal('settings-modal')" data-tip="Ayarlar"
-          style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+          style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
           onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         </button>
@@ -97,24 +98,24 @@
 
     <!-- Search -->
     <div style="padding:10px 12px;flex-shrink:0">
-      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;background:#06080F;border:1px solid #1E2D45;transition:border-color .2s" onfocusin="this.style.borderColor='#00FFB3'" onfocusout="this.style.borderColor='#1E2D45'">
+      <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;background:var(--input-bg);border:1px solid var(--border);transition:border-color .2s" onfocusin="this.style.borderColor='#00FFB3'" onfocusout="this.style.borderColor='#1E2D45'">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8FA8" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input id="search-input" type="text" placeholder="Sohbet, kullanıcı, mesaj ara…" autocomplete="off" readonly style="flex:1;background:transparent;border:none;outline:none;font-size:13px;color:#DDE8F8;cursor:pointer" onclick="openUniversalSearch()" onfocus="openUniversalSearch()">
-        <button id="search-clear" onclick="clearSidebarSearch()" class="hidden" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:13px">✕</button>
+        <input id="search-input" type="text" placeholder="Sohbet, kullanıcı, mesaj ara…" autocomplete="off" readonly style="flex:1;background:transparent;border:none;outline:none;font-size:13px;color:var(--text);cursor:pointer" onclick="openUniversalSearch()" onfocus="openUniversalSearch()">
+        <button id="search-clear" onclick="clearSidebarSearch()" class="hidden" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:13px">✕</button>
       </div>
     </div>
 
     <!-- Filter pills (üstte) -->
     <div style="display:flex;gap:4px;padding:6px 12px;flex-shrink:0">
-      <button id="filter-all" onclick="setFilter('all')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:#131D30;color:#DDE8F8;-webkit-tap-highlight-color:transparent">Tümü</button>
-      <button id="filter-unread" onclick="setFilter('unread')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:transparent;color:#7A8FA8;-webkit-tap-highlight-color:transparent">Okunmamış</button>
-      <button id="filter-groups" onclick="setFilter('groups')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:transparent;color:#7A8FA8;-webkit-tap-highlight-color:transparent">Gruplar</button>
+      <button id="filter-all" onclick="setFilter('all')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:var(--elev);color:var(--text);-webkit-tap-highlight-color:transparent">Tümü</button>
+      <button id="filter-unread" onclick="setFilter('unread')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:transparent;color:var(--muted);-webkit-tap-highlight-color:transparent">Okunmamış</button>
+      <button id="filter-groups" onclick="setFilter('groups')" style="padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;transition:all .15s;background:transparent;color:var(--muted);-webkit-tap-highlight-color:transparent">Gruplar</button>
     </div>
 
     <!-- TAB: Mesajlar -->
     <div id="tab-messages" style="display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden">
       <!-- Server filter bar — populated by renderServerBar() -->
-      <div id="server-bar" style="display:none;flex-shrink:0;padding:6px 10px;border-bottom:1px solid #1E2D45;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
+      <div id="server-bar" style="display:none;flex-shrink:0;padding:6px 10px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
         <div style="display:flex;gap:5px;min-width:max-content"></div>
       </div>
       <!-- Stories -->
@@ -134,11 +135,11 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#DDE8F8" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           </span>
           <input id="contact-search-input" type="text" placeholder="İsim veya kullanıcı adı ara…"
-            style="width:100%;padding:9px 12px 9px 32px;border-radius:11px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;font-size:14px;outline:none;font-family:'DM Sans',sans-serif;transition:border-color .2s"
+            style="width:100%;padding:9px 12px 9px 32px;border-radius:11px;border:1.5px solid var(--border);background:var(--input-bg);color:var(--text);font-size:14px;outline:none;font-family:'DM Sans',sans-serif;transition:border-color .2s"
             onfocus="this.style.borderColor='var(--accent,#00FFB3)'" onblur="this.style.borderColor='#1E2D45'"
             oninput="renderContactsList(this.value)">
         </div>
-        <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.08em" id="contacts-count"></div>
+        <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.08em" id="contacts-count"></div>
       </div>
       <div id="contacts-tab-list" style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch"></div>
     </div>
@@ -149,21 +150,21 @@
     </div>
 
     <!-- Bottom Navigation -->
-    <div style="display:flex;border-top:1px solid #1E2D45;background:#0C1220;flex-shrink:0;padding-bottom:max(0px,env(safe-area-inset-bottom))">
+    <div style="display:flex;border-top:1px solid var(--border);background:var(--surf);flex-shrink:0;padding-bottom:max(0px,env(safe-area-inset-bottom))">
       <!-- Profil en solda -->
       <button id="bottom-nav-avatar" onclick="openProfileEdit()" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 4px;border:none;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent">
         <div id="bottom-nav-avatar-inner" style="width:32px;height:32px;border-radius:50%;overflow:hidden;border:2px solid #1E2D45;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:Syne,sans-serif;flex-shrink:0"></div>
-        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#7A8FA8" data-i18n="nav_profile">Profil</span>
+        <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--muted)" data-i18n="nav_profile">Profil</span>
       </button>
-      <button data-tab="messages" class="bottom-tab active" onclick="setTab('messages')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#00FFB3;-webkit-tap-highlight-color:transparent;transition:color .15s">
+      <button data-tab="messages" class="bottom-tab active" onclick="setTab('messages')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:var(--accent);-webkit-tap-highlight-color:transparent;transition:color .15s">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace" data-i18n="nav_messages">Mesajlar</span>
       </button>
-      <button data-tab="contacts" class="bottom-tab" onclick="setTab('contacts')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#7A8FA8;-webkit-tap-highlight-color:transparent;transition:color .15s">
+      <button data-tab="contacts" class="bottom-tab" onclick="setTab('contacts')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:var(--muted);-webkit-tap-highlight-color:transparent;transition:color .15s">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace" data-i18n="nav_contacts">Kişiler</span>
       </button>
-      <button data-tab="updates" class="bottom-tab" onclick="setTab('updates')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:#7A8FA8;-webkit-tap-highlight-color:transparent;transition:color .15s">
+      <button data-tab="updates" class="bottom-tab" onclick="setTab('updates')" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:10px 4px;border:none;background:transparent;cursor:pointer;color:var(--muted);-webkit-tap-highlight-color:transparent;transition:color .15s">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         <span style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace" data-i18n="nav_updates">Güncellemeler</span>
       </button>
@@ -174,13 +175,13 @@
   <div id="chat-area">
 
     <!-- Empty state -->
-    <div id="empty-state" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:#06080F">
+    <div id="empty-state" style="flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;background:var(--input-bg)">
       <div style="width:80px;height:80px;border-radius:20px;background:#1E2D45;display:flex;align-items:center;justify-content:center;opacity:.2;animation:pulseDot 4s infinite">
         <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       </div>
       <div style="text-align:center">
-        <div style="font-size:16px;font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8;margin-bottom:4px">Bir sohbet seçin</div>
-        <div style="font-size:12px;color:#7A8FA8">Mesajlarınız uçtan uca şifreli</div>
+        <div style="font-size:16px;font-weight:700;font-family:Syne,sans-serif;color:var(--text);margin-bottom:4px">Bir sohbet seçin</div>
+        <div style="font-size:12px;color:var(--muted)">Mesajlarınız uçtan uca şifreli</div>
       </div>
     </div>
 
@@ -188,43 +189,43 @@
     <div id="chat-view" style="display:none;flex-direction:column;flex:1;min-height:0">
 
       <!-- Chat header -->
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #1E2D45;background:#0C1220;flex-shrink:0">
-        <button id="back-btn" onclick="backToSidebar()" style="display:none;width:32px;height:32px;border-radius:10px;background:#131D30;color:#7A8FA8;align-items:center;justify-content:center;cursor:pointer;border:none;flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surf);flex-shrink:0">
+        <button id="back-btn" onclick="backToSidebar()" style="display:none;width:32px;height:32px;border-radius:10px;background:var(--elev);color:var(--muted);align-items:center;justify-content:center;cursor:pointer;border:none;flex-shrink:0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
         </button>
-        <div id="chat-avatar" style="width:36px;height:36px;min-width:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden;background:#1E2D45;color:#DDE8F8;font-family:Syne,sans-serif"></div>
+        <div id="chat-avatar" style="width:36px;height:36px;min-width:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;overflow:hidden;background:#1E2D45;color:var(--text);font-family:Syne,sans-serif"></div>
         <div style="flex:1;min-width:0">
-          <div id="chat-name" style="font-weight:700;font-size:14px;font-family:Syne,sans-serif;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
-          <div id="chat-status" style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          <div id="chat-name" style="font-weight:700;font-size:14px;font-family:Syne,sans-serif;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+          <div id="chat-status" style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
         </div>
         <div style="display:flex;gap:2px">
           <button onclick="openMediaGallery()" data-tip="Medya Galerisi"
-            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
             onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
           </button>
           <button onclick="openChatStats()" data-tip="İstatistikler"
-            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
             onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
           </button>
           <button onclick="startVoiceCall()" data-tip="Sesli Arama"
-            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
             onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.61 1.24h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.78a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
           </button>
           <button onclick="toggleMsgSearch()" data-tip="Ara"
-            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
             onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
           </button>
           <button onclick="toggleInfoPanel()" data-tip="Bilgi"
-            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+            style="width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
             onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
           </button>
           <button onclick="openBlockReport()" data-tip="Engelle / Bildir" id="block-report-btn"
-            style="width:32px;height:32px;border-radius:10px;display:none;align-items:center;justify-content:center;color:#7A8FA8;border:none;background:transparent;cursor:pointer;transition:background .15s"
+            style="width:32px;height:32px;border-radius:10px;display:none;align-items:center;justify-content:center;color:var(--muted);border:none;background:transparent;cursor:pointer;transition:background .15s"
             onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
           </button>
@@ -232,19 +233,19 @@
       </div>
 
       <!-- In-chat search -->
-      <div id="chat-search-bar" class="hidden" style="padding:8px 12px;border-bottom:1px solid #1E2D45;background:#0C1220;flex-shrink:0">
-        <div style="display:flex;align-items:center;gap:8px;background:#06080F;border:1px solid #1E2D45;border-radius:10px;padding:7px 12px">
+      <div id="chat-search-bar" class="hidden" style="padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surf);flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:8px;background:var(--input-bg);border:1px solid var(--border);border-radius:10px;padding:7px 12px">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7A8FA8" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          <input id="msg-search" type="text" placeholder="Mesajlarda ara…" style="flex:1;background:transparent;border:none;outline:none;font-size:13px;color:#DDE8F8" oninput="searchInMessages(this.value)">
-          <span id="search-count" style="font-size:10px;font-family:'JetBrains Mono',monospace;color:#7A8FA8"></span>
-          <button onclick="document.getElementById('chat-search-bar').classList.add('hidden')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+          <input id="msg-search" type="text" placeholder="Mesajlarda ara…" style="flex:1;background:transparent;border:none;outline:none;font-size:13px;color:var(--text)" oninput="searchInMessages(this.value)">
+          <span id="search-count" style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted)"></span>
+          <button onclick="document.getElementById('chat-search-bar').classList.add('hidden')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
         </div>
       </div>
 
       <!-- E2E banner -->
       <div style="background:#050810;padding:5px 12px;display:flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;border-bottom:1px solid #0F1825">
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        <span style="color:#7A8FA8;font-size:9px;font-family:'JetBrains Mono',monospace">Uçtan Uca Şifreli · AES-256-GCM · Zero-Knowledge</span>
+        <span style="color:var(--muted);font-size:9px;font-family:'JetBrains Mono',monospace">Uçtan Uca Şifreli · AES-256-GCM · Zero-Knowledge</span>
         <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       </div>
 
@@ -255,7 +256,7 @@
       <div id="typing-indicator" class="hidden" style="padding:4px 16px 8px;flex-shrink:0">
         <div style="display:flex;align-items:center;gap:8px">
           <div id="typing-avatar" style="width:24px;height:24px;border-radius:50%;background:#1E2D45;display:flex;align-items:center;justify-content:center;font-size:10px;overflow:hidden;flex-shrink:0"></div>
-          <div style="display:flex;align-items:center;gap:4px;background:#131D30;padding:7px 12px;border-radius:14px">
+          <div style="display:flex;align-items:center;gap:4px;background:var(--elev);padding:7px 12px;border-radius:14px">
             <div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>
           </div>
         </div>
@@ -263,25 +264,25 @@
 
       <!-- Pickers — OUTSIDE compose so they float above it properly -->
       <div id="gif-picker">
-        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #1E2D45;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-          <input type="text" placeholder="GIF ara… (Giphy)" id="gif-search-input" style="flex:1;background:transparent;border:none;outline:none;font-size:14px;color:#DDE8F8;font-family:'DM Sans',sans-serif" oninput="clearTimeout(this._t);this._t=setTimeout(()=>Messages.searchGifs(this.value),500)">
-          <button onclick="Messages.toggleGif()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;-webkit-tap-highlight-color:transparent">✕</button>
+          <input type="text" placeholder="GIF ara… (Giphy)" id="gif-search-input" style="flex:1;background:transparent;border:none;outline:none;font-size:14px;color:var(--text);font-family:'DM Sans',sans-serif" oninput="clearTimeout(this._t);this._t=setTimeout(()=>Messages.searchGifs(this.value),500)">
+          <button onclick="Messages.toggleGif()" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;-webkit-tap-highlight-color:transparent">✕</button>
         </div>
         <div id="gif-grid" class="gif-grid"></div>
       </div>
 
       <div id="sticker-picker">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-          <span style="font-size:13px;font-weight:600;color:#DDE8F8;font-family:Syne,sans-serif">😊 Stickerlar</span>
-          <button onclick="Messages.toggleSticker()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;-webkit-tap-highlight-color:transparent">✕</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0">
+          <span style="font-size:13px;font-weight:600;color:var(--text);font-family:Syne,sans-serif">😊 Stickerlar</span>
+          <button onclick="Messages.toggleSticker()" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px;padding:4px 8px;-webkit-tap-highlight-color:transparent">✕</button>
         </div>
         <div id="sticker-pack-tabs" class="sticker-pack-tabs"></div>
         <div id="sticker-grid" class="sticker-grid"></div>
       </div>
 
       <!-- Compose -->
-      <div id="compose" style="padding:10px 12px;border-top:1px solid #1E2D45;background:#0C1220;flex-shrink:0;position:relative">
+      <div id="compose" style="padding:10px 12px;border-top:1px solid var(--border);background:var(--surf);flex-shrink:0;position:relative">
 
         <!-- Destruct bar -->
         <div id="destruct-bar" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:7px 12px;border-radius:10px;background:#1A050E;border:1px solid rgba(255,61,107,.3)">
@@ -290,16 +291,16 @@
           <select id="destruct-time" onchange="Messages._setDestructSecs(+this.value)" style="background:transparent;border:none;outline:none;font-size:11px;font-family:'JetBrains Mono',monospace;color:#FF3D6B;cursor:pointer">
             <option value="10">10 saniye</option><option value="30" selected>30 saniye</option><option value="60">1 dakika</option><option value="300">5 dakika</option><option value="3600">1 saat</option>
           </select>
-          <button onclick="Messages.toggleDestruct()" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+          <button onclick="Messages.toggleDestruct()" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
         </div>
 
         <!-- Reply preview -->
-        <div id="reply-preview" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:8px 12px;border-radius:10px;border-left:2px solid #00FFB3;background:#131D30">
+        <div id="reply-preview" style="display:none;align-items:center;gap:8px;margin-bottom:8px;padding:8px 12px;border-radius:10px;border-left:2px solid #00FFB3;background:var(--elev)">
           <div style="flex:1;min-width:0">
-            <div style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;color:#00FFB3;margin-bottom:2px">↩ Yanıt</div>
-            <div id="reply-text" style="font-size:12px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
+            <div style="font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--accent);margin-bottom:2px">↩ Yanıt</div>
+            <div id="reply-text" style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></div>
           </div>
-          <button onclick="Messages.clearReply()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;flex-shrink:0">✕</button>
+          <button onclick="Messages.clearReply()" style="color:var(--muted);background:none;border:none;cursor:pointer;flex-shrink:0">✕</button>
         </div>
 
         <!-- File preview -->
@@ -310,46 +311,46 @@
           <!-- Left actions -->
           <div style="display:flex;gap:4px;align-items:flex-end;flex-shrink:0">
             <!-- + menu -->
-            <button id="compose-plus-btn" onclick="toggleComposePlus()" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:all .15s;flex-shrink:0" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+            <button id="compose-plus-btn" onclick="toggleComposePlus()" style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);background:var(--elev);border:1px solid var(--border);cursor:pointer;transition:all .15s;flex-shrink:0" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
             <!-- Compose + popup -->
-            <div id="compose-plus-menu" style="display:none;position:absolute;bottom:60px;left:12px;background:#0C1220;border:1px solid #1E2D45;border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:20;min-width:180px">
-              <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:13px;color:#DDE8F8;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
+            <div id="compose-plus-menu" style="display:none;position:absolute;bottom:60px;left:12px;background:var(--surf);border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.7);z-index:20;min-width:180px">
+              <label style="display:flex;align-items:center;gap:10px;padding:11px 14px;cursor:pointer;font-size:13px;color:var(--text);transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">📎</span> Dosya Ekle
                 <input type="file" id="file-input" class="hidden" multiple onchange="Messages.handleFiles(this.files);closeComposePlus()">
               </label>
-              <button onclick="openScheduler();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
+              <button onclick="openScheduler();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">⏰</span> Zamanlanmış Gönder
               </button>
-              <button onclick="openPollCreate();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
+              <button onclick="openPollCreate();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">📊</span> Anket Oluştur
               </button>
-              <button onclick="openDocEditor();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
+              <button onclick="openDocEditor();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">📄</span> Döküman / Çizim
               </button>
-              <button onclick="openSavedMessages();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
+              <button onclick="openSavedMessages();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">📌</span> Kaydedilen Mesajlar
               </button>
-              <button onclick="shareLocation();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#DDE8F8;text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
+              <button onclick="shareLocation();closeComposePlus()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left;transition:background .12s" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">📍</span> Konum Paylaş
               </button>
               <!-- Komutlar — sadece bot sohbetinde görünür -->
-              <button id="compose-commands-btn" onclick="showBotCommands();closeComposePlus()" style="display:none;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:#00FFB3;text-align:left;transition:background .12s;border-top:1px solid #1E2D45" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
+              <button id="compose-commands-btn" onclick="showBotCommands();closeComposePlus()" style="display:none;align-items:center;gap:10px;padding:11px 14px;width:100%;background:none;border:none;cursor:pointer;font-size:13px;color:var(--accent);text-align:left;transition:background .12s;border-top:1px solid var(--border)" onmouseenter="this.style.background='#131D30'" onmouseleave="this.style.background='transparent'">
                 <span style="font-size:18px">🤖</span> Komutlar
               </button>
             </div>
             <button onclick="Messages.toggleGifPicker()"
-              style="height:36px;padding:0 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#7A8FA8;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:all .15s;flex-shrink:0"
+              style="height:36px;padding:0 9px;border-radius:10px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--muted);background:var(--elev);border:1px solid var(--border);cursor:pointer;transition:all .15s;flex-shrink:0"
               onmouseenter="this.style.borderColor='#00FFB3';this.style.color='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45';this.style.color='#7A8FA8'">GIF</button>
             <button onclick="Messages.toggleStickerPicker()"
-              style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:border-color .15s;flex-shrink:0"
+              style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--elev);border:1px solid var(--border);cursor:pointer;transition:border-color .15s;flex-shrink:0"
               onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">😊</button>
           </div>
 
           <!-- Textarea -->
           <textarea id="msg-input" rows="1" placeholder="Şifreli mesaj yaz…"
-            style="flex:1;padding:9px 14px;border-radius:14px;font-size:16px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;resize:none;max-height:120px;line-height:1.5;font-family:'DM Sans',sans-serif;transition:border-color .2s;min-width:0;outline:none;-webkit-appearance:none"
+            style="flex:1;padding:9px 14px;border-radius:14px;font-size:16px;border:1.5px solid var(--border);background:var(--input-bg);color:var(--text);resize:none;max-height:120px;line-height:1.5;font-family:'DM Sans',sans-serif;transition:border-color .2s;min-width:0;outline:none;-webkit-appearance:none"
             oninput="Messages.autoResize(this);_updateMsgCounter(this)"
             onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"
             onkeydown="handleMsgKey(event)"></textarea>
@@ -357,7 +358,7 @@
           <!-- Right actions -->
           <div style="display:flex;gap:4px;align-items:flex-end;flex-shrink:0">
             <button id="destruct-btn" onclick="Messages.toggleDestruct()" data-tip="Self-Destruct"
-              style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:all .15s;flex-shrink:0"
+              style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);background:var(--elev);border:1px solid var(--border);cursor:pointer;transition:all .15s;flex-shrink:0"
               onmouseenter="this.style.borderColor='#FF3D6B'" onmouseleave="this.style.borderColor='#1E2D45'">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             </button>
@@ -365,7 +366,7 @@
               onmousedown="Messages.startVoice()" onmouseup="Messages.stopVoice()"
               ontouchstart="Messages.startVoice()" ontouchend="Messages.stopVoice()"
               data-tip="Sesli Mesaj"
-              style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:#7A8FA8;background:#131D30;border:1px solid #1E2D45;cursor:pointer;transition:all .15s;flex-shrink:0;user-select:none;-webkit-user-select:none">
+              style="width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);background:var(--elev);border:1px solid var(--border);cursor:pointer;transition:all .15s;flex-shrink:0;user-select:none;-webkit-user-select:none">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             </button>
             <button onclick="sendMessage()"
@@ -380,21 +381,21 @@
   </div>
 
   <!-- ════ INFO PANEL ══════════════════════════════ -->
-  <div id="info-panel" style="display:none;flex-direction:column;width:260px;min-width:260px;background:#0C1220;border-left:1px solid #1E2D45">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-weight:700;font-size:14px;font-family:Syne,sans-serif;color:#DDE8F8">Sohbet Bilgisi</span>
-      <button onclick="toggleInfoPanel()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:16px">✕</button>
+  <div id="info-panel" style="display:none;flex-direction:column;width:260px;min-width:260px;background:var(--surf);border-left:1px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-weight:700;font-size:14px;font-family:Syne,sans-serif;color:var(--text)">Sohbet Bilgisi</span>
+      <button onclick="toggleInfoPanel()" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:16px">✕</button>
     </div>
     <div id="info-panel-content" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px"></div>
   </div>
 </div>
 
 <!-- Voice recording -->
-<div id="voice-indicator" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:20px;background:#0C1220;border:1px solid rgba(255,61,107,.4);align-items:center;gap:10px;z-index:50;box-shadow:0 0 30px rgba(255,61,107,.2)">
+<div id="voice-indicator" style="display:none;position:fixed;bottom:80px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:20px;background:var(--surf);border:1px solid rgba(255,61,107,.4);align-items:center;gap:10px;z-index:50;box-shadow:0 0 30px rgba(255,61,107,.2)">
   <div style="width:10px;height:10px;border-radius:50%;background:#FF3D6B;animation:pulseDot 1s infinite"></div>
   <span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:#FF3D6B">🎙 Ses kaydı</span>
-  <span id="rec-timer" style="font-size:11px;font-family:'JetBrains Mono',monospace;color:#7A8FA8">0:00</span>
-  <span style="font-size:11px;color:#7A8FA8">Bırak → gönder</span>
+  <span id="rec-timer" style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted)">0:00</span>
+  <span style="font-size:11px;color:var(--muted)">Bırak → gönder</span>
 </div>
 
 <!-- Toast -->
@@ -422,88 +423,88 @@
 
 <!-- Settings -->
 <div id="settings-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:90dvh;overflow-y:auto;animation:slideUp .25s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45;position:sticky;top:0;background:#0C1220;z-index:1">
-      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">⚙️ Ayarlar</span>
-      <button onclick="UI.closeModal('settings-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+  <div style="width:100%;max-width:360px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:90dvh;overflow-y:auto;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surf);z-index:1">
+      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:var(--text)">⚙️ Ayarlar</span>
+      <button onclick="UI.closeModal('settings-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button>
     </div>
     <div style="padding:16px;display:flex;flex-direction:column;gap:16px">
-      <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em">GÖRÜNÜM</div>
+      <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">GÖRÜNÜM</div>
       <div style="display:flex;flex-direction:column;gap:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Karanlık Mod</div><div style="font-size:11px;color:#7A8FA8">Arayüz teması</div></div><div id="dark-toggle" class="toggle-track on" onclick="toggleDark()"><div class="toggle-knob"></div></div></div>
-        <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Düşük Veri</div><div style="font-size:11px;color:#7A8FA8">Medya önizleme gizle</div></div><div id="lowdata-toggle" class="toggle-track off" onclick="toggleLowData()"><div class="toggle-knob"></div></div></div>
-        <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Bildirimler</div><div style="font-size:11px;color:#7A8FA8">Masaüstü bildirimleri</div></div><div id="notif-toggle" class="toggle-track on" onclick="toggleNotifs()"><div class="toggle-knob"></div></div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:var(--text);font-weight:500">Karanlık Mod</div><div style="font-size:11px;color:var(--muted)">Arayüz teması</div></div><div id="dark-toggle" class="toggle-track on" onclick="toggleDark()"><div class="toggle-knob"></div></div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:var(--text);font-weight:500">Düşük Veri</div><div style="font-size:11px;color:var(--muted)">Medya önizleme gizle</div></div><div id="lowdata-toggle" class="toggle-track off" onclick="toggleLowData()"><div class="toggle-knob"></div></div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;color:var(--text);font-weight:500">Bildirimler</div><div style="font-size:11px;color:var(--muted)">Masaüstü bildirimleri</div></div><div id="notif-toggle" class="toggle-track on" onclick="toggleNotifs()"><div class="toggle-knob"></div></div></div>
       </div>
-      <div style="border-top:1px solid #1E2D45;padding-top:14px">
-        <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">KİŞİSELLEŞTİRME</div>
-        <button onclick="UI.closeModal('settings-modal');openCustomize()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">🎨</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Kişiselleştir</div><div style="font-size:11px;color:#7A8FA8">Logo, arkaplan, tema rengi</div></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">KİŞİSELLEŞTİRME</div>
+        <button onclick="UI.closeModal('settings-modal');openCustomize()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🎨</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Kişiselleştir</div><div style="font-size:11px;color:var(--muted)">Logo, arkaplan, tema rengi</div></div>
         </button>
-        <button onclick="UI.closeModal('settings-modal');openLanguage()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">🌐</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500" data-i18n="settings_language">Dil</div><div id="settings-lang-label" style="font-size:11px;color:#7A8FA8">🇹🇷 Türkçe</div></div>
+        <button onclick="UI.closeModal('settings-modal');openLanguage()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🌐</span><div><div style="font-size:13px;color:var(--text);font-weight:500" data-i18n="settings_language">Dil</div><div id="settings-lang-label" style="font-size:11px;color:var(--muted)">🇹🇷 Türkçe</div></div>
         </button>
-        <button onclick="UI.closeModal('settings-modal');openSavedMessages()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">📌</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Kaydedilen Mesajlar</div><div style="font-size:11px;color:#7A8FA8">Kaydettiğin mesajları gör</div></div>
+        <button onclick="UI.closeModal('settings-modal');openSavedMessages()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">📌</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Kaydedilen Mesajlar</div><div style="font-size:11px;color:var(--muted)">Kaydettiğin mesajları gör</div></div>
         </button>
-        <button onclick="UI.closeModal('settings-modal');setTab('updates')" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">📣</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Güncellemeler</div><div style="font-size:11px;color:#7A8FA8">Hikayeler ve duyurular</div></div>
+        <button onclick="UI.closeModal('settings-modal');setTab('updates')" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">📣</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Güncellemeler</div><div style="font-size:11px;color:var(--muted)">Hikayeler ve duyurular</div></div>
         </button>
         <button onclick="UI.closeModal('settings-modal');openCCodeRedeem()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid rgba(255,215,0,.2);background:rgba(255,215,0,.03);cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#FFD700'" onmouseleave="this.style.borderColor='rgba(255,215,0,.2)'">
-          <span style="font-size:20px">🎁</span><div><div style="font-size:13px;color:#FFD700;font-weight:500">CCode — Promosyon Kodu</div><div style="font-size:11px;color:#7A8FA8">Kodu gir, ödülünü al</div></div>
+          <span style="font-size:20px">🎁</span><div><div style="font-size:13px;color:#FFD700;font-weight:500">CCode — Promosyon Kodu</div><div style="font-size:11px;color:var(--muted)">Kodu gir, ödülünü al</div></div>
         </button>
       </div>
-      <div style="border-top:1px solid #1E2D45;padding-top:14px">
-        <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">UYGULAMA</div>
-        <button onclick="PWA.install()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">📱</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Uygulamayı Kur</div><div style="font-size:11px;color:#7A8FA8">Masaüstü / Telefon</div></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">UYGULAMA</div>
+        <button onclick="PWA.install()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">📱</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Uygulamayı Kur</div><div style="font-size:11px;color:var(--muted)">Masaüstü / Telefon</div></div>
         </button>
       </div>
-      <div style="border-top:1px solid #1E2D45;padding-top:14px">
-        <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">GÜVENLİK</div>
-        <div style="background:#06080F;border:1px solid #1E2D45;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:7px">
-          <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace"><span style="color:#00FFB3;margin-right:6px">🔒</span>AES-256-GCM Şifreleme</div>
-          <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace"><span style="color:#00FFB3;margin-right:6px">🔑</span>PBKDF2 Anahtar Türetme</div>
-          <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace"><span style="color:#00FFB3;margin-right:6px">🛡</span>Sıfır Sunucu Kaydı</div>
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">GÜVENLİK</div>
+        <div style="background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:7px">
+          <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace"><span style="color:var(--accent);margin-right:6px">🔒</span>AES-256-GCM Şifreleme</div>
+          <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace"><span style="color:var(--accent);margin-right:6px">🔑</span>PBKDF2 Anahtar Türetme</div>
+          <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace"><span style="color:var(--accent);margin-right:6px">🛡</span>Sıfır Sunucu Kaydı</div>
         </div>
       </div>
-      <div style="border-top:1px solid #1E2D45;padding-top:14px">
-        <button onclick="shareApp()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">🔗</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Uygulamayı Paylaş</div><div style="font-size:11px;color:#7A8FA8">Linki kopyala veya paylaş</div></div>
+      <div style="border-top:1px solid var(--border);padding-top:14px">
+        <button onclick="shareApp()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🔗</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Uygulamayı Paylaş</div><div style="font-size:11px;color:var(--muted)">Linki kopyala veya paylaş</div></div>
         </button>
-        <button onclick="UI.closeModal('settings-modal');openChangePwd()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">🔑</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Şifre Değiştir</div><div style="font-size:11px;color:#7A8FA8">Hesap şifreni güncelle</div></div>
+        <button onclick="UI.closeModal('settings-modal');openChangePwd()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🔑</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Şifre Değiştir</div><div style="font-size:11px;color:var(--muted)">Hesap şifreni güncelle</div></div>
         </button>
-        <button onclick="UI.closeModal('settings-modal');openChangeName()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">✏️</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Ad Değiştir</div><div style="font-size:11px;color:#7A8FA8">Görünen adını güncelle</div></div>
+        <button onclick="UI.closeModal('settings-modal');openChangeName()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">✏️</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Ad Değiştir</div><div style="font-size:11px;color:var(--muted)">Görünen adını güncelle</div></div>
         </button>
 
-        <button onclick="UI.closeModal('settings-modal');openProfileEdit()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">👤</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Profili Düzenle</div><div style="font-size:11px;color:#7A8FA8">Ad, biyografi, fotoğraf</div></div>
+        <button onclick="UI.closeModal('settings-modal');openProfileEdit()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">👤</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Profili Düzenle</div><div style="font-size:11px;color:var(--muted)">Ad, biyografi, fotoğraf</div></div>
         </button>
-        <button onclick="UI.closeModal('settings-modal');openReportModal()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#FFA535'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">🚨</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Sorun Bildir</div><div style="font-size:11px;color:#7A8FA8">Bug veya şikayet gönder</div></div>
+        <button onclick="UI.closeModal('settings-modal');openReportModal()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#FFA535'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🚨</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Sorun Bildir</div><div style="font-size:11px;color:var(--muted)">Bug veya şikayet gönder</div></div>
         </button>
-        <button onclick="UI.closeModal('settings-modal');openLockAccount()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid #1E2D45;background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#FFA535'" onmouseleave="this.style.borderColor='#1E2D45'">
-          <span style="font-size:20px">🔐</span><div><div style="font-size:13px;color:#DDE8F8;font-weight:500">Hesabı Kilitle</div><div style="font-size:11px;color:#7A8FA8">Şifre ile geçici kilitleme</div></div>
+        <button onclick="UI.closeModal('settings-modal');openLockAccount()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid var(--border);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:8px" onmouseenter="this.style.borderColor='#FFA535'" onmouseleave="this.style.borderColor='#1E2D45'">
+          <span style="font-size:20px">🔐</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Hesabı Kilitle</div><div style="font-size:11px;color:var(--muted)">Şifre ile geçici kilitleme</div></div>
         </button>
         <button onclick="UI.closeModal('settings-modal');openDeleteAccount()" style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;border:1px solid rgba(255,61,107,.3);background:none;cursor:pointer;width:100%;text-align:left;transition:border-color .15s;margin-bottom:10px" onmouseenter="this.style.borderColor='#FF3D6B'" onmouseleave="this.style.borderColor='rgba(255,61,107,.3)'">
-          <span style="font-size:20px">🗑</span><div><div style="font-size:13px;color:#FF3D6B;font-weight:500">Hesabı Sil</div><div style="font-size:11px;color:#7A8FA8">Kalıcı olarak sil</div></div>
+          <span style="font-size:20px">🗑</span><div><div style="font-size:13px;color:#FF3D6B;font-weight:500">Hesabı Sil</div><div style="font-size:11px;color:var(--muted)">Kalıcı olarak sil</div></div>
         </button>
         <!-- Durum modu -->
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid #1E2D45;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;border:1px solid var(--border);margin-bottom:8px">
           <span style="font-size:20px">💬</span>
-          <div style="flex:1"><div style="font-size:13px;color:#DDE8F8;font-weight:500">Durum Modu</div></div>
-          <select id="status-mode-select" onchange="setStatusMode(this.value)" style="background:#131D30;border:1px solid #1E2D45;border-radius:8px;color:#DDE8F8;padding:5px 8px;font-size:12px;cursor:pointer;outline:none">
+          <div style="flex:1"><div style="font-size:13px;color:var(--text);font-weight:500">Durum Modu</div></div>
+          <select id="status-mode-select" onchange="setStatusMode(this.value)" style="background:var(--elev);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:5px 8px;font-size:12px;cursor:pointer;outline:none">
             <option value="online">🟢 Çevrimiçi</option>
             <option value="away">🟡 Uzakta</option>
             <option value="dnd">🔴 Rahatsız Etmeyin</option>
           </select>
         </div>
         <!-- Info links -->
-        <div style="display:flex;justify-content:center;gap:16px;padding:10px 0;border-top:1px solid #1E2D45;margin-bottom:8px">
-          <a href="hakkinda.html" target="_blank" style="font-size:11px;color:#7A8FA8;text-decoration:none;font-family:'JetBrains Mono',monospace">Hakkında</a>
-          <a href="gizlilik.html" target="_blank" style="font-size:11px;color:#7A8FA8;text-decoration:none;font-family:'JetBrains Mono',monospace">Gizlilik</a>
-          <a href="yardim.html"  target="_blank" style="font-size:11px;color:#7A8FA8;text-decoration:none;font-family:'JetBrains Mono',monospace">Yardım</a>
+        <div style="display:flex;justify-content:center;gap:16px;padding:10px 0;border-top:1px solid var(--border);margin-bottom:8px">
+          <a href="hakkinda.html" target="_blank" style="font-size:11px;color:var(--muted);text-decoration:none;font-family:'JetBrains Mono',monospace">Hakkında</a>
+          <a href="gizlilik.html" target="_blank" style="font-size:11px;color:var(--muted);text-decoration:none;font-family:'JetBrains Mono',monospace">Gizlilik</a>
+          <a href="yardim.html"  target="_blank" style="font-size:11px;color:var(--muted);text-decoration:none;font-family:'JetBrains Mono',monospace">Yardım</a>
         </div>
         <button onclick="Auth.logout()" style="width:100%;padding:11px;border-radius:12px;background:rgba(255,61,107,.08);color:#FF3D6B;border:1px solid rgba(255,61,107,.2);font-weight:600;font-size:14px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,61,107,.15)'" onmouseleave="this.style.background='rgba(255,61,107,.08)'">
           Çıkış Yap
@@ -515,13 +516,13 @@
 
 <!-- New Chat -->
 <div id="new-chat-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;animation:slideUp .25s ease-out;max-height:80dvh;display:flex;flex-direction:column;overflow:hidden">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">Yeni Sohbet</span>
-      <button onclick="UI.closeModal('new-chat-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+  <div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;animation:slideUp .25s ease-out;max-height:80dvh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">Yeni Sohbet</span>
+      <button onclick="UI.closeModal('new-chat-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div style="padding:10px 12px;flex-shrink:0">
-      <input id="contact-search" type="text" placeholder="İsim ara…" style="width:100%;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:9px 14px;font-size:13px;color:#DDE8F8;outline:none;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"
+      <input id="contact-search" type="text" placeholder="İsim ara…" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;color:var(--text);outline:none;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"
         oninput="Array.from(document.querySelectorAll('#contacts-list>div')).forEach(d=>d.style.display=d.textContent.toLowerCase().includes(this.value.toLowerCase())?'':'none')">
     </div>
     <div id="contacts-list" style="overflow-y:auto;padding:0 12px 12px;display:flex;flex-direction:column;gap:2px"></div>
@@ -530,24 +531,24 @@
 
 <!-- Group Create -->
 <div id="group-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;animation:slideUp .25s ease-out;max-height:80dvh;display:flex;flex-direction:column;overflow:hidden">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">Grup Oluştur</span>
-      <button onclick="UI.closeModal('group-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+  <div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;animation:slideUp .25s ease-out;max-height:80dvh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">Grup Oluştur</span>
+      <button onclick="UI.closeModal('group-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div style="padding:12px;flex-shrink:0">
       <!-- Icon + Name row -->
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <!-- Icon picker button -->
-        <button id="group-icon-btn" onclick="openGroupIconPicker()" style="width:46px;height:46px;border-radius:14px;font-size:22px;background:#06080F;border:1.5px solid #1E2D45;cursor:pointer;flex-shrink:0;transition:border-color .2s;display:flex;align-items:center;justify-content:center" title="İkon seç">👥</button>
-        <input id="group-name" type="text" placeholder="Grup adı…" style="flex:1;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:9px 14px;font-size:13px;color:#DDE8F8;outline:none;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+        <button id="group-icon-btn" onclick="openGroupIconPicker()" style="width:46px;height:46px;border-radius:14px;font-size:22px;background:var(--input-bg);border:1.5px solid var(--border);cursor:pointer;flex-shrink:0;transition:border-color .2s;display:flex;align-items:center;justify-content:center" title="İkon seç">👥</button>
+        <input id="group-name" type="text" placeholder="Grup adı…" style="flex:1;background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:9px 14px;font-size:13px;color:var(--text);outline:none;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
       </div>
       <!-- Icon picker panel (hidden by default) -->
-      <div id="group-icon-panel" style="display:none;background:#06080F;border:1px solid #1E2D45;border-radius:12px;padding:10px;margin-bottom:10px">
-        <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:8px">İKON SEÇ</div>
+      <div id="group-icon-panel" style="display:none;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:8px">İKON SEÇ</div>
         <div id="group-icon-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>
-      <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:4px">ÜYE SEÇ</div>
+      <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:4px">ÜYE SEÇ</div>
     </div>
     <div id="group-contacts" style="overflow-y:auto;padding:0 12px;flex:1;display:flex;flex-direction:column;gap:2px"></div>
     <div style="padding:12px;flex-shrink:0">
@@ -558,60 +559,60 @@
 
 <!-- Profile Edit -->
 <div id="profile-edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div id="profile-edit-inner" style="width:100%;max-width:400px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:94dvh;overflow-y:auto;animation:slideUp .25s ease-out;display:flex;flex-direction:column">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45;position:sticky;top:0;background:#0C1220;z-index:1">
-      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">Profili Düzenle</span>
-      <button onclick="UI.closeModal('profile-edit-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+  <div id="profile-edit-inner" style="width:100%;max-width:400px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:94dvh;overflow-y:auto;animation:slideUp .25s ease-out;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surf);z-index:1">
+      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:var(--text)">Profili Düzenle</span>
+      <button onclick="UI.closeModal('profile-edit-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button>
     </div>
     <!-- Tab bar -->
-    <div style="display:flex;gap:0;border-bottom:1px solid #1E2D45;background:#0A1018;flex-shrink:0">
-      <button id="pe-tab-profil" onclick="setPeTab('profil')" style="flex:1;padding:10px 4px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;border:none;background:transparent;cursor:pointer;color:#00FFB3;border-bottom:2px solid #00FFB3;transition:all .15s">👤 Profil</button>
-      <button id="pe-tab-avatar" onclick="setPeTab('avatar')" style="flex:1;padding:10px 4px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;border:none;background:transparent;cursor:pointer;color:#7A8FA8;border-bottom:2px solid transparent;transition:all .15s">🎨 Avatar Yap</button>
-      <button id="pe-tab-qr" onclick="setPeTab('qr')" style="flex:1;padding:10px 4px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;border:none;background:transparent;cursor:pointer;color:#7A8FA8;border-bottom:2px solid transparent;transition:all .15s">🔲 QR Kod</button>
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0">
+      <button id="pe-tab-profil" onclick="setPeTab('profil')" style="flex:1;padding:10px 4px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;border:none;background:transparent;cursor:pointer;color:var(--accent);border-bottom:2px solid #00FFB3;transition:all .15s">👤 Profil</button>
+      <button id="pe-tab-avatar" onclick="setPeTab('avatar')" style="flex:1;padding:10px 4px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s">🎨 Avatar Yap</button>
+      <button id="pe-tab-qr" onclick="setPeTab('qr')" style="flex:1;padding:10px 4px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;border:none;background:transparent;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s">🔲 QR Kod</button>
     </div>
 
     <!-- TAB: Profil -->
     <div id="pe-panel-profil" style="padding:20px;display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
         <div style="position:relative">
-          <div id="avatar-preview" style="width:80px;height:80px;border-radius:50%;background:#1E2D45;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;overflow:hidden;color:#DDE8F8;font-family:Syne,sans-serif"></div>
-          <label style="position:absolute;bottom:-2px;right:-2px;width:28px;height:28px;border-radius:50%;background:#00FFB3;color:#062B1F;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid #0C1220">
+          <div id="avatar-preview" style="width:80px;height:80px;border-radius:50%;background:#1E2D45;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;overflow:hidden;color:var(--text);font-family:Syne,sans-serif"></div>
+          <label style="position:absolute;bottom:-2px;right:-2px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#062B1F;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid var(--surf)">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            <input type="file" class="hidden" accept="image/*" onchange="uploadAvatar(this)">
+            <input type="file" class="hidden" accept="image/*" onchange="openCropModal(this)">
           </label>
         </div>
 
       </div>
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">GÖRÜNEN AD</label>
-        <input id="pe-displayname" type="text" style="width:100%;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:10px 14px;font-size:13px;color:#DDE8F8;outline:none;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">GÖRÜNEN AD</label>
+        <input id="pe-displayname" type="text" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text);outline:none;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
       </div>
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">BİYOGRAFİ</label>
-        <textarea id="pe-bio" rows="2" style="width:100%;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:10px 14px;font-size:13px;color:#DDE8F8;outline:none;resize:none;font-family:'DM Sans',sans-serif;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"></textarea>
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">BİYOGRAFİ</label>
+        <textarea id="pe-bio" rows="2" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text);outline:none;resize:none;font-family:'DM Sans',sans-serif;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"></textarea>
       </div>
       <div style="display:flex;gap:8px">
         <div style="width:64px">
-          <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">EMOJİ</label>
-          <input id="pe-statusemoji" type="text" maxlength="2" style="width:100%;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:10px;font-size:18px;color:#DDE8F8;outline:none;text-align:center;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+          <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">EMOJİ</label>
+          <input id="pe-statusemoji" type="text" maxlength="2" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:10px;font-size:18px;color:var(--text);outline:none;text-align:center;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
         </div>
         <div style="flex:1">
-          <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">DURUM</label>
-          <input id="pe-status" type="text" maxlength="60" style="width:100%;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:10px 14px;font-size:13px;color:#DDE8F8;outline:none;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+          <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">DURUM</label>
+          <input id="pe-status" type="text" maxlength="60" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--text);outline:none;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
         </div>
       </div>
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:8px">BANNER RENGI</label>
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:8px">BANNER RENGI</label>
         <div id="banner-colors" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
       <!-- Şu An Dinliyorum -->
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">🎵 ŞU AN DİNLİYORUM</label>
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">🎵 ŞU AN DİNLİYORUM</label>
         <div style="display:flex;gap:6px;align-items:center">
-          <input id="pe-nowplaying" type="text" maxlength="80" placeholder="Şarkı adı — Sanatçı" style="flex:1;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:9px 12px;font-size:13px;color:#DDE8F8;outline:none;transition:border-color .2s;font-family:'DM Sans',sans-serif" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
-          <button onclick="clearNowPlaying()" style="padding:9px 10px;border-radius:10px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;cursor:pointer;font-size:12px" title="Temizle">✕</button>
+          <input id="pe-nowplaying" type="text" maxlength="80" placeholder="Şarkı adı — Sanatçı" style="flex:1;background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;transition:border-color .2s;font-family:'DM Sans',sans-serif" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+          <button onclick="clearNowPlaying()" style="padding:9px 10px;border-radius:10px;background:var(--elev);color:var(--muted);border:1px solid var(--border);cursor:pointer;font-size:12px" title="Temizle">✕</button>
         </div>
-        <div style="font-size:10px;color:#5A6E88;margin-top:3px">Profilinde görünür. Otomatik Spotify entegrasyonu yakında.</div>
+        <div style="font-size:10px;color:var(--muted2);margin-top:3px">Profilinde görünür. Otomatik Spotify entegrasyonu yakında.</div>
       </div>
       <button onclick="saveProfile()" style="width:100%;padding:12px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;cursor:pointer;border:none;font-family:Syne,sans-serif">Kaydet</button>
     </div>
@@ -620,11 +621,11 @@
     <div id="pe-panel-avatar" style="display:none;flex-direction:column;min-height:0;flex:1">
 
       <!-- Önizleme -->
-      <div style="padding:14px 16px;border-bottom:1px solid #1E2D45;display:flex;gap:12px;align-items:center;flex-shrink:0">
-        <div id="av-preview-wrap" style="width:72px;height:72px;border-radius:50%;overflow:hidden;border:3px solid #1E2D45;background:#0A1018;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px">🧑</div>
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;flex-shrink:0">
+        <div id="av-preview-wrap" style="width:72px;height:72px;border-radius:50%;overflow:hidden;border:3px solid #1E2D45;background:var(--bg);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px">🧑</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:#DDE8F8;margin-bottom:4px">Avatar Yapıcı</div>
-          <div style="font-size:11px;color:#7A8FA8;margin-bottom:8px">Her seçim anında güncellenir</div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px">Avatar Yapıcı</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Her seçim anında güncellenir</div>
           <button onclick="applyMakerAvatar()" style="padding:7px 14px;border-radius:8px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:12px;border:none;cursor:pointer;font-family:Syne,sans-serif">✅ Kaydet</button>
         </div>
       </div>
@@ -634,42 +635,42 @@
 
         <!-- Stil -->
         <div>
-          <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">AVATAR STİLİ</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">AVATAR STİLİ</div>
           <div id="av-style-btns" style="display:flex;flex-wrap:wrap;gap:5px"></div>
         </div>
 
         <!-- Ten -->
         <div>
-          <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">TEN RENGİ</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">TEN RENGİ</div>
           <div id="av-skin-btns" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         </div>
 
         <!-- Saç rengi -->
         <div>
-          <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">SAÇ RENGİ</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">SAÇ RENGİ</div>
           <div id="av-haircolor-btns" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         </div>
 
         <!-- Göz -->
         <div>
-          <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">GÖZ RENGİ</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">GÖZ RENGİ</div>
           <div id="av-eye-btns" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         </div>
 
         <!-- Arka plan -->
         <div>
-          <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">ARKA PLAN</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">ARKA PLAN</div>
           <div id="av-bg-btns" style="display:flex;flex-wrap:wrap;gap:6px"></div>
         </div>
 
         <!-- Aksesuar (stil bağımlı) -->
         <div id="av-acc-section">
-          <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">AKSESUAR</div>
+          <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:6px;letter-spacing:.06em">AKSESUAR</div>
           <div id="av-acc-btns" style="display:flex;flex-wrap:wrap;gap:5px"></div>
         </div>
 
         <!-- Rastgele -->
-        <button onclick="randomizeAvatar()" style="width:100%;padding:9px;border-radius:10px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace;margin-top:4px">🎲 Rastgele Oluştur</button>
+        <button onclick="randomizeAvatar()" style="width:100%;padding:9px;border-radius:10px;background:var(--elev);color:var(--accent);border:1px solid rgba(0,255,179,.2);cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace;margin-top:4px">🎲 Rastgele Oluştur</button>
 
         <!-- Canvas (gizli, kaydetmek için) -->
         <canvas id="av-canvas" width="200" height="200" style="display:none"></canvas>
@@ -678,14 +679,14 @@
 
     <!-- TAB: QR Kod -->    <!-- TAB: QR Kod -->
     <div id="pe-panel-qr" style="display:none;padding:20px;flex-direction:column;gap:16px;align-items:center">
-      <div style="font-size:12px;color:#7A8FA8;text-align:center;line-height:1.6">Arkadaşların bu QR kodu okutarak seni ekleyebilir.</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;line-height:1.6">Arkadaşların bu QR kodu okutarak seni ekleyebilir.</div>
       <div id="qr-code-container" style="background:#fff;border-radius:16px;padding:16px;width:200px;height:200px;display:flex;align-items:center;justify-content:center">
         <canvas id="qr-canvas" width="168" height="168"></canvas>
       </div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#00FFB3;text-align:center" id="qr-username-label"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);text-align:center" id="qr-username-label"></div>
       <div style="display:flex;gap:8px;width:100%">
-        <button onclick="downloadQR()" style="flex:1;padding:10px;border-radius:10px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.25);cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace">⬇ İndir</button>
-        <button onclick="shareQR()" style="flex:1;padding:10px;border-radius:10px;background:#131D30;color:#DDE8F8;border:1px solid #1E2D45;cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace">🔗 Paylaş</button>
+        <button onclick="downloadQR()" style="flex:1;padding:10px;border-radius:10px;background:var(--elev);color:var(--accent);border:1px solid rgba(0,255,179,.25);cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace">⬇ İndir</button>
+        <button onclick="shareQR()" style="flex:1;padding:10px;border-radius:10px;background:var(--elev);color:var(--text);border:1px solid var(--border);cursor:pointer;font-size:12px;font-family:'JetBrains Mono',monospace">🔗 Paylaş</button>
       </div>
     </div>
 
@@ -694,12 +695,12 @@
 
 <!-- Edit Message -->
 <div id="edit-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;animation:slideUp .25s ease-out">
+  <div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:12px;animation:slideUp .25s ease-out">
     <div style="display:flex;align-items:center;justify-content:space-between">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">Mesajı Düzenle</span>
-      <button onclick="UI.closeModal('edit-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">Mesajı Düzenle</span>
+      <button onclick="UI.closeModal('edit-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
-    <textarea id="edit-input" rows="3" style="width:100%;background:#06080F;border:1.5px solid #1E2D45;border-radius:10px;padding:10px 14px;font-size:14px;color:#DDE8F8;outline:none;resize:none;font-family:'DM Sans',sans-serif;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"></textarea>
+    <textarea id="edit-input" rows="3" style="width:100%;background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:10px 14px;font-size:14px;color:var(--text);outline:none;resize:none;font-family:'DM Sans',sans-serif;transition:border-color .2s" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"></textarea>
     <button onclick="Messages.saveEdit()" style="width:100%;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;cursor:pointer;border:none">Kaydet</button>
   </div>
 </div>
@@ -710,25 +711,25 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="display:flex;align-items:center;gap:10px">
         <div id="sv-avatar" style="width:36px;height:36px;border-radius:50%;background:#1E2D45;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:Syne,sans-serif"></div>
-        <div><div id="sv-name" style="font-size:14px;font-weight:600;color:#DDE8F8"></div><div id="sv-time" style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace"></div></div>
+        <div><div id="sv-name" style="font-size:14px;font-weight:600;color:var(--text)"></div><div id="sv-time" style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace"></div></div>
       </div>
-      <button onclick="UI.closeModal('story-viewer')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:20px">✕</button>
+      <button onclick="UI.closeModal('story-viewer')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:20px">✕</button>
     </div>
     <div style="height:4px;border-radius:2px;background:#1E2D45;margin-bottom:16px;overflow:hidden"><div id="sv-progress" style="height:100%;background:#00FFB3;width:0%;transition:width 5s linear"></div></div>
-    <div style="min-height:200px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;display:flex;align-items:center;justify-content:center;padding:32px">
-      <div id="sv-content" style="font-size:18px;text-align:center;color:#DDE8F8;line-height:1.6"></div>
+    <div style="min-height:200px;background:var(--surf);border:1px solid var(--border);border-radius:20px;display:flex;align-items:center;justify-content:center;padding:32px">
+      <div id="sv-content" style="font-size:18px;text-align:center;color:var(--text);line-height:1.6"></div>
     </div>
   </div>
 </div>
 
 <!-- ── Engelleme/Bildirme Modal ── -->
 <div id="block-report-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:320px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
+  <div style="width:100%;max-width:320px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8" id="br-title">Kullanıcı Seçenekleri</span>
-      <button onclick="UI.closeModal('block-report-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)" id="br-title">Kullanıcı Seçenekleri</span>
+      <button onclick="UI.closeModal('block-report-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
-    <div id="br-user-info" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:#06080F;margin-bottom:14px"></div>
+    <div id="br-user-info" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:var(--input-bg);margin-bottom:14px"></div>
     <div style="display:flex;flex-direction:column;gap:8px">
       <button id="br-block-btn" onclick="blockUser()" style="display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:12px;border:1px solid rgba(255,165,53,.3);background:rgba(255,165,53,.06);cursor:pointer;width:100%;text-align:left;color:#FFA535;transition:background .15s" onmouseenter="this.style.background='rgba(255,165,53,.12)'" onmouseleave="this.style.background='rgba(255,165,53,.06)'">
         <span style="font-size:18px">🚫</span><div><div style="font-size:13px;font-weight:600">Engelle</div><div style="font-size:11px;opacity:.7">Bu kullanıcıdan mesaj alamazsın</div></div>
@@ -742,15 +743,15 @@
 
 <!-- ── Sorun Bildirme Modal ── -->
 <div id="report-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
+  <div style="width:100%;max-width:360px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🚨 Sorun Bildir</span>
-      <button onclick="UI.closeModal('report-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">🚨 Sorun Bildir</span>
+      <button onclick="UI.closeModal('report-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:10px">
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">KONU</label>
-        <select id="report-type" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;font-size:13px;outline:none">
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">KONU</label>
+        <select id="report-type" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border);background:var(--input-bg);color:var(--text);font-size:13px;outline:none">
           <option value="bug">🐛 Teknik Hata (Bug)</option>
           <option value="abuse">🚫 Kötüye Kullanım</option>
           <option value="spam">📢 Spam / İstenmeyen İçerik</option>
@@ -758,8 +759,8 @@
         </select>
       </div>
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">AÇIKLAMA</label>
-        <textarea id="report-text" rows="3" placeholder="Sorunu açıklayın…" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;font-size:13px;resize:none;font-family:'DM Sans',sans-serif;outline:none" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"></textarea>
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">AÇIKLAMA</label>
+        <textarea id="report-text" rows="3" placeholder="Sorunu açıklayın…" style="width:100%;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border);background:var(--input-bg);color:var(--text);font-size:13px;resize:none;font-family:'DM Sans',sans-serif;outline:none" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'"></textarea>
       </div>
       <button onclick="submitReport()" style="width:100%;padding:11px;border-radius:12px;background:linear-gradient(135deg,#FFA535,#FF7A00);color:#1A0800;font-weight:700;font-size:14px;cursor:pointer;border:none;font-family:Syne,sans-serif">Gönder</button>
     </div>
@@ -768,16 +769,16 @@
 
 <!-- ── Hesap Kilitleme Modal ── -->
 <div id="lock-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:320px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
+  <div style="width:100%;max-width:320px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🔐 Hesabı Kilitle</span>
-      <button onclick="UI.closeModal('lock-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">🔐 Hesabı Kilitle</span>
+      <button onclick="UI.closeModal('lock-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
-    <p style="font-size:12px;color:#7A8FA8;margin-bottom:14px">Hesabınız kilitlenince sadece şifrenizle açılabilir. Oturum kapatılır.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Hesabınız kilitlenince sadece şifrenizle açılabilir. Oturum kapatılır.</p>
     <div style="display:flex;flex-direction:column;gap:10px">
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">ŞİFRENİZİ ONAYLAYIN</label>
-        <input id="lock-pwd" type="password" placeholder="••••••••" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid #1E2D45;background:#06080F;color:#DDE8F8;font-size:14px;outline:none" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'" onkeydown="if(event.key==='Enter')confirmLock()">
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">ŞİFRENİZİ ONAYLAYIN</label>
+        <input id="lock-pwd" type="password" placeholder="••••••••" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--input-bg);color:var(--text);font-size:14px;outline:none" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'" onkeydown="if(event.key==='Enter')confirmLock()">
       </div>
       <div id="lock-err" style="display:none;color:#FF3D6B;font-size:12px;padding:7px 10px;border-radius:8px;background:rgba(255,61,107,.08);border:1px solid rgba(255,61,107,.2)"></div>
       <button onclick="confirmLock()" style="width:100%;padding:11px;border-radius:12px;background:linear-gradient(135deg,#FFA535,#FF7A00);color:#1A0800;font-weight:700;font-size:14px;cursor:pointer;border:none">Kilitle</button>
@@ -787,20 +788,20 @@
 
 <!-- ── Hesap Silme Modal ── -->
 <div id="delete-account-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:320px;margin:0 12px;background:#0C1220;border:1px solid rgba(255,61,107,.3);border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
+  <div style="width:100%;max-width:320px;margin:0 12px;background:var(--surf);border:1px solid rgba(255,61,107,.3);border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <span style="font-family:Syne,sans-serif;font-weight:700;color:#FF3D6B">⚠️ Hesabı Sil</span>
-      <button onclick="UI.closeModal('delete-account-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+      <button onclick="UI.closeModal('delete-account-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
-    <p style="font-size:12px;color:#7A8FA8;margin-bottom:14px;line-height:1.6">Bu işlem <strong style="color:#FF3D6B">geri alınamaz.</strong> Tüm mesajlarınız ve hesap bilgileriniz kalıcı olarak silinir.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">Bu işlem <strong style="color:#FF3D6B">geri alınamaz.</strong> Tüm mesajlarınız ve hesap bilgileriniz kalıcı olarak silinir.</p>
     <div style="display:flex;flex-direction:column;gap:10px">
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">ONAYLAMAK İÇİN "SİL" YAZIN</label>
-        <input id="delete-confirm" type="text" placeholder="SİL" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,61,107,.3);background:#06080F;color:#FF3D6B;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace" onfocus="this.style.borderColor='#FF3D6B'" onblur="this.style.borderColor='rgba(255,61,107,.3)'">
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">ONAYLAMAK İÇİN "SİL" YAZIN</label>
+        <input id="delete-confirm" type="text" placeholder="SİL" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,61,107,.3);background:var(--input-bg);color:#FF3D6B;font-size:14px;outline:none;font-family:'JetBrains Mono',monospace" onfocus="this.style.borderColor='#FF3D6B'" onblur="this.style.borderColor='rgba(255,61,107,.3)'">
       </div>
       <div>
-        <label style="display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px">ŞİFRENİZ</label>
-        <input id="delete-pwd" type="password" placeholder="••••••••" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,61,107,.3);background:#06080F;color:#DDE8F8;font-size:14px;outline:none" onfocus="this.style.borderColor='#FF3D6B'" onblur="this.style.borderColor='rgba(255,61,107,.3)'">
+        <label style="display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px">ŞİFRENİZ</label>
+        <input id="delete-pwd" type="password" placeholder="••••••••" style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,61,107,.3);background:var(--input-bg);color:var(--text);font-size:14px;outline:none" onfocus="this.style.borderColor='#FF3D6B'" onblur="this.style.borderColor='rgba(255,61,107,.3)'">
       </div>
       <div id="del-err" style="display:none;color:#FF3D6B;font-size:12px;padding:7px 10px;border-radius:8px;background:rgba(255,61,107,.08);border:1px solid rgba(255,61,107,.2)"></div>
       <button onclick="confirmDeleteAccount()" style="width:100%;padding:11px;border-radius:12px;background:rgba(255,61,107,.15);color:#FF3D6B;border:1px solid rgba(255,61,107,.4);font-weight:700;font-size:14px;cursor:pointer;transition:background .15s" onmouseenter="this.style.background='rgba(255,61,107,.25)'" onmouseleave="this.style.background='rgba(255,61,107,.15)'">Hesabı Kalıcı Olarak Sil</button>
@@ -810,32 +811,32 @@
 
 <!-- ── Bildirimler Modal ── -->
 <div id="notif-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
+  <div style="width:100%;max-width:360px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;padding:20px;animation:slideUp .2s ease-out">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🔔 Bildirimler</span>
-      <button onclick="UI.closeModal('notif-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">🔔 Bildirimler</span>
+      <button onclick="UI.closeModal('notif-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div id="notif-list" style="display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto">
-      <div style="text-align:center;padding:24px;color:#7A8FA8;font-size:13px">Henüz bildirim yok</div>
+      <div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Henüz bildirim yok</div>
     </div>
-    <button onclick="clearAllNotifs()" style="width:100%;margin-top:12px;padding:9px;border-radius:10px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace">Tümünü Temizle</button>
+    <button onclick="clearAllNotifs()" style="width:100%;margin-top:12px;padding:9px;border-radius:10px;background:var(--elev);color:var(--muted);border:1px solid var(--border);font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace">Tümünü Temizle</button>
   </div>
 </div>
 
 <!-- User Profile Modal -->
 <div id="user-profile-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)" onclick="if(event.target===this)UI.closeModal('user-profile-modal')">
-  <div style="width:100%;max-width:380px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:85dvh;overflow-y:auto;animation:slideUp .25s ease-out;position:relative">
-    <button onclick="UI.closeModal('user-profile-modal')" style="position:absolute;top:10px;right:10px;z-index:10;color:#7A8FA8;background:rgba(13,18,32,.9);backdrop-filter:blur(8px);border:1px solid #1E2D45;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">✕</button>
+  <div style="width:100%;max-width:380px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:85dvh;overflow-y:auto;animation:slideUp .25s ease-out;position:relative">
+    <button onclick="UI.closeModal('user-profile-modal')" style="position:absolute;top:10px;right:10px;z-index:10;color:var(--muted);background:rgba(13,18,32,.9);backdrop-filter:blur(8px);border:1px solid var(--border);cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">✕</button>
     <div id="user-profile-content" style="padding:0"></div>
   </div>
 </div>
 
 <!-- Group Panel Modal -->
 <div id="group-panel-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:380px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:85dvh;overflow-y:auto;animation:slideUp .25s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0;position:sticky;top:0;background:#0C1220;z-index:1">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">👥 Grup Bilgisi</span>
-      <button onclick="UI.closeModal('group-panel-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+  <div style="width:100%;max-width:380px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:85dvh;overflow-y:auto;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0;position:sticky;top:0;background:var(--surf);z-index:1">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">👥 Grup Bilgisi</span>
+      <button onclick="UI.closeModal('group-panel-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div id="group-panel-content" style="padding:16px"></div>
   </div>
@@ -843,14 +844,14 @@
 
 <!-- Add Member Modal -->
 <div id="add-member-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:70dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out">
+  <div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:70dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out">
     <input type="hidden" id="add-member-conv-id">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">+ Üye Ekle</span>
-      <button onclick="UI.closeModal('add-member-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">+ Üye Ekle</span>
+      <button onclick="UI.closeModal('add-member-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div id="add-member-list" style="overflow-y:auto;flex:1;padding:8px"></div>
-    <div style="padding:12px;flex-shrink:0;border-top:1px solid #1E2D45">
+    <div style="padding:12px;flex-shrink:0;border-top:1px solid var(--border)">
       <button onclick="confirmAddMembers()" style="width:100%;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;border:none;cursor:pointer">Ekle</button>
     </div>
   </div>
@@ -863,19 +864,19 @@
 /* Modal error box */
 .modal-err { display:none;padding:8px 12px;border-radius:8px;background:rgba(255,61,107,.09);border:1px solid rgba(255,61,107,.25);color:#FF3D6B;font-size:12px;line-height:1.4; }
 /* Modal input */
-.modal-inp { width:100%;padding:11px 14px;border:1.5px solid #1E2D45;border-radius:10px;background:#06080F;color:#DDE8F8;font-size:16px;font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none;transition:border-color .2s; }
-.modal-inp:focus { border-color:#00FFB3; }
-.modal-lbl { display:block;font-size:10px;font-weight:600;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:5px;letter-spacing:.06em; }
+.modal-inp { width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;background:var(--input-bg);color:var(--text);font-size:16px;font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none;transition:border-color .2s; }
+.modal-inp:focus { border-color:var(--accent); }
+.modal-lbl { display:block;font-size:10px;font-weight:600;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:5px;letter-spacing:.06em; }
 .modal-btn { width:100%;min-height:46px;padding:11px;border-radius:10px;border:none;cursor:pointer;font-family:Syne,sans-serif;font-weight:700;font-size:14px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;-webkit-tap-highlight-color:transparent; }
 </style>
 
 <!-- Change Name Modal -->
 <!-- Change Password Modal -->
 <div id="change-pwd-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🔑 Şifre Değiştir</span>
-      <button onclick="UI.closeModal('change-pwd-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+  <div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">🔑 Şifre Değiştir</span>
+      <button onclick="UI.closeModal('change-pwd-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button>
     </div>
     <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
       <div><label class="modal-lbl">MEVCUT ŞİFRE</label><input id="cp-old" type="password" class="modal-inp" placeholder="••••••••" autocomplete="current-password"></div>
@@ -888,10 +889,10 @@
 </div>
 
 <div id="change-name-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">✏️ Ad Değiştir</span>
-      <button onclick="UI.closeModal('change-name-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+  <div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border)">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">✏️ Ad Değiştir</span>
+      <button onclick="UI.closeModal('change-name-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button>
     </div>
     <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
       <div><label class="modal-lbl">YENİ GÖRÜNEN AD</label><input id="cn-input" type="text" class="modal-inp" placeholder="Adınız" autocomplete="name" enterkeyhint="done" onkeydown="if(event.key==='Enter')submitChangeName()"></div>
@@ -908,16 +909,17 @@
 <script src="js/messages.js"></script>
 <script src="js/pwa.js"></script>
 <script src="js/mathbot.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
 <script src="js/app.js"></script>
 
 <!-- ── KİŞİSELLEŞTİRME MODAL ───────────────────────────────── -->
 <div id="customize-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:400px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:88dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out">
+  <div style="width:100%;max-width:400px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:88dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out">
 
     <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">🎨 Kişiselleştir</span>
-      <button onclick="UI.closeModal('customize-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%">✕</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:var(--text)">🎨 Kişiselleştir</span>
+      <button onclick="UI.closeModal('customize-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%">✕</button>
     </div>
 
     <!-- Scrollable content -->
@@ -925,19 +927,19 @@
 
       <!-- TEMA RENGİ -->
       <div>
-        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">TEMA RENGİ</div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">TEMA RENGİ</div>
         <div id="cust-theme-grid" style="display:flex;flex-wrap:wrap;gap:10px"></div>
       </div>
 
       <!-- UYGULAMA LOGOSU -->
-      <div style="border-top:1px solid #1E2D45;padding-top:18px">
-        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">UYGULAMA LOGOSU</div>
+      <div style="border-top:1px solid var(--border);padding-top:18px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">UYGULAMA LOGOSU</div>
         <div id="cust-logo-grid" style="display:flex;flex-wrap:wrap;gap:12px"></div>
       </div>
 
       <!-- SOHBET ARKAPLANI -->
-      <div style="border-top:1px solid #1E2D45;padding-top:18px">
-        <div style="font-size:10px;font-weight:700;color:#7A8FA8;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">SOHBET ARKAPLANI</div>
+      <div style="border-top:1px solid var(--border);padding-top:18px">
+        <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em;margin-bottom:12px">SOHBET ARKAPLANI</div>
         <div id="cust-bg-grid" style="display:flex;flex-wrap:wrap;gap:12px"></div>
       </div>
 
@@ -949,23 +951,23 @@
 <div id="universal-search-modal" class="fixed inset-0 z-50 hidden items-start justify-center" style="background:rgba(6,8,15,.95);padding-top:clamp(12px,8vh,60px)">
   <div style="width:100%;max-width:560px;margin:0 12px;display:flex;flex-direction:column;max-height:80dvh">
     <!-- Arama kutusu -->
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:#0C1220;border:1px solid #1E2D45;border-radius:16px 16px 0 0">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surf);border:1px solid var(--border);border-radius:16px 16px 0 0">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00FFB3" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input id="universal-search-input" type="text" placeholder="Sohbet, kullanıcı veya mesaj ara…" autocomplete="off"
-        style="flex:1;background:transparent;border:none;outline:none;font-size:15px;color:#DDE8F8;font-family:'DM Sans',sans-serif"
+        style="flex:1;background:transparent;border:none;outline:none;font-size:15px;color:var(--text);font-family:'DM Sans',sans-serif"
         oninput="universalSearch(this.value)" onkeydown="if(event.key==='Escape')closeUniversalSearch()">
-      <button onclick="closeUniversalSearch()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center">✕</button>
+      <button onclick="closeUniversalSearch()" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
     <!-- Sekme filtreleri -->
-    <div style="display:flex;background:#0A1018;border-left:1px solid #1E2D45;border-right:1px solid #1E2D45">
-      <button id="us-tab-all"      onclick="setUTab('all')"      style="flex:1;padding:8px 4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;border-bottom:2px solid #00FFB3;background:transparent;color:#00FFB3;cursor:pointer">Tümü</button>
-      <button id="us-tab-convs"    onclick="setUTab('convs')"    style="flex:1;padding:8px 4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;border-bottom:2px solid transparent;background:transparent;color:#7A8FA8;cursor:pointer">Sohbetler</button>
-      <button id="us-tab-users"    onclick="setUTab('users')"    style="flex:1;padding:8px 4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;border-bottom:2px solid transparent;background:transparent;color:#7A8FA8;cursor:pointer">Kişiler</button>
-      <button id="us-tab-messages" onclick="setUTab('messages')" style="flex:1;padding:8px 4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;border-bottom:2px solid transparent;background:transparent;color:#7A8FA8;cursor:pointer">Mesajlar</button>
+    <div style="display:flex;background:var(--bg);border-left:1px solid var(--border);border-right:1px solid var(--border)">
+      <button id="us-tab-all"      onclick="setUTab('all')"      style="flex:1;padding:8px 4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;border-bottom:2px solid #00FFB3;background:transparent;color:var(--accent);cursor:pointer">Tümü</button>
+      <button id="us-tab-convs"    onclick="setUTab('convs')"    style="flex:1;padding:8px 4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer">Sohbetler</button>
+      <button id="us-tab-users"    onclick="setUTab('users')"    style="flex:1;padding:8px 4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer">Kişiler</button>
+      <button id="us-tab-messages" onclick="setUTab('messages')" style="flex:1;padding:8px 4px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--muted);cursor:pointer">Mesajlar</button>
     </div>
     <!-- Sonuçlar -->
-    <div id="universal-search-results" style="flex:1;overflow-y:auto;background:#0C1220;border:1px solid #1E2D45;border-top:none;border-radius:0 0 16px 16px;min-height:200px">
-      <div style="text-align:center;padding:40px 20px;color:#7A8FA8;font-size:13px">
+    <div id="universal-search-results" style="flex:1;overflow-y:auto;background:var(--surf);border:1px solid var(--border);border-top:none;border-radius:0 0 16px 16px;min-height:200px">
+      <div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px">
         <div style="font-size:28px;margin-bottom:8px">🔍</div>
         Aramak istediğiniz kelimeyi yazın
       </div>
@@ -975,20 +977,20 @@
 
 <!-- ── MEDYA GALERİSİ MODAL ───────────────────────────────────────── -->
 <div id="media-gallery-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:480px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:85dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .25s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🖼 Medya Galerisi</span>
+  <div style="width:100%;max-width:480px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:85dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">🖼 Medya Galerisi</span>
       <div style="display:flex;gap:6px;align-items:center">
-        <span id="gallery-count" style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace"></span>
-        <button onclick="UI.closeModal('media-gallery-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+        <span id="gallery-count" style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace"></span>
+        <button onclick="UI.closeModal('media-gallery-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button>
       </div>
     </div>
     <!-- Filtre -->
-    <div style="display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <button id="gal-tab-all"   onclick="setGalleryTab('all')"   style="padding:4px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;background:#131D30;color:#DDE8F8">Tümü</button>
-      <button id="gal-tab-image" onclick="setGalleryTab('image')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;background:transparent;color:#7A8FA8">Fotoğraf</button>
-      <button id="gal-tab-file"  onclick="setGalleryTab('file')"  style="padding:4px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;background:transparent;color:#7A8FA8">Dosya</button>
-      <button id="gal-tab-link"  onclick="setGalleryTab('link')"  style="padding:4px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;background:transparent;color:#7A8FA8">Link</button>
+    <div style="display:flex;gap:4px;padding:8px 12px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <button id="gal-tab-all"   onclick="setGalleryTab('all')"   style="padding:4px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;background:var(--elev);color:var(--text)">Tümü</button>
+      <button id="gal-tab-image" onclick="setGalleryTab('image')" style="padding:4px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;background:transparent;color:var(--muted)">Fotoğraf</button>
+      <button id="gal-tab-file"  onclick="setGalleryTab('file')"  style="padding:4px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;background:transparent;color:var(--muted)">Dosya</button>
+      <button id="gal-tab-link"  onclick="setGalleryTab('link')"  style="padding:4px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;border:none;cursor:pointer;background:transparent;color:var(--muted)">Link</button>
     </div>
     <div id="gallery-grid" style="flex:1;overflow-y:auto;padding:10px"></div>
   </div>
@@ -996,10 +998,10 @@
 
 <!-- ── SOHBET İSTATİSTİKLERİ MODAL ──────────────────────────────── -->
 <div id="chat-stats-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:400px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:85dvh;overflow-y:auto;animation:slideUp .25s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;position:sticky;top:0;background:#0C1220;z-index:1">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">📊 Sohbet İstatistikleri</span>
-      <button onclick="UI.closeModal('chat-stats-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+  <div style="width:100%;max-width:400px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:85dvh;overflow-y:auto;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surf);z-index:1">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">📊 Sohbet İstatistikleri</span>
+      <button onclick="UI.closeModal('chat-stats-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button>
     </div>
     <div id="chat-stats-content" style="padding:16px;display:flex;flex-direction:column;gap:14px"></div>
   </div>
@@ -1007,11 +1009,11 @@
 
 <!-- ── CCODE KULLAN MODAL ──────────────────────────────────────── -->
 <div id="ccode-redeem-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .25s ease-out">
-    <div style="background:linear-gradient(135deg,#1A1200,#0A1628);padding:24px 20px 16px;border-bottom:1px solid #1E2D45;text-align:center">
+  <div style="width:100%;max-width:360px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:slideUp .25s ease-out">
+    <div style="background:linear-gradient(135deg,#1A1200,#0A1628);padding:24px 20px 16px;border-bottom:1px solid var(--border);text-align:center">
       <div style="font-size:36px;margin-bottom:8px">🎁</div>
       <div style="font-family:Syne,sans-serif;font-weight:800;font-size:18px;color:#FFD700">CCode</div>
-      <div style="font-size:12px;color:#7A8FA8;margin-top:4px">Promosyon kodunu gir, ödülünü al</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">Promosyon kodunu gir, ödülünü al</div>
     </div>
     <div style="padding:20px;display:flex;flex-direction:column;gap:12px">
       <div>
@@ -1020,17 +1022,17 @@
       </div>
       <div id="ccode-result" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.5"></div>
       <button onclick="redeemCCode()" class="modal-btn" style="background:linear-gradient(135deg,#FFD700,#FFA500);color:#1A0800">🎁 Kodu Kullan</button>
-      <button onclick="UI.closeModal('ccode-redeem-modal')" style="padding:9px;border-radius:10px;background:transparent;border:1px solid #1E2D45;color:#7A8FA8;cursor:pointer;font-size:13px">Vazgeç</button>
+      <button onclick="UI.closeModal('ccode-redeem-modal')" style="padding:9px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:13px">Vazgeç</button>
     </div>
   </div>
 </div>
 
 
 <div id="poll-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45">
-      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">📊 Anket Oluştur</span>
-      <button onclick="UI.closeModal('poll-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+  <div style="width:100%;max-width:360px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border)">
+      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:var(--text)">📊 Anket Oluştur</span>
+      <button onclick="UI.closeModal('poll-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button>
     </div>
     <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
       <div>
@@ -1041,10 +1043,10 @@
         <input class="poll-opt modal-inp" type="text" placeholder="Seçenek 1">
         <input class="poll-opt modal-inp" type="text" placeholder="Seçenek 2">
       </div>
-      <button onclick="addPollOption()" style="padding:7px;border-radius:8px;background:#131D30;border:1px solid #1E2D45;color:#00FFB3;font-size:12px;cursor:pointer">+ Seçenek Ekle</button>
-      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#06080F;border:1px solid #1E2D45">
-        <span style="font-size:12px;color:#7A8FA8;flex:1">⏱ Süreli anket</span>
-        <select id="poll-duration" style="background:#131D30;border:1px solid #1E2D45;border-radius:6px;color:#DDE8F8;padding:4px 8px;font-size:12px;cursor:pointer;outline:none">
+      <button onclick="addPollOption()" style="padding:7px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--accent);font-size:12px;cursor:pointer">+ Seçenek Ekle</button>
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--input-bg);border:1px solid var(--border)">
+        <span style="font-size:12px;color:var(--muted);flex:1">⏱ Süreli anket</span>
+        <select id="poll-duration" style="background:var(--elev);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:4px 8px;font-size:12px;cursor:pointer;outline:none">
           <option value="0">Süresiz</option>
           <option value="3600">1 saat</option>
           <option value="86400">24 saat</option>
@@ -1059,10 +1061,10 @@
 
 <!-- ── KAYDEDİLEN MESAJLAR MODAL ──────────────────────────────── -->
 <div id="saved-messages-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:380px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:85dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .25s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">📌 Kaydedilen Mesajlar</span>
-      <button onclick="UI.closeModal('saved-messages-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+  <div style="width:100%;max-width:380px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:85dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">📌 Kaydedilen Mesajlar</span>
+      <button onclick="UI.closeModal('saved-messages-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div id="saved-messages-list" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px"></div>
   </div>
@@ -1070,10 +1072,10 @@
 
 <!-- ── STORY GÖRÜNTÜLEYENLERİ MODAL ─────────────────────────── -->
 <div id="story-viewers-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:70dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .25s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">👁 Görüntüleyenler</span>
-      <button onclick="UI.closeModal('story-viewers-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+  <div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:70dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">👁 Görüntüleyenler</span>
+      <button onclick="UI.closeModal('story-viewers-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div id="story-viewers-list" style="flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px"></div>
   </div>
@@ -1081,10 +1083,10 @@
 
 <!-- ── TAKVİM ETKİNLİĞİ MODAL ────────────────────────────────── -->
 <div id="event-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid #1E2D45">
-      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">📅 Etkinlik Oluştur</span>
-      <button onclick="UI.closeModal('event-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button>
+  <div style="width:100%;max-width:360px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:slideUp .2s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--border)">
+      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:var(--text)">📅 Etkinlik Oluştur</span>
+      <button onclick="UI.closeModal('event-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button>
     </div>
     <div style="padding:16px;display:flex;flex-direction:column;gap:10px">
       <div>
@@ -1110,15 +1112,15 @@
 
 <!-- ── BOT KOMUTLAR MODAL ─────────────────────────────────────── -->
 <div id="bot-commands-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:360px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:80dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .25s ease-out">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">🤖 Bot Komutları</span>
-      <button onclick="UI.closeModal('bot-commands-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer">✕</button>
+  <div style="width:100%;max-width:360px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:80dvh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .25s ease-out">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text)">🤖 Bot Komutları</span>
+      <button onclick="UI.closeModal('bot-commands-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer">✕</button>
     </div>
     <div style="flex:1;overflow-y:auto;padding:8px">
-      <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;padding:6px 8px;letter-spacing:.06em">CIPHER BOT</div>
+      <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:6px 8px;letter-spacing:.06em">CIPHER BOT</div>
       <div id="bot-cmd-list-cipher" style="display:flex;flex-direction:column;gap:2px"></div>
-      <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;padding:10px 8px 6px;letter-spacing:.06em;border-top:1px solid #1E2D45;margin-top:6px">MATEMATİK BOT</div>
+      <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;padding:10px 8px 6px;letter-spacing:.06em;border-top:1px solid var(--border);margin-top:6px">MATEMATİK BOT</div>
       <div id="bot-cmd-list-math" style="display:flex;flex-direction:column;gap:2px"></div>
     </div>
   </div>
@@ -1129,25 +1131,25 @@
      ORTAK DÖKÜMAN & GÖRSEL DÜZENLEYICI
      ══════════════════════════════════════════════════════════════ -->
 <div id="doc-editor-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.96)">
-  <div style="width:100%;height:100%;max-width:900px;margin:0 auto;display:flex;flex-direction:column;background:#0C1220;border:1px solid #1E2D45">
+  <div style="width:100%;height:100%;max-width:900px;margin:0 auto;display:flex;flex-direction:column;background:var(--surf);border:1px solid var(--border)">
 
     <!-- Header -->
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0;background:#0A1018">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg)">
       <div style="display:flex;gap:4px">
         <button id="doc-tab-text" onclick="switchDocTab('text')" style="padding:5px 14px;border-radius:8px;border:1px solid var(--accent,#00FFB3);background:rgba(0,255,179,.12);color:var(--accent,#00FFB3);font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-weight:600">📝 Metin</button>
-        <button id="doc-tab-draw" onclick="switchDocTab('draw')" style="padding:5px 14px;border-radius:8px;border:1px solid #1E2D45;background:transparent;color:#7A8FA8;font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace">🎨 Çizim</button>
+        <button id="doc-tab-draw" onclick="switchDocTab('draw')" style="padding:5px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:'JetBrains Mono',monospace">🎨 Çizim</button>
       </div>
-      <input id="doc-title" type="text" placeholder="Döküman adı…" style="flex:1;background:transparent;border:none;outline:none;font-size:14px;font-weight:600;color:#DDE8F8;font-family:Syne,sans-serif">
+      <input id="doc-title" type="text" placeholder="Döküman adı…" style="flex:1;background:transparent;border:none;outline:none;font-size:14px;font-weight:600;color:var(--text);font-family:Syne,sans-serif">
       <div style="display:flex;gap:6px">
         <button onclick="saveDoc()" style="padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,var(--accent,#00FFB3),var(--accent-d,#00C48A));color:#062B1F;border:none;cursor:pointer;font-size:12px;font-weight:700;font-family:Syne,sans-serif">Gönder</button>
-        <button onclick="UI.closeModal('doc-editor-modal')" style="width:32px;height:32px;border-radius:8px;background:#131D30;border:1px solid #1E2D45;color:#7A8FA8;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+        <button onclick="UI.closeModal('doc-editor-modal')" style="width:32px;height:32px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
       </div>
     </div>
 
     <!-- Text Editor -->
     <div id="doc-text-panel" style="flex:1;display:flex;flex-direction:column;min-height:0">
       <!-- Toolbar -->
-      <div style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-bottom:1px solid #1E2D45;flex-shrink:0;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:4px;padding:6px 12px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap">
         <button onclick="docCmd('bold')"          class="doc-tool-btn" title="Kalın"><b>B</b></button>
         <button onclick="docCmd('italic')"        class="doc-tool-btn" title="İtalik"><i>I</i></button>
         <button onclick="docCmd('underline')"     class="doc-tool-btn" title="Altçizgi"><u>U</u></button>
@@ -1158,21 +1160,21 @@
         <button onclick="docCmd('indent')"  class="doc-tool-btn" title="Girinti">→</button>
         <button onclick="docCmd('outdent')" class="doc-tool-btn" title="Geri">←</button>
         <div style="width:1px;height:20px;background:#1E2D45;margin:0 4px"></div>
-        <select onchange="docCmd('formatBlock',this.value)" style="background:#131D30;border:1px solid #1E2D45;border-radius:6px;color:#DDE8F8;padding:3px 6px;font-size:11px;cursor:pointer;outline:none">
+        <select onchange="docCmd('formatBlock',this.value)" style="background:var(--elev);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:3px 6px;font-size:11px;cursor:pointer;outline:none">
           <option value="p">Paragraf</option>
           <option value="h1">Başlık 1</option>
           <option value="h2">Başlık 2</option>
           <option value="h3">Başlık 3</option>
           <option value="pre">Kod</option>
         </select>
-        <input type="color" onchange="docCmd('foreColor',this.value)" value="#DDE8F8" title="Renk" style="width:28px;height:28px;border-radius:6px;border:1px solid #1E2D45;background:#131D30;cursor:pointer;padding:2px">
+        <input type="color" onchange="docCmd('foreColor',this.value)" value="#DDE8F8" title="Renk" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--elev);cursor:pointer;padding:2px">
         <div style="width:1px;height:20px;background:#1E2D45;margin:0 4px"></div>
         <button onclick="docCmd('undo')" class="doc-tool-btn" title="Geri Al">↩</button>
         <button onclick="docCmd('redo')" class="doc-tool-btn" title="Yinele">↪</button>
       </div>
       <!-- Editable area -->
       <div id="doc-content" contenteditable="true"
-        style="flex:1;padding:20px 24px;overflow-y:auto;color:#DDE8F8;font-size:15px;line-height:1.7;outline:none;font-family:'DM Sans',sans-serif;background:#06080F;-webkit-overflow-scrolling:touch"
+        style="flex:1;padding:20px 24px;overflow-y:auto;color:var(--text);font-size:15px;line-height:1.7;outline:none;font-family:'DM Sans',sans-serif;background:var(--input-bg);-webkit-overflow-scrolling:touch"
         placeholder="Yazmaya başlayın…">
       </div>
     </div>
@@ -1180,7 +1182,7 @@
     <!-- Draw Editor -->
     <div id="doc-draw-panel" style="flex:1;display:none;flex-direction:column;min-height:0">
       <!-- Draw toolbar -->
-      <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid #1E2D45;flex-shrink:0;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap">
         <button onclick="setDrawTool('pen')"   id="dt-pen"   class="doc-tool-btn active-tool" title="Kalem">✏️</button>
         <button onclick="setDrawTool('line')"  id="dt-line"  class="doc-tool-btn" title="Çizgi">╱</button>
         <button onclick="setDrawTool('rect')"  id="dt-rect"  class="doc-tool-btn" title="Dikdörtgen">▭</button>
@@ -1188,15 +1190,15 @@
         <button onclick="setDrawTool('text')"  id="dt-text"  class="doc-tool-btn" title="Metin">T</button>
         <button onclick="setDrawTool('eraser')"id="dt-eraser"class="doc-tool-btn" title="Silgi">🧹</button>
         <div style="width:1px;height:20px;background:#1E2D45;margin:0 2px"></div>
-        <input type="color" id="draw-color" value="#00FFB3" title="Renk" style="width:28px;height:28px;border-radius:6px;border:1px solid #1E2D45;background:#131D30;cursor:pointer;padding:2px">
-        <select id="draw-size" style="background:#131D30;border:1px solid #1E2D45;border-radius:6px;color:#DDE8F8;padding:3px 6px;font-size:11px;cursor:pointer;outline:none">
+        <input type="color" id="draw-color" value="#00FFB3" title="Renk" style="width:28px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--elev);cursor:pointer;padding:2px">
+        <select id="draw-size" style="background:var(--elev);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:3px 6px;font-size:11px;cursor:pointer;outline:none">
           <option value="2">İnce</option><option value="4" selected>Orta</option><option value="8">Kalın</option><option value="16">Çok Kalın</option>
         </select>
         <div style="width:1px;height:20px;background:#1E2D45;margin:0 2px"></div>
         <button onclick="clearCanvas()" class="doc-tool-btn" title="Temizle" style="color:#FF3D6B">🗑</button>
         <button onclick="undoCanvas()" class="doc-tool-btn" title="Geri Al">↩</button>
       </div>
-      <canvas id="draw-canvas" style="flex:1;background:#06080F;cursor:crosshair;touch-action:none"></canvas>
+      <canvas id="draw-canvas" style="flex:1;background:var(--input-bg);cursor:crosshair;touch-action:none"></canvas>
     </div>
 
   </div>
@@ -1232,8 +1234,8 @@
         <!-- avatar JS ile doldurulur -->
         <div id="vc-ring" style="position:absolute;inset:-6px;border-radius:50%;border:3px solid #00FFB3;opacity:0;animation:none"></div>
       </div>
-      <div id="vc-name" style="font-family:Syne,sans-serif;font-weight:700;font-size:18px;color:#DDE8F8"></div>
-      <div id="vc-status" style="font-size:13px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-top:4px">Bağlanıyor…</div>
+      <div id="vc-name" style="font-family:Syne,sans-serif;font-weight:700;font-size:18px;color:var(--text)"></div>
+      <div id="vc-status" style="font-size:13px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:4px">Bağlanıyor…</div>
     </div>
 
     <!-- Ses dalgası animasyonu -->
@@ -1246,12 +1248,12 @@
     </div>
 
     <!-- Süre -->
-    <div id="vc-timer" style="font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#DDE8F8;opacity:0;transition:opacity .3s">0:00</div>
+    <div id="vc-timer" style="font-size:28px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text);opacity:0;transition:opacity .3s">0:00</div>
 
     <!-- Kontroller -->
     <div style="display:flex;gap:20px;align-items:center">
       <!-- Mikrofon kapat/aç -->
-      <button id="vc-mute-btn" onclick="vcToggleMute()" style="width:52px;height:52px;border-radius:50%;background:#1E2D45;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#DDE8F8;font-size:20px;transition:all .2s" title="Sesi kapat">
+      <button id="vc-mute-btn" onclick="vcToggleMute()" style="width:52px;height:52px;border-radius:50%;background:#1E2D45;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);font-size:20px;transition:all .2s" title="Sesi kapat">
         🎙
       </button>
       <!-- Kapat (kırmızı) -->
@@ -1259,7 +1261,7 @@
         📵
       </button>
       <!-- Hoparlör -->
-      <button id="vc-speaker-btn" onclick="vcToggleSpeaker()" style="width:52px;height:52px;border-radius:50%;background:#1E2D45;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#DDE8F8;font-size:20px;transition:all .2s" title="Hoparlör">
+      <button id="vc-speaker-btn" onclick="vcToggleSpeaker()" style="width:52px;height:52px;border-radius:50%;background:#1E2D45;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);font-size:20px;transition:all .2s" title="Hoparlör">
         🔈
       </button>
     </div>
@@ -1271,10 +1273,10 @@
 
 <!-- Gelen arama overlay -->
 <div id="incoming-call-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.95)">
-  <div style="width:100%;max-width:300px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:24px;padding:28px 20px;text-align:center;animation:slideUp .3s ease-out">
+  <div style="width:100%;max-width:300px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:24px;padding:28px 20px;text-align:center;animation:slideUp .3s ease-out">
     <div id="ic-avatar" style="width:72px;height:72px;border-radius:50%;margin:0 auto 12px;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;font-family:Syne,sans-serif;border:3px solid rgba(0,255,179,.4)"></div>
-    <div id="ic-name" style="font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:#DDE8F8;margin-bottom:4px"></div>
-    <div style="font-size:12px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:24px">Sesli arama geliyor…</div>
+    <div id="ic-name" style="font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:var(--text);margin-bottom:4px"></div>
+    <div style="font-size:12px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:24px">Sesli arama geliyor…</div>
     <div style="display:flex;gap:20px;justify-content:center">
       <button onclick="vcAccept()" style="width:60px;height:60px;border-radius:50%;background:#00FFB3;border:none;cursor:pointer;font-size:24px;box-shadow:0 0 20px rgba(0,255,179,.4)">📞</button>
       <button onclick="vcDecline()" style="width:60px;height:60px;border-radius:50%;background:#FF3D6B;border:none;cursor:pointer;font-size:24px;box-shadow:0 0 20px rgba(255,61,107,.3)">📵</button>
@@ -1294,12 +1296,50 @@
 
 <!-- ── DİL SEÇİMİ MODAL ───────────────────────────────────────── -->
 <div id="language-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:rgba(6,8,15,.92)">
-  <div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;overflow:hidden;animation:slideUp .25s ease-out;max-height:80dvh;display:flex;flex-direction:column">
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0">
-      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:#DDE8F8">🌐 Dil / Language</span>
-      <button onclick="UI.closeModal('language-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center">✕</button>
+  <div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:slideUp .25s ease-out;max-height:80dvh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:Syne,sans-serif;font-weight:700;font-size:16px;color:var(--text)">🌐 Dil / Language</span>
+      <button onclick="UI.closeModal('language-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
     <div id="language-list" style="padding:8px;overflow-y:auto;flex:1"></div>
+  </div>
+</div>
+
+
+<!-- ── AVATAR KIRPMA MODAL ───────────────────────────────────────── -->
+<div id="crop-modal" class="fixed inset-0 z-50 hidden items-center justify-center" style="background:var(--overlay)">
+  <div style="width:100%;max-width:420px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:slideUp .25s ease-out;max-height:94dvh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-family:var(--font-head);font-weight:700;font-size:16px;color:var(--text)">✂️ Fotoğrafı Kırp</span>
+      <button onclick="closeCropModal()" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:20px;width:32px;height:32px;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+
+    <!-- Cropper area -->
+    <div style="flex:1;overflow:hidden;background:#000;min-height:200px;position:relative">
+      <img id="crop-image" style="max-width:100%;display:block">
+    </div>
+
+    <!-- Önizleme + Kontroller -->
+    <div style="padding:14px 16px;border-top:1px solid var(--border);flex-shrink:0">
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
+        <div id="crop-preview-wrap">
+          <img id="crop-preview-img" style="width:100%;height:100%;object-fit:cover;border-radius:50%">
+        </div>
+        <div style="flex:1;font-size:12px;color:var(--muted);line-height:1.6">
+          Daire içinde kırpılacak alan profil fotoğrafın olacak.<br>
+          Pinch to zoom ve sürükle ile ayarla.
+        </div>
+      </div>
+      <!-- Araçlar -->
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button onclick="cropRotate(-90)" style="flex:1;padding:7px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:12px">↺ Sol</button>
+        <button onclick="cropRotate(90)"  style="flex:1;padding:7px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:12px">↻ Sağ</button>
+        <button onclick="cropFlip()"      style="flex:1;padding:7px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:12px">⇌ Çevir</button>
+        <button onclick="cropZoom(0.1)"   style="flex:1;padding:7px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:16px">+</button>
+        <button onclick="cropZoom(-0.1)"  style="flex:1;padding:7px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--text);cursor:pointer;font-size:16px">−</button>
+      </div>
+      <button onclick="applyCrop()" style="width:100%;padding:12px;border-radius:12px;background:var(--sent-bg);color:var(--sent-text);font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:var(--font-head)">✅ Uygula ve Kaydet</button>
+    </div>
   </div>
 </div>
 
