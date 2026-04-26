@@ -166,3 +166,56 @@ html.light-mode [style*="border:1.5px solid #1E2D45"]{border-color:#C8D6EA!impor
 /* ── Crop modal ──────────────────────────────────────────────────── */
 #crop-preview-wrap{width:100px;height:100px;border-radius:50%;overflow:hidden;border:3px solid var(--accent);margin:0 auto;background:#0A1018}
 html.light-mode #crop-preview-wrap{background:#EEF3FB}
+
+/* ── GIF & Sticker Pickers ───────────────────────────────────────── */
+#gif-picker, #sticker-picker {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0; right: 0;
+  background: #0C1220;
+  border: 1px solid #1E2D45;
+  border-radius: 16px 16px 0 0;
+  max-height: 340px;
+  overflow: hidden;
+  z-index: 30;
+  animation: slideUp .2s ease-out;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.4);
+}
+#gif-picker.open, #sticker-picker.open {
+  display: flex;
+}
+#compose-plus {
+  display: none;
+  flex-direction: column;
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  background: #0C1220;
+  border: 1px solid #1E2D45;
+  border-radius: 12px;
+  padding: 6px;
+  z-index: 30;
+  min-width: 180px;
+  animation: slideUp .15s ease-out;
+  box-shadow: 0 -4px 20px rgba(0,0,0,.35);
+}
+#compose-plus.open { display: flex; }
+
+/* ── Context menu ────────────────────────────────────────────────── */
+#ctx-menu {
+  background: #0C1220;
+  border: 1px solid #1E2D45;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.45);
+  overflow: hidden;
+  z-index: 200;
+  animation: fadeIn .12s ease-out;
+  min-width: 180px;
+}
+html.light-mode #ctx-menu {
+  background: #fff;
+  border-color: #C8D6EA;
+  box-shadow: 0 4px 24px rgba(0,0,0,.12);
+}
