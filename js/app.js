@@ -5,10 +5,6 @@
 
 // ── State ──────────────────────────────────────────────────────────
 let _allUsers = {}, _convs = [], _chatFilter = 'all', _searchQuery = '';
-
-// ── Global HTML escape helper ─────────────────────────────────────
-const _esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-
 let _activeTab = 'messages', _activeServer = 'all';
 let _renderChatListTimer = null; // debounce
 
@@ -357,29 +353,23 @@ function sendPushNotif(title, body, convId) {
 function renderMyAvatar() {
   const cu = window._currentUser;
   if (!cu) return;
-  // Öncelik: avatar_url (fotoğraf) > avatar_data (yapıcı) > initials
-  const avatarSrc = cu.avatar_url || cu.avatar_data || localStorage.getItem('cipher_avatar_data_' + cu.username);
-
   const el = document.getElementById('my-avatar');
-  if (el) {
-    if (avatarSrc) {
-      el.innerHTML = `<img src="${avatarSrc}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">`;
-      el.style.cssText = '';
-    } else {
-      const c = UI.avatarColor(cu.username);
-      el.style.cssText = `background:linear-gradient(135deg,${c},${c}99);color:#fff`;
-      el.textContent = UI.initials(cu.display_name || cu.username);
-    }
+  if (!el || !cu) return;
+  if (cu.avatar_url) {
+    el.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+  } else {
+    const c = UI.avatarColor(cu.username);
+    el.style.cssText = `background:linear-gradient(135deg,${c},${c}99);color:#fff`;
+    el.textContent = UI.initials(cu.display_name || cu.username);
   }
-
   const nameEl = document.getElementById('my-name');
   if (nameEl) nameEl.textContent = cu.display_name || cu.username;
 
-  // Bottom nav avatar
+  // Bottom nav avatar butonu da güncelle
   const bnInner = document.getElementById('bottom-nav-avatar-inner');
   if (bnInner) {
-    if (avatarSrc) {
-      bnInner.innerHTML = `<img src="${avatarSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" loading="lazy">`;
+    if (cu.avatar_url) {
+      bnInner.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;object-fit:cover">`;
       bnInner.style.background = 'transparent';
     } else {
       const c = UI.avatarColor(cu.username);
@@ -481,51 +471,44 @@ function _doRenderChatList() {
     const other = conv.type === 'direct' ? _allUsers[conv.participants?.find(p => p !== cu.username)] : null;
     const unread = conv.unread_for?.[cu.username] || 0;
     const isActive = conv.id === window._currentConvId;
-    const hasUnread = unread > 0;
 
     const div = document.createElement('div');
-    div.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:13px;cursor:pointer;margin:1px 5px;transition:all .12s;background:${isActive ? '#151E30' : 'transparent'};${hasUnread ? 'border-left:3px solid #00FFB3;padding-left:9px' : 'border-left:3px solid transparent;padding-left:9px'}`;
+    div.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:13px;cursor:pointer;margin:1px 5px;transition:background .12s;background:${isActive ? '#151E30' : 'transparent'}`;
     div.addEventListener('mouseenter', () => { if (!isActive) div.style.background = '#0C1220'; });
     div.addEventListener('mouseleave', () => { div.style.background = isActive ? '#151E30' : 'transparent'; });
     div.dataset.convId = conv.id;
     div.addEventListener('click', () => openConv(conv.id));
 
-    // Avatar — unread ise yeşil halka
+    // Avatar
     let avHtml;
-    const avRing = hasUnread ? `box-shadow:0 0 0 2.5px #00FFB3` : '';
     if (other?.avatar_url) {
-      avHtml = `<div style="position:relative;flex-shrink:0"><img src="${_safeUrl(other.avatar_url)||''}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;${avRing}" loading="lazy"></div>`;
+      avHtml = `<img src="${_safeUrl(other.avatar_url)||''}" style="width:44px;height:44px;min-width:44px;border-radius:50%;object-fit:cover;flex-shrink:0">`;
     } else if (conv.type === 'group') {
       const gIcon = conv.avatar || UI.initials(name);
       const isEmoji = gIcon.length <= 2 && gIcon.codePointAt(0) > 127;
-      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:${isEmoji?'22px':'14px'};font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0;${avRing}border-radius:14px">${gIcon}</div>`;
+      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:${isEmoji?'22px':'14px'};font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${gIcon}</div>`;
     } else {
-      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0;${avRing}">${UI.initials(name)}</div>`;
+      avHtml = `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(name)}</div>`;
     }
 
     // Last message preview
     const lastText = (conv.last_msg || '').slice(0, 40).replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
-    let previewHtml = `<span style="font-size:12px;color:${hasUnread?'#9DB8D8':'#7A8FA8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${hasUnread?'font-weight:500':''}">${lastText}</span>`;
+    let previewHtml = `<span style="font-size:12px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lastText}</span>`;
     if (conv.type === 'group' && conv.last_from) {
       const senderName = conv.last_from === cu.username ? 'Sen' : (_allUsers[conv.last_from]?.display_name || conv.last_from);
-      previewHtml = `<span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:var(--accent);font-weight:600">${senderName}: </span><span style="color:${hasUnread?'#9DB8D8':'#7A8FA8'}">${lastText}</span></span>`;
+      previewHtml = `<span style="font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><span style="color:#00FFB3;font-weight:600">${senderName}: </span><span style="color:#7A8FA8">${lastText}</span></span>`;
     }
-
-    // Unread badge — mesaj sayısı, bakılmadıkça kalır
-    const badgeHtml = hasUnread
-      ? `<span style="min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:#00FFB3;color:#062B1F;flex-shrink:0;margin-left:6px;font-family:'JetBrains Mono',monospace">${unread > 99 ? '99+' : unread}</span>`
-      : '';
 
     div.innerHTML = `${avHtml}
       <div style="flex:1;min-width:0">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
-          <span style="font-weight:${hasUnread?'700':'600'};font-size:13px;font-family:Syne,sans-serif;color:${hasUnread?'#FFFFFF':'#DDE8F8'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:4px">${name}</span>
+          <span style="font-weight:600;font-size:13px;font-family:Syne,sans-serif;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:4px">${name}</span>
           ${_pinnedSet.has(conv.id) ? '<span style="font-size:10px;color:#FFB830;margin-right:4px">📌</span>' : ''}
-          <span style="font-size:10px;color:${hasUnread?'#00FFB3':'#7A8FA8'};font-family:'JetBrains Mono',monospace;flex-shrink:0;${hasUnread?'font-weight:600':''}">${conv.last_time ? UI.fmtTime(conv.last_time) : ''}</span>
+          <span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;flex-shrink:0">${conv.last_time ? UI.fmtTime(conv.last_time) : ''}</span>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between">
           ${previewHtml}
-          ${badgeHtml}
+          ${unread > 0 ? `<span style="min-width:20px;height:20px;padding:0 5px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;background:var(--accent,#00FFB3);color:#062B1F;flex-shrink:0;margin-left:6px">${unread > 99 ? '99+' : unread}</span>` : ''}
         </div>
       </div>`;
     frag.appendChild(div);
@@ -566,7 +549,7 @@ async function openConv(convId) {
   const avEl = document.getElementById('chat-avatar');
   if (avEl) {
     if (other?.avatar_url) {
-      avEl.innerHTML = `<img src="${_safeUrl(other.avatar_url)||''}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">`;
+      avEl.innerHTML = `<img src="${_safeUrl(other.avatar_url)||''}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
     } else {
       avEl.style.background = `${color}22`;
       avEl.style.color = color;
@@ -749,7 +732,7 @@ function openUserProfile(user) {
   }).filter(Boolean).join('');
 
   const avHtml = user.avatar_url
-    ? `<img src="${user.avatar_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #0C1220" loading="lazy">`
+    ? `<img src="${user.avatar_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #0C1220">`
     : `<div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,${color},${color}99);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-family:Syne,sans-serif;font-weight:700;border:3px solid #0C1220">${UI.initials(user.display_name || user.username)}</div>`;
 
   const el = document.getElementById('user-profile-content');
@@ -762,16 +745,16 @@ function openUserProfile(user) {
     </div>
     <div style="padding:48px 20px 20px">
       <div style="font-family:Syne,sans-serif;font-weight:700;font-size:20px;color:#DDE8F8">${user.display_name || user.username}</div>
-      <div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:4px">@${user.username}</div>
+      <div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:4px">@${user.username}</div>
       <div style="font-size:12px;color:${st.color};margin-bottom:${user.status ? '6px' : '10px'}">${st.text}</div>
       ${user.status ? `<div style="font-size:13px;color:#B0C4D8;margin-bottom:10px">${user.status_emoji || ''} ${user.status}</div>` : ''}
-      ${user.bio ? `<div style="font-size:13px;color:#9AB0C8;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:10px;border:1px solid #1E2D45">${(user.bio||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>` : ''}
+      ${user.bio ? `<div style="font-size:13px;color:#9AB0C8;line-height:1.6;margin-bottom:12px;padding:10px 12px;background:#06080F;border-radius:10px;border:1px solid #1E2D45">${(user.bio||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>` : ''}
       ${badges ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${badges}</div>` : ''}
-      <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:3px">ÜYE OLDU</div>
-      <div style="font-size:12px;color:var(--text);margin-bottom:16px">${user.created_at ? UI.fmtDate(user.created_at) : ''}</div>
+      <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace;margin-bottom:3px">ÜYE OLDU</div>
+      <div style="font-size:12px;color:#DDE8F8;margin-bottom:16px">${user.created_at ? UI.fmtDate(user.created_at) : ''}</div>
       <div style="display:flex;gap:8px">
         <button id="profile-dm-btn" style="flex:1;padding:11px;border-radius:12px;background:linear-gradient(135deg,#00FFB3,#00C48A);color:#062B1F;font-weight:700;font-size:14px;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent">💬 Mesaj Gönder</button>
-        <button id="profile-more-btn" style="padding:11px 14px;border-radius:12px;background:var(--elev);color:var(--muted);border:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent">⋯</button>
+        <button id="profile-more-btn" style="padding:11px 14px;border-radius:12px;background:#131D30;color:#7A8FA8;border:1px solid #1E2D45;cursor:pointer;-webkit-tap-highlight-color:transparent">⋯</button>
       </div>
     </div>`;
 
@@ -791,21 +774,21 @@ function openGroupPanel(conv) {
   const isAdmin = conv.admin === window._currentUser.username || window._currentUser.is_admin;
 
   el.innerHTML = `
-    <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid var(--border);margin-bottom:16px">
+    <div style="text-align:center;padding-bottom:16px;border-bottom:1px solid #1E2D45;margin-bottom:16px">
       <div style="width:64px;height:64px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:700;font-family:Syne,sans-serif;margin:0 auto 10px">${conv.avatar || UI.initials(conv.name)}</div>
       ${isAdmin
         ? `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;margin-bottom:6px">
             <button onclick="openGroupIconEdit('${conv.id}')" style="font-size:28px;background:rgba(0,0,0,.2);border:1.5px dashed #1E2D45;border-radius:14px;width:52px;height:52px;cursor:pointer;transition:border-color .2s" title="İkon değiştir" onmouseenter="this.style.borderColor='#00FFB3'" onmouseleave="this.style.borderColor='#1E2D45'">${conv.avatar || UI.initials(conv.name)}</button>
             <div style="display:flex;align-items:center;gap:8px">
-              <input id="gp-name-inp" value="${conv.name || ''}" style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-size:14px;font-weight:700;color:var(--text);font-family:Syne,sans-serif;text-align:center;outline:none;max-width:160px" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
+              <input id="gp-name-inp" value="${conv.name || ''}" style="background:#06080F;border:1.5px solid #1E2D45;border-radius:8px;padding:5px 10px;font-size:14px;font-weight:700;color:#DDE8F8;font-family:Syne,sans-serif;text-align:center;outline:none;max-width:160px" onfocus="this.style.borderColor='#00FFB3'" onblur="this.style.borderColor='#1E2D45'">
               <button id="gp-save-btn" style="padding:6px 12px;border-radius:8px;background:#00FFB3;color:#062B1F;font-weight:700;font-size:12px;border:none;cursor:pointer">Kaydet</button>
             </div>
           </div>`
-        : `<div style="font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:var(--text);margin-bottom:4px">${conv.name}</div>`}
+        : `<div style="font-family:Syne,sans-serif;font-weight:700;font-size:17px;color:#DDE8F8;margin-bottom:4px">${conv.name}</div>`}
       <div style="font-size:12px;color:#7A8FA8">${conv.participants?.length || 0} üye</div>
     </div>
-    ${isAdmin ? '<div style="margin-bottom:12px"><button id="gp-add-btn" style="width:100%;padding:10px;border-radius:10px;background:var(--elev);color:var(--accent);border:1px solid rgba(0,255,179,.2);font-size:13px;cursor:pointer;font-family:\'JetBrains Mono\',monospace">+ Üye Ekle</button></div>' : ''}
-    <div style="font-size:10px;font-weight:600;color:var(--muted);font-family:\'JetBrains Mono\',monospace;margin-bottom:8px">ÜYELER</div>`;
+    ${isAdmin ? '<div style="margin-bottom:12px"><button id="gp-add-btn" style="width:100%;padding:10px;border-radius:10px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);font-size:13px;cursor:pointer;font-family:\'JetBrains Mono\',monospace">+ Üye Ekle</button></div>' : ''}
+    <div style="font-size:10px;font-weight:600;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace;margin-bottom:8px">ÜYELER</div>`;
 
   const saveBtn = document.getElementById('gp-save-btn');
   if (saveBtn) saveBtn.onclick = () => saveGroupName(conv.id);
@@ -819,7 +802,7 @@ function openGroupPanel(conv) {
     const c = UI.avatarColor(u.username);
     const isOwner = conv.admin === uid;
     const av = u.avatar_url
-      ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:38px;height:38px;border-radius:50%;object-fit:cover" loading="lazy">`
+      ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:38px;height:38px;border-radius:50%;object-fit:cover">`
       : `<div style="width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>`;
 
     const row = document.createElement('div');
@@ -829,13 +812,13 @@ function openGroupPanel(conv) {
     row.onclick = () => { const usr = _allUsers[uid]; if (usr) openUserProfile(usr); };
     row.innerHTML = `${av}
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div>
-        <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${uid}${isOwner ? ' · Yönetici ⚡' : ''}</div>
+        <div style="font-size:13px;font-weight:600;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.display_name || u.username}</div>
+        <div style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${uid}${isOwner ? ' · Yönetici ⚡' : ''}</div>
       </div>`;
 
     if (isAdmin && uid !== window._currentUser.username) {
       const btn = document.createElement('button');
-      btn.style.cssText = 'font-size:11px;padding:4px 8px;border-radius:7px;background:var(--elev);color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer;flex-shrink:0';
+      btn.style.cssText = 'font-size:11px;padding:4px 8px;border-radius:7px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.3);cursor:pointer;flex-shrink:0';
       btn.textContent = 'Çıkar';
       btn.onclick = e => { e.stopPropagation(); removeFromGroup(conv.id, uid); };
       row.appendChild(btn);
@@ -859,15 +842,13 @@ function openGroupPanel(conv) {
 async function saveGroupName(convId) {
   const name = document.getElementById('gp-name-inp')?.value.trim();
   if (!name) return;
-  try {
-    await DB.updateConversation(convId, { name });
-    const conv = _convs.find(c => c.id === convId);
-    if (conv) conv.name = name;
-    renderChatList();
-    const nameEl = document.getElementById('chat-name');
-    if (nameEl) nameEl.textContent = name;
-    UI.toast('Grup adı güncellendi ✓', 'success');
-  } catch(e) { UI.toast('Güncellenemedi: ' + e.message, 'error'); }
+  await DB.updateConversation(convId, { name });
+  const conv = _convs.find(c => c.id === convId);
+  if (conv) conv.name = name;
+  renderChatList();
+  const nameEl = document.getElementById('chat-name');
+  if (nameEl) nameEl.textContent = name;
+  UI.toast('Grup adı güncellendi ✓', 'success');
 }
 
 function openAddMemberModal(convId) {
@@ -904,7 +885,7 @@ function openAddMemberModal(convId) {
   });
 
   if (!candidates.length) {
-    gc.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Eklenebilecek kullanıcı yok</div>';
+    gc.innerHTML = '<div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Eklenebilecek kullanıcı yok</div>';
   }
   candidates.forEach(u => {
     const c = UI.avatarColor(u.username);
@@ -912,9 +893,9 @@ function openAddMemberModal(convId) {
     div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;transition:background .12s';
     div.onmouseenter = () => div.style.background = '#131D30';
     div.onmouseleave = () => div.style.background = 'transparent';
-    div.innerHTML = `<input type="checkbox" value="${u.username}" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0">
+    div.innerHTML = `<input type="checkbox" value="${u.username}" style="width:16px;height:16px;accent-color:#00FFB3;flex-shrink:0">
       <div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</div>
-      <div><div style="font-size:13px;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
+      <div><div style="font-size:13px;color:#DDE8F8">${u.display_name || u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div>`;
     div.onclick = e => { if (e.target.tagName !== 'INPUT') div.querySelector('input').click(); };
     gc.appendChild(div);
   });
@@ -927,48 +908,42 @@ async function confirmAddMembers() {
   const convId = document.getElementById('add-member-conv-id').value;
   const selected = Array.from(document.querySelectorAll('#add-member-list input:checked')).map(i => i.value);
   if (!selected.length) { UI.toast('Üye seçin', 'error'); return; }
-  try {
-    const conv = await DB.getConversation(convId);
-    if (!conv) return;
-    const newParticipants = [...new Set([...conv.participants, ...selected])];
-    await DB.updateConversation(convId, { participants: newParticipants });
-    const local = _convs.find(c => c.id === convId);
-    if (local) local.participants = newParticipants;
-    UI.closeModal('add-member-modal');
-    UI.toast(`${selected.length} üye eklendi ✓`, 'success');
-    openGroupPanel({ ...conv, participants: newParticipants });
-  } catch(e) { UI.toast('Üye eklenemedi: ' + e.message, 'error'); }
+  const conv = await DB.getConversation(convId);
+  if (!conv) return;
+  const newParticipants = [...new Set([...conv.participants, ...selected])];
+  await DB.updateConversation(convId, { participants: newParticipants });
+  const local = _convs.find(c => c.id === convId);
+  if (local) local.participants = newParticipants;
+  UI.closeModal('add-member-modal');
+  UI.toast(`${selected.length} üye eklendi ✓`, 'success');
+  openGroupPanel({ ...conv, participants: newParticipants });
 }
 
 async function removeFromGroup(convId, username) {
   if (!confirm(`@${username} gruptan çıkarılsın mı?`)) return;
-  try {
-    const conv = await DB.getConversation(convId);
-    if (!conv) return;
-    const participants = conv.participants.filter(p => p !== username);
-    await DB.updateConversation(convId, { participants });
-    const local = _convs.find(c => c.id === convId);
-    if (local) local.participants = participants;
-    UI.toast(`@${username} çıkarıldı`, 'info');
-    UI.closeModal('group-panel-modal');
-  } catch(e) { UI.toast('Çıkarılamadı: ' + e.message, 'error'); }
+  const conv = await DB.getConversation(convId);
+  if (!conv) return;
+  const participants = conv.participants.filter(p => p !== username);
+  await DB.updateConversation(convId, { participants });
+  const local = _convs.find(c => c.id === convId);
+  if (local) local.participants = participants;
+  UI.toast(`@${username} çıkarıldı`, 'info');
+  UI.closeModal('group-panel-modal');
 }
 
 async function leaveGroup(convId) {
   if (!confirm('Gruptan çıkmak istediğinizden emin misiniz?')) return;
-  try {
-    const conv = await DB.getConversation(convId);
-    if (!conv) return;
-    const participants = conv.participants.filter(p => p !== window._currentUser.username);
-    await DB.updateConversation(convId, { participants });
-    _convs = _convs.filter(c => c.id !== convId);
-    window._currentConvId = null;
-    document.getElementById('chat-view').style.display = 'none';
-    document.getElementById('empty-state').style.display = 'flex';
-    UI.closeModal('group-panel-modal');
-    renderChatList();
-    UI.toast('Gruptan çıkıldı', 'info');
-  } catch(e) { UI.toast('Gruptan çıkılamadı: ' + e.message, 'error'); }
+  const conv = await DB.getConversation(convId);
+  if (!conv) return;
+  const participants = conv.participants.filter(p => p !== window._currentUser.username);
+  await DB.updateConversation(convId, { participants });
+  _convs = _convs.filter(c => c.id !== convId);
+  window._currentConvId = null;
+  document.getElementById('chat-view').style.display = 'none';
+  document.getElementById('empty-state').style.display = 'flex';
+  UI.closeModal('group-panel-modal');
+  renderChatList();
+  UI.toast('Gruptan çıkıldı', 'info');
 }
 
 // ── Contacts tab ────────────────────────────────────────────────────
@@ -1005,7 +980,7 @@ function renderContactsList(searchQ) {
   users.sort((a, b) => (a.display_name || a.username).localeCompare(b.display_name || b.username, 'tr'));
 
   if (!users.length) {
-    list.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">${q ? `"${q}" için sonuç yok` : 'Henüz kullanıcı yok'}</div>`;
+    list.innerHTML = `<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">${q ? `"${q}" için sonuç yok` : 'Henüz kullanıcı yok'}</div>`;
     return;
   }
 
@@ -1022,7 +997,7 @@ function renderContactsList(searchQ) {
     // Çift avatar: önce avatar_url (fotoğraf/avatar maker), yanında initials
     // avatar_url varsa öncelikli göster; yoksa renkli initials
     const avMain = u.avatar_url
-      ? `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #1E2D45"><img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></div>`
+      ? `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;overflow:hidden;flex-shrink:0;border:2px solid #1E2D45"><img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover;display:block"></div>`
       : `<div style="width:44px;height:44px;min-width:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0;border:2px solid ${color}33">${UI.initials(u.display_name || u.username)}</div>`;
     // Küçük initials badge (her zaman sağ alta)
     const avBadge = `<div style="position:absolute;bottom:-2px;right:-2px;width:18px;height:18px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;border:2px solid #0C1220;font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username).slice(0,1)}</div>`;
@@ -1041,11 +1016,11 @@ function renderContactsList(searchQ) {
 
     div.innerHTML = `${av}
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div>
+        <div style="font-size:13px;font-weight:600;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.display_name || u.username}</div>
         <div style="font-size:11px;color:${st.color}">${st.text}</div>
         ${serverBadges}
       </div>
-      <button data-uid="${u.username}" class="contact-msg-btn" style="padding:6px 12px;border-radius:8px;background:var(--elev);color:var(--accent,#00FFB3);border:1px solid rgba(0,255,179,.2);font-size:12px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;font-weight:600">Mesaj</button>`;
+      <button data-uid="${u.username}" class="contact-msg-btn" style="padding:6px 12px;border-radius:8px;background:#131D30;color:var(--accent,#00FFB3);border:1px solid rgba(0,255,179,.2);font-size:12px;cursor:pointer;flex-shrink:0;-webkit-tap-highlight-color:transparent;font-weight:600">Mesaj</button>`;
 
     div.querySelector('.contact-msg-btn').addEventListener('click', e => {
       e.stopPropagation();
@@ -1072,8 +1047,8 @@ function renderUpdatesTab() {
 
   const updates = [
     { v:'6.0.0', badge:'YENİ', color:'#00FFB3', items:['🔧 Debug & optimizasyon güncellemesi','📊 Debounced render — daha az CPU','🧹 Hata yakalama iyileştirildi','👥 Sunucu filtresi — kullanıcılar sunucuya göre','📱 Kişiler sekmesi — online durum göstergesi','🗑 Şifre sıfırlama kaldırıldı','📌 Sol menü gizlendi (kod korundu)'] },
-    { v:'5.0.0', badge:'', color:'var(--muted)', items:['🌐 Supabase çok cihaz desteği','📝 Kayıt sistemi fallback ile','🔔 Cihaz push bildirimleri','⌚ Online durum & süre takibi','🏠 4 sunucu sistemi','✏️ Ad değiştirme'] },
-    { v:'4.0.0', badge:'', color:'var(--muted)', items:['👤 Profil modal','👥 Grup yönetim paneli','📋 Kişiler sekmesi','💬 Alt navigasyon (3 sekme)','🔍 Filtreler üstte'] },
+    { v:'5.0.0', badge:'', color:'#7A8FA8', items:['🌐 Supabase çok cihaz desteği','📝 Kayıt sistemi fallback ile','🔔 Cihaz push bildirimleri','⌚ Online durum & süre takibi','🏠 4 sunucu sistemi','✏️ Ad değiştirme'] },
+    { v:'4.0.0', badge:'', color:'#7A8FA8', items:['👤 Profil modal','👥 Grup yönetim paneli','📋 Kişiler sekmesi','💬 Alt navigasyon (3 sekme)','🔍 Filtreler üstte'] },
   ];
 
   el.innerHTML = `<div style="padding:16px">
@@ -1083,7 +1058,7 @@ function renderUpdatesTab() {
       <div style="font-size:12px;color:#7A8FA8">Güncelleme Notları</div>
     </div>
     ${updates.map(r => `
-      <div style="margin-bottom:14px;padding:14px;border-radius:14px;background:var(--bg);border:1px solid #1E2D45">
+      <div style="margin-bottom:14px;padding:14px;border-radius:14px;background:#06080F;border:1px solid #1E2D45">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
           <span style="font-family:Syne,sans-serif;font-weight:700;font-size:14px;color:#DDE8F8">v${r.v}</span>
           ${r.badge ? `<span style="font-size:9px;padding:2px 7px;border-radius:20px;background:${r.color}22;color:${r.color};border:1px solid ${r.color}44;font-family:'JetBrains Mono',monospace">${r.badge}</span>` : ''}
@@ -1109,8 +1084,8 @@ async function renderStories() {
   const myBtn = document.createElement('div');
   myBtn.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0';
   const myC = UI.avatarColor(cu.username);
-  const myAv = cu.avatar_url ? `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">` : `<span style="font-weight:700;font-size:11px;color:#fff;font-family:Syne,sans-serif">${UI.initials(cu.display_name || cu.username)}</span>`;
-  myBtn.innerHTML = `<div style="width:48px;height:48px;border-radius:50%;background:${myC};display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">${myAv}<div style="position:absolute;bottom:0;right:0;width:16px;height:16px;border-radius:50%;background:#00FFB3;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#062B1F;border:2px solid #06080F">+</div></div><span style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">Sen</span>`;
+  const myAv = cu.avatar_url ? `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : `<span style="font-weight:700;font-size:11px;color:#fff;font-family:Syne,sans-serif">${UI.initials(cu.display_name || cu.username)}</span>`;
+  myBtn.innerHTML = `<div style="width:48px;height:48px;border-radius:50%;background:${myC};display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden">${myAv}<div style="position:absolute;bottom:0;right:0;width:16px;height:16px;border-radius:50%;background:#00FFB3;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#062B1F;border:2px solid #06080F">+</div></div><span style="font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">Sen</span>`;
   myBtn.onclick = addStory;
   strip.appendChild(myBtn);
 
@@ -1121,7 +1096,7 @@ async function renderStories() {
     const u = _allUsers[uid]; if (!u) return;
     const uc = UI.avatarColor(u.username);
     const seen = sts.every(s => s.seen_by?.includes(cu.username));
-    const uAv = u.avatar_url ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">` : `<span style="font-weight:700;font-size:11px;color:#fff;font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</span>`;
+    const uAv = u.avatar_url ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : `<span style="font-weight:700;font-size:11px;color:#fff;font-family:Syne,sans-serif">${UI.initials(u.display_name || u.username)}</span>`;
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;flex-shrink:0';
     div.innerHTML = `<div class="${seen ? 'story-ring-seen' : 'story-ring'}" style="width:52px;height:52px;border-radius:50%"><div style="width:100%;height:100%;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;background:${uc}22">${uAv}</div></div><span style="font-size:10px;color:${seen?'#7A8FA8':'#DDE8F8'};max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'JetBrains Mono',monospace">${(u.display_name||u.username).split(' ')[0]}</span>`;
@@ -1179,8 +1154,8 @@ function openNewChat() {
     div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;cursor:pointer;transition:background .12s';
     div.onmouseenter = () => div.style.background = '#131D30';
     div.onmouseleave = () => div.style.background = 'transparent';
-    const av = u.avatar_url ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;min-width:36px;border-radius:50%;object-fit:cover" loading="lazy">` : `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`;
-    div.innerHTML = `${av}<div style="min-width:0"><div style="font-size:13px;font-weight:500;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
+    const av = u.avatar_url ? `<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;min-width:36px;border-radius:50%;object-fit:cover">` : `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`;
+    div.innerHTML = `${av}<div style="min-width:0"><div style="font-size:13px;font-weight:500;color:#DDE8F8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.display_name||u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div>`;
     div.onclick = () => { UI.closeModal('new-chat-modal'); startDM(u.username); };
     frag.appendChild(div);
   });
@@ -1196,14 +1171,8 @@ async function startDM(userId) {
   if (!conv) {
     try {
       conv = await DB.createConversation({ id: convId, type: 'direct', participants: ids, last_msg: '', last_time: Date.now(), unread_for: {}, server: _activeServer !== 'all' ? _activeServer : 'public' });
-      if (!_convs.find(c => c.id === convId)) _convs.unshift(conv);
-      window._convs = _convs;
-    } catch(e) {
-      // Sohbet zaten varsa DB'den yükle
-      try { conv = await DB.getConversation(convId); if (conv && !_convs.find(c=>c.id===convId)) { _convs.unshift(conv); window._convs=_convs; } }
-      catch {}
-      if (!conv) { UI.toast('Sohbet oluşturulamadı: ' + e.message, 'error'); return; }
-    }
+      _convs.push(conv);
+    } catch(e) { UI.toast('Sohbet oluşturulamadı: ' + e.message, 'error'); return; }
   }
   if (_activeTab !== 'messages') setTab('messages');
   renderChatList();
@@ -1255,10 +1224,10 @@ function openGroupIconEdit(convId) {
     modal.id = 'group-icon-edit-modal';
     modal.className = 'fixed inset-0 z-50 hidden items-center justify-center';
     modal.style.background = 'rgba(6,8,15,.92)';
-    modal.innerHTML = `<div style="width:100%;max-width:340px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:18px;overflow:hidden;animation:slideUp .2s ease-out">
+    modal.innerHTML = `<div style="width:100%;max-width:340px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:18px;overflow:hidden;animation:slideUp .2s ease-out">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45">
         <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">Grup İkonu</span>
-        <button onclick="UI.closeModal('group-icon-edit-modal')" style="color:var(--muted);background:transparent;border:none;cursor:pointer;font-size:18px">✕</button>
+        <button onclick="UI.closeModal('group-icon-edit-modal')" style="color:#7A8FA8;background:transparent;border:none;cursor:pointer;font-size:18px">✕</button>
       </div>
       <div style="padding:14px">
         <div id="group-icon-edit-grid" style="display:flex;flex-wrap:wrap;gap:6px"></div>
@@ -1336,9 +1305,9 @@ function openGroupCreate() {
       div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;cursor:pointer;transition:background .12s';
       div.onmouseenter = () => div.style.background = '#131D30';
       div.onmouseleave = () => div.style.background = 'transparent';
-      div.innerHTML = `<input type="checkbox" value="${u.username}" style="width:16px;height:16px;accent-color:var(--accent);flex-shrink:0">
+      div.innerHTML = `<input type="checkbox" value="${u.username}" style="width:16px;height:16px;accent-color:#00FFB3;flex-shrink:0">
         <div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>
-        <span style="font-size:13px;color:#DDE8F8">${_esc(u.display_name||u.username)}</span>`;
+        <span style="font-size:13px;color:#DDE8F8">${u.display_name||u.username}</span>`;
       div.onclick = e => { if (e.target.tagName !== 'INPUT') div.querySelector('input').click(); };
       gc.appendChild(div);
     });
@@ -1393,7 +1362,7 @@ function updateInfoPanel(conv) {
     const info = document.createElement('div');
     info.style.textAlign = 'center';
     info.appendChild(avEl);
-    info.innerHTML += `<div style="font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8">${_esc(other.display_name||other.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(other.username)}</div><div style="font-size:11px;color:${st.color};margin-top:3px">${st.text}</div>`;
+    info.innerHTML += `<div style="font-weight:700;font-family:Syne,sans-serif;color:#DDE8F8">${other.display_name || other.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${other.username}</div><div style="font-size:11px;color:${st.color};margin-top:3px">${st.text}</div>`;
     el.appendChild(info);
   } else {
     const header = document.createElement('div');
@@ -1418,390 +1387,6 @@ async function searchInMessages(q) {
   await renderMessages(q);
   if(hits.length) document.getElementById('msg-'+hits[0].id)?.scrollIntoView({behavior:'smooth',block:'center'});
 }
-
-// ── Evrensel Arama ──────────────────────────────────────────────────
-let _uTab = 'all', _uSearchTimer = null;
-
-function openUniversalSearch() {
-  document.getElementById('universal-search-modal')?.classList.replace('hidden','flex');
-  setTimeout(() => document.getElementById('universal-search-input')?.focus(), 80);
-}
-
-function closeUniversalSearch() {
-  document.getElementById('universal-search-modal')?.classList.replace('flex','hidden');
-  const inp = document.getElementById('universal-search-input');
-  if (inp) inp.value = '';
-  const res = document.getElementById('universal-search-results');
-  if (res) res.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px"><div style="font-size:28px;margin-bottom:8px">🔍</div>Aramak istediğiniz kelimeyi yazın</div>';
-}
-
-function setUTab(tab) {
-  _uTab = tab;
-  ['all','convs','users','messages'].forEach(t => {
-    const btn = document.getElementById('us-tab-' + t);
-    if (!btn) return;
-    btn.style.color            = t === tab ? '#00FFB3' : '#7A8FA8';
-    btn.style.borderBottomColor = t === tab ? '#00FFB3' : 'transparent';
-  });
-  universalSearch(document.getElementById('universal-search-input')?.value || '');
-}
-
-function universalSearch(q) {
-  if (_uSearchTimer) clearTimeout(_uSearchTimer);
-  _uSearchTimer = setTimeout(() => _doUniversalSearch(q.trim()), 200);
-}
-
-async function _doUniversalSearch(q) {
-  const res = document.getElementById('universal-search-results');
-  if (!res) return;
-  if (!q) {
-    res.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--muted);font-size:13px"><div style="font-size:28px;margin-bottom:8px">🔍</div>Aramak istediğiniz kelimeyi yazın</div>';
-    return;
-  }
-  res.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px;font-family:\'JetBrains Mono\',monospace">Aranıyor…</div>';
-
-  const ql = q.toLocaleLowerCase('tr-TR');
-  const cu = window._currentUser;
-  const frag = document.createDocumentFragment();
-  let totalResults = 0;
-
-  // ── Sohbetler ───────────────────────────────────────────────────
-  if (_uTab === 'all' || _uTab === 'convs') {
-    const convHits = _convs.filter(c => {
-      const name = getConvName(c).toLocaleLowerCase('tr-TR');
-      const lastMsg = (c.last_msg || '').toLocaleLowerCase('tr-TR');
-      return name.includes(ql) || lastMsg.includes(ql);
-    }).slice(0, 8);
-
-    if (convHits.length) {
-      const sec = _usSection('💬 Sohbetler', convHits.length);
-      frag.appendChild(sec);
-      convHits.forEach(conv => {
-        const name = getConvName(conv);
-        const color = getConvColor(conv);
-        const other = conv.type === 'direct' ? _allUsers[conv.participants?.find(p=>p!==cu.username)] : null;
-        const avHtml = other?.avatar_url
-          ? `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${_safeUrl(other.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`
-          : `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;background:${color}22;color:${color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${UI.initials(name)}</div>`;
-        const row = _usRow(avHtml,
-          `<strong>${_usHighlight(name, q)}</strong>`,
-          _usHighlight((conv.last_msg||'').slice(0,60), q),
-          () => { closeUniversalSearch(); openConv(conv.id); }
-        );
-        frag.appendChild(row);
-        totalResults++;
-      });
-    }
-  }
-
-  // ── Kullanıcılar ────────────────────────────────────────────────
-  if (_uTab === 'all' || _uTab === 'users') {
-    const userHits = Object.values(_allUsers).filter(u => {
-      if (u.username === cu.username) return false;
-      return (u.display_name||'').toLocaleLowerCase('tr-TR').includes(ql)
-          || u.username.toLocaleLowerCase('tr-TR').includes(ql)
-          || (u.bio||'').toLocaleLowerCase('tr-TR').includes(ql);
-    }).slice(0, 6);
-
-    if (userHits.length) {
-      frag.appendChild(_usSection('👤 Kişiler', userHits.length));
-      userHits.forEach(u => {
-        const c = UI.avatarColor(u.username);
-        const avHtml = u.avatar_url
-          ? `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`
-          : `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;background:${c}22;color:${c};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${UI.initials(u.display_name||u.username)}</div>`;
-        const row = _usRow(avHtml,
-          `<strong>${_usHighlight(_esc(u.display_name||u.username), q)}</strong>`,
-          `@${_usHighlight(_esc(u.username), q)}`,
-          () => { closeUniversalSearch(); openUserProfile(u); }
-        );
-        frag.appendChild(row);
-        totalResults++;
-      });
-    }
-  }
-
-  // ── Mesajlar ────────────────────────────────────────────────────
-  if (_uTab === 'all' || _uTab === 'messages') {
-    const msgHits = [];
-    for (const conv of _convs.slice(0, 20)) {
-      try {
-        const msgs = await DB.getMessages(conv.id);
-        const hits = msgs.filter(m => m.text && m.text.toLocaleLowerCase('tr-TR').includes(ql));
-        hits.slice(0, 3).forEach(m => msgHits.push({ msg: m, conv }));
-      } catch {}
-      if (msgHits.length >= 10) break;
-    }
-
-    if (msgHits.length) {
-      frag.appendChild(_usSection('✉️ Mesajlar', msgHits.length));
-      msgHits.forEach(({ msg, conv }) => {
-        const sender = _allUsers[msg.from];
-        const c = UI.avatarColor(msg.from);
-        const avHtml = sender?.avatar_url
-          ? `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${_safeUrl(sender.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`
-          : `<div style="width:36px;height:36px;min-width:36px;border-radius:50%;background:${c}22;color:${c};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${UI.initials(sender?.display_name||msg.from)}</div>`;
-        const row = _usRow(avHtml,
-          `<strong>${_esc(getConvName(conv))}</strong> <span style="font-size:10px;color:#7A8FA8">• ${UI.fmtTime(msg.created_at)}</span>`,
-          _usHighlight(_esc(msg.text.slice(0,80)), q),
-          () => { closeUniversalSearch(); openConv(conv.id); setTimeout(() => document.getElementById('msg-'+msg.id)?.scrollIntoView({behavior:'smooth',block:'center'}), 400); }
-        );
-        frag.appendChild(row);
-        totalResults++;
-      });
-    }
-  }
-
-  res.innerHTML = '';
-  if (!totalResults) {
-    res.innerHTML = `<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px"><div style="font-size:28px;margin-bottom:8px">😕</div>"${_esc(q)}" için sonuç bulunamadı</div>`;
-  } else {
-    res.appendChild(frag);
-  }
-}
-
-function _usSection(title, count) {
-  const d = document.createElement('div');
-  d.style.cssText = 'padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--muted);font-family:\'JetBrains Mono\',monospace;letter-spacing:.08em;display:flex;justify-content:space-between';
-  d.innerHTML = `<span>${title}</span><span>${count}</span>`;
-  return d;
-}
-
-function _usRow(avHtml, title, subtitle, onClick) {
-  const d = document.createElement('div');
-  d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;transition:background .12s';
-  d.onmouseenter = () => d.style.background = '#131D30';
-  d.onmouseleave = () => d.style.background = 'transparent';
-  d.innerHTML = `${avHtml}<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${title}</div><div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${subtitle}</div></div>`;
-  d.onclick = onClick;
-  return d;
-}
-
-function _usHighlight(text, q) {
-  if (!q || !text) return text || '';
-  const re = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + ')', 'gi');
-  return text.replace(re, '<mark style="background:rgba(0,255,179,.3);color:var(--text);border-radius:2px;padding:0 1px">$1</mark>');
-}
-
-// ── Medya Galerisi ─────────────────────────────────────────────────
-let _galleryTab = 'all';
-
-async function openMediaGallery() {
-  if (!window._currentConvId) return;
-  UI.openModal('media-gallery-modal');
-  _galleryTab = 'all';
-  ['all','image','file','link'].forEach(t => {
-    const btn = document.getElementById('gal-tab-' + t);
-    if (btn) { btn.style.background = t==='all' ? '#131D30' : 'transparent'; btn.style.color = t==='all' ? '#DDE8F8' : '#7A8FA8'; }
-  });
-  await _loadGallery().catch(e => { UI.toast('Galeri yüklenemedi: ' + e.message, 'error'); });
-}
-
-function setGalleryTab(tab) {
-  _galleryTab = tab;
-  ['all','image','file','link'].forEach(t => {
-    const btn = document.getElementById('gal-tab-' + t);
-    if (btn) { btn.style.background = t===tab ? '#131D30' : 'transparent'; btn.style.color = t===tab ? '#DDE8F8' : '#7A8FA8'; }
-  });
-  _loadGallery();
-}
-
-async function _loadGallery() {
-  const grid = document.getElementById('gallery-grid');
-  const countEl = document.getElementById('gallery-count');
-  if (!grid) return;
-  grid.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Yükleniyor…</div>';
-  try {
-    const msgs = await DB.getMessages(window._currentConvId);
-    let items = msgs.filter(m => {
-      if (_galleryTab === 'image') return (m.type==='file' && m.file_type?.startsWith('image/')) || m.type==='gif';
-      if (_galleryTab === 'file')  return m.type==='file' && !m.file_type?.startsWith('image/');
-      if (_galleryTab === 'link')  return m.text && /https?:\/\/\S+/i.test(m.text);
-      return (m.type==='file') || m.type==='gif' || (m.text && /https?:\/\/\S+/i.test(m.text));
-    }).reverse();
-
-    if (countEl) countEl.textContent = items.length + ' öğe';
-    if (!items.length) { grid.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Bu kategoride medya yok</div>'; return; }
-
-    const frag = document.createDocumentFragment();
-
-    if (_galleryTab === 'image' || _galleryTab === 'all') {
-      const imgItems = items.filter(m => (m.type==='file'&&m.file_type?.startsWith('image/'))||m.type==='gif');
-      if (imgItems.length) {
-        const gridDiv = document.createElement('div');
-        gridDiv.style.cssText = 'display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-bottom:12px';
-        imgItems.forEach(m => {
-          const src = m.type==='gif' ? m.gif_url : m.file_data;
-          if (!src) return;
-          const d = document.createElement('div');
-          d.style.cssText = 'aspect-ratio:1;overflow:hidden;border-radius:4px;cursor:pointer;background:#131D30';
-          d.innerHTML = `<img src="${src}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy" onclick="Messages._lightbox('${src.replace(/'/g,'&#39;')}')">`;
-          gridDiv.appendChild(d);
-        });
-        frag.appendChild(gridDiv);
-      }
-    }
-
-    if (_galleryTab === 'file' || _galleryTab === 'all') {
-      const fileItems = items.filter(m => m.type==='file' && !m.file_type?.startsWith('image/'));
-      fileItems.forEach(m => {
-        const d = document.createElement('div');
-        d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:6px';
-        const ext = (m.file_name||'').split('.').pop().toUpperCase().slice(0,4) || 'FILE';
-        d.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(0,255,179,.1);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;flex-shrink:0">${ext}</div><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(m.file_name||'Dosya')}</div><div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">${UI.fmtTime(m.created_at)}</div></div><a href="${m.file_data}" download="${_esc(m.file_name||'file')}" style="color:var(--accent);text-decoration:none;font-size:18px" onclick="event.stopPropagation()">↓</a>`;
-        frag.appendChild(d);
-      });
-    }
-
-    if (_galleryTab === 'link' || _galleryTab === 'all') {
-      const linkItems = items.filter(m => m.text && /https?:\/\/\S+/i.test(m.text));
-      linkItems.slice(0, 20).forEach(m => {
-        const urls = m.text.match(/https?:\/\/\S+/gi) || [];
-        urls.forEach(url => {
-          const d = document.createElement('div');
-          d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--bg);border:1px solid var(--border);margin-bottom:6px;cursor:pointer';
-          d.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:rgba(14,165,233,.1);color:#0EA5E9;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🔗</div><div style="flex:1;min-width:0"><div style="font-size:12px;color:#0EA5E9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(url.slice(0,60))}</div><div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">${UI.fmtTime(m.created_at)}</div></div>`;
-          d.onclick = () => window.open(url, '_blank', 'noopener');
-          frag.appendChild(d);
-        });
-      });
-    }
-
-    grid.innerHTML = '';
-    grid.appendChild(frag);
-  } catch(e) { grid.innerHTML = `<div style="text-align:center;padding:24px;color:#FF3D6B;font-size:12px">Hata: ${_esc(e.message)}</div>`; }
-}
-
-// ── Sohbet İstatistikleri ──────────────────────────────────────────
-async function openChatStats() {
-  if (!window._currentConvId) return;
-  const content = document.getElementById('chat-stats-content');
-  if (!content) return;
-  content.innerHTML = '<div style="text-align:center;padding:24px;color:var(--muted);font-size:12px">Hesaplanıyor…</div>';
-  UI.openModal('chat-stats-modal');
-
-  try {
-    const msgs = await DB.getMessages(window._currentConvId);
-    const conv = _convs.find(c => c.id === window._currentConvId);
-    const cu = window._currentUser;
-    if (!msgs.length) { content.innerHTML = '<div style="text-align:center;padding:24px;color:#7A8FA8">Henüz mesaj yok</div>'; return; }
-
-    // Hesaplamalar
-    const total = msgs.length;
-    const byUser = {};
-    const byHour = Array(24).fill(0);
-    const byDay  = Array(7).fill(0);
-    let mediaCount = 0, gifCount = 0, stickerCount = 0, voiceCount = 0, linkCount = 0;
-    let totalChars = 0;
-    let firstMsg = msgs[0], lastMsg = msgs[msgs.length-1];
-
-    msgs.forEach(m => {
-      byUser[m.from] = (byUser[m.from] || 0) + 1;
-      const d = new Date(m.created_at);
-      byHour[d.getHours()]++;
-      byDay[d.getDay()]++;
-      if (m.type === 'file') mediaCount++;
-      if (m.type === 'gif') gifCount++;
-      if (m.type === 'sticker') stickerCount++;
-      if (m.type === 'voice') voiceCount++;
-      if (m.text) {
-        totalChars += m.text.length;
-        if (/https?:\/\/\S+/i.test(m.text)) linkCount++;
-      }
-    });
-
-    const topUsers = Object.entries(byUser).sort((a,b)=>b[1]-a[1]).slice(0,5);
-    const peakHour = byHour.indexOf(Math.max(...byHour));
-    const dayNames = ['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
-    const peakDay  = dayNames[byDay.indexOf(Math.max(...byDay))];
-    const avgPerDay = (() => {
-      const diff = (lastMsg.created_at - firstMsg.created_at) / 86400000 || 1;
-      return (total / diff).toFixed(1);
-    })();
-
-    // HTML oluştur
-    const _stat = (icon, label, value, color='#DDE8F8') =>
-      `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-radius:10px;background:var(--bg);border:1px solid #1E2D45"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">${icon}</span><span style="font-size:13px;color:#7A8FA8">${label}</span></div><span style="font-size:14px;font-weight:700;color:${color};font-family:'JetBrains Mono',monospace">${value}</span></div>`;
-
-    // Sohbet süresi
-    const durationMs = lastMsg.created_at - firstMsg.created_at;
-    const durationDays = Math.floor(durationMs / 86400000);
-    const durationStr = durationDays > 0 ? `${durationDays} gün` : `${Math.floor(durationMs/3600000)} saat`;
-
-    // Çubuk grafik yardımcısı
-    const maxHourVal = Math.max(...byHour, 1);
-    const hourBars = byHour.map((v,i) => {
-      const pct = Math.round(v/maxHourVal*100);
-      const isActive = i === peakHour;
-      return `<div title="${i}:00 — ${v} mesaj" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px"><div style="width:100%;height:${Math.max(4,pct*0.5)}px;background:${isActive?'#00FFB3':'#1E2D45'};border-radius:2px 2px 0 0;transition:height .3s"></div></div>`;
-    }).join('');
-
-    content.innerHTML = `
-      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">GENEL</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${_stat('💬','Toplam Mesaj', total.toLocaleString('tr-TR'), '#00FFB3')}
-        ${_stat('📅','Sohbet Süresi', durationStr)}
-        ${_stat('📈','Günlük Ortalama', avgPerDay + ' mesaj')}
-        ${_stat('✏️','Toplam Karakter', totalChars.toLocaleString('tr-TR'))}
-      </div>
-
-      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">İÇERİK</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${_stat('🖼','Medya', mediaCount)}
-        ${_stat('🎬','GIF', gifCount)}
-        ${_stat('😊','Sticker', stickerCount)}
-        ${_stat('🎙','Sesli Mesaj', voiceCount)}
-        ${_stat('🔗','Link', linkCount)}
-      </div>
-
-      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">EN AKTİF</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${_stat('⏰','En Aktif Saat', `${peakHour}:00 – ${peakHour+1}:00`, '#FFA535')}
-        ${_stat('📆','En Aktif Gün', peakDay, '#FFA535')}
-      </div>
-
-      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">SAATLİK DAĞILIM</div>
-      <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px">
-        <div style="display:flex;align-items:flex-end;gap:1px;height:40px">${hourBars}</div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--muted2);font-family:'JetBrains Mono',monospace">
-          <span>0</span><span>6</span><span>12</span><span>18</span><span>23</span>
-        </div>
-      </div>
-
-      <div style="font-size:10px;font-weight:700;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:.1em">KATILIMCI SIRALAMASI</div>
-      <div style="display:flex;flex-direction:column;gap:6px">
-        ${topUsers.map(([uid, count], i) => {
-          const u = _allUsers[uid] || { username: uid, display_name: uid };
-          const pct = Math.round(count/total*100);
-          const color = ['#FFD700','#C0C0C0','#CD7F32','#7A8FA8','#7A8FA8'][i];
-          return `<div style="padding:8px 12px;border-radius:10px;background:var(--bg);border:1px solid #1E2D45">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
-              <span style="font-size:12px;color:#DDE8F8">${i+1}. ${_esc(u.display_name||u.username)}</span>
-              <span style="font-size:11px;color:${color};font-family:'JetBrains Mono',monospace">${count} (${pct}%)</span>
-            </div>
-            <div style="height:4px;border-radius:2px;background:#1E2D45;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width .5s"></div>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>
-    `;
-  } catch(e) { content.innerHTML = `<div style="text-align:center;padding:24px;color:#FF3D6B;font-size:12px">Hata: ${_esc(e.message)}</div>`; }
-}
-
-// ── Şu An Dinliyorum ───────────────────────────────────────────────
-function clearNowPlaying() {
-  const inp = document.getElementById('pe-nowplaying');
-  if (inp) inp.value = '';
-}
-
-function renderNowPlaying(user) {
-  const np = user?.now_playing || localStorage.getItem('cipher_nowplaying_' + user?.username);
-  return np ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:8px;background:rgba(30,215,96,.08);border:1px solid rgba(30,215,96,.2);margin-top:6px"><span style="font-size:14px">🎵</span><div style="min-width:0"><div style="font-size:11px;color:#1ED760;font-weight:600">Şu an dinliyor</div><div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(np)}</div></div></div>` : '';
-}
-
-function spotifyDisconnect(){ Spotify.disconnect(); }
-function spotifyRefresh()   { Spotify.refresh(); }
 
 // ── Filter ───────────────────────────────────────────────────────────
 function setFilter(f) {
@@ -1830,32 +1415,13 @@ function toggleNotifs() { _settings.notifs=!_settings.notifs; saveSettings(); up
 // ── Profile edit ──────────────────────────────────────────────────────
 function setPeTab(tab) {
   ['profil','avatar','qr'].forEach(t => {
-    const btn   = document.getElementById('pe-tab-'+t);
+    const btn = document.getElementById('pe-tab-'+t);
     const panel = document.getElementById('pe-panel-'+t);
-    if (btn) {
-      btn.style.color             = t===tab ? '#00FFB3' : '#7A8FA8';
-      btn.style.borderBottomColor = t===tab ? '#00FFB3' : 'transparent';
-    }
+    if (btn) { btn.style.color = t===tab ? '#00FFB3' : '#7A8FA8'; btn.style.borderBottomColor = t===tab ? '#00FFB3' : 'transparent'; }
     if (panel) panel.style.display = t===tab ? 'flex' : 'none';
   });
-  // Avatar tab: modal scroll kapat ki canvas düzgün boyutlanabilsin
-  const inner = document.getElementById('profile-edit-inner');
-  if (inner) {
-    inner.style.overflowY = tab === 'avatar' ? 'hidden' : 'auto';
-    inner.style.maxHeight = tab === 'avatar' ? '94dvh' : '94dvh';
-  }
-  // Avatar paneli flex olarak aç
-  if (tab === 'avatar') {
-    const avPanel = document.getElementById('pe-panel-avatar');
-    if (avPanel) {
-      avPanel.style.flex = '1';
-      avPanel.style.overflowY = 'auto';
-      avPanel.style.minHeight = '0';
-    }
-  }
-
   if (tab === 'avatar') initAvatarMaker();
-  if (tab === 'qr')     initQRCode();
+  if (tab === 'qr') initQRCode();
 }
 
 function openProfileEdit() {
@@ -1877,317 +1443,138 @@ function openProfileEdit() {
   window._selectedBannerColor = cu.banner_color;
   const prev = document.getElementById('avatar-preview');
   if (prev) {
-    if (cu.avatar_url) prev.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">`;
+    if (cu.avatar_url) prev.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
     else { const c=UI.avatarColor(cu.username); prev.style.background=`linear-gradient(135deg,${c},${c}99)`; prev.style.color='#fff'; prev.textContent=UI.initials(cu.display_name||cu.username); }
   }
   setPeTab('profil');
-  // now_playing yükle
-  const npInp = document.getElementById('pe-nowplaying');
-  if (npInp) npInp.value = localStorage.getItem('cipher_nowplaying_' + cu.username) || '';
   UI.openModal('profile-edit-modal');
 }
 
-// ─── Avatar Maker — DiceBear API ───────────────────────────────────
-// DiceBear: ücretsiz, stabil, internet gerektirir, hiç kurulum yok
-// https://api.dicebear.com — MIT lisanslı
-
+// ─── Avatar Maker ───────────────────────────────────────────────────
 const _AV = {
-  style: 0,        // avatar stili
-  skinIdx: 0,
-  hairColorIdx: 0,
-  eyeColorIdx: 0,
-  bgIdx: 0,
-  accIdx: 0,
-  seed: '',        // rastgele tohum
-
-  // DiceBear stilleri — insan benzeri gerçekçi
-  styles: [
-    { id:'lorelei',       label:'Lorelei',    desc:'Zarif çizgi' },
-    { id:'avataaars',     label:'Avataaars',  desc:'Klasik' },
-    { id:'big-smile',     label:'Big Smile',  desc:'Neşeli' },
-    { id:'personas',      label:'Personas',   desc:'Gerçekçi' },
-    { id:'micah',         label:'Micah',      desc:'Düz tasarım' },
-    { id:'notionists',    label:'Notionists', desc:'Minimal' },
-    { id:'open-peeps',    label:'OpenPeeps',  desc:'Sevimli' },
-    { id:'adventurer',    label:'Adventure',  desc:'Macera' },
-  ],
-
-  skins:      ['f9c9b6','f0d9c0','d4a980','c68642','8d5524','4a2912','ffcba4','ffe0bd'],
-  skinLabels: ['Çok Açık','Açık','Buğday','Esmer','Kahverengi','Koyu','Pembe','Krem'],
-
-  hairColors:      ['2c1810','5c3317','8b4513','d2691e','daa520','f5deb3','fffacd','c0c0c0','1c1c1c','8b0000','4169e1','00ced1'],
-  hairColorLabels: ['Siyah','Kahve','Açık Kahve','Taba','Sarı Altın','Açık Sarı','Platin','Gri','Koyu Siyah','Bordo','Mavi','Turkuaz'],
-
-  eyeColors:      ['4a3728','6b8e23','4682b4','708090','2f4f4f','191970','8b4513','1a1a2e'],
-  eyeColorLabels: ['Kahve','Yeşil','Mavi','Gri','Orman','Lacivert','Ela','Koyu'],
-
-  bgs:       ['06080F','0A1628','1A0A28','0A2818','1A0A0A','2D2D2D','4A3728','1A1A2E'],
-  bgLabels:  ['Siyah','Lacivert','Mor','Koyu Yeşil','Koyu Kırmızı','Antrasit','Kahve','Gece'],
-
-  accs: {
-    'lorelei':    ['','earringsStuds','earringsHoop','earringsRing','earringsTag','flower','hat','headphones'],
-    'avataaars':  ['','kurt','round','prescription01','prescription02','sunglasses','wayfarers','fancy','hipster','hearts','blocky'],
-    'big-smile':  ['','glasses01','glasses02','glasses03','glasses04','glasses05','sunglasses','sunglasses01','sunglasses02','noGlasses'],
-    'personas':   ['','glasses','glasses2','glasses3','sunglasses','browline','heart','mask'],
-    'micah':      ['','glasses','sunglasses','goggles','circleGlasses','rectangleGlasses','catGlasses','shieldGlasses'],
-    'notionists': ['','glasses','sunglasses','star','heart','diamond'],
-    'open-peeps': ['','glasses','sunglasses','goggles','squares','hexagon'],
-    'adventurer': ['','glasses','sunglasses','goggles','hipsterGlasses','tinyGlasses','wireframeGlasses'],
-    'default':    ['','glasses','sunglasses','goggles','cat','heart','star'],
-  },
-  accLabels: {
-    '':'Yok',
-    'glasses':'Gözlük','glasses2':'Gözlük 2','glasses3':'Gözlük 3',
-    'glasses01':'Gözlük 1','glasses02':'Gözlük 2','glasses03':'Gözlük 3',
-    'glasses04':'Gözlük 4','glasses05':'Gözlük 5',
-    'sunglasses':'Güneş Gözlüğü','sunglasses01':'Güneş 1','sunglasses02':'Güneş 2',
-    'wayfarers':'Wayfarer','prescription01':'Reçeteli 1','prescription02':'Reçeteli 2',
-    'kurt':'Kurt','round':'Yuvarlak','fancy':'Fantezi','hipster':'Hipster',
-    'hearts':'Kalp','blocky':'Kalın Çerçeve','hipsterGlasses':'Hipster',
-    'tinyGlasses':'Küçük','wireframeGlasses':'Tel Çerçeve',
-    'browline':'Browline','heart':'Kalp','mask':'Maske',
-    'goggles':'Goggle','circleGlasses':'Yuvarlak','rectangleGlasses':'Dikdörtgen',
-    'catGlasses':'Kedi','shieldGlasses':'Kalkan',
-    'earringsStuds':'Küpe','earringsHoop':'Halka Küpe','earringsRing':'Ring Küpe',
-    'earringsTag':'Tag Küpe','flower':'Çiçek','hat':'Şapka','headphones':'Kulaklık',
-    'star':'Yıldız','diamond':'Elmas','squares':'Kare','hexagon':'Altıgen',
-    'noGlasses':'Yok',
-  },
+  bg: '#1E2D45', color: '#00FFB3',
+  shape: 0, eye: 0, mouth: 0, acc: 0,
+  shapes: ['circle','square','hexagon','diamond','star','rounded'],
+  eyes:   ['normal','happy','cool','sleepy','surprised','wink'],
+  mouths: ['smile','grin','flat','sad','open','smirk'],
+  accs:   ['none','hat','crown','glasses','headphones','horns'],
+  bgs: ['#1E2D45','#0A1628','#1A0A28','#0A2818','#281A0A','#06080F','#001F1A','#1A0F00'],
+  colors: ['#00FFB3','#0066FF','#FF3D6B','#FFA535','#9333EA','#F59E0B','#10B981','#EF4444','#EC4899','#6366F1','#FFFFFF','#7A8FA8'],
 };
 
-// DiceBear URL üret
-function _avUrl(overrides = {}) {
-  const style = overrides.style ?? _AV.styles[_AV.style].id;
-  const seed  = overrides.seed  ?? (_AV.seed || 'cipher-user');
-  const skin  = overrides.skin  ?? _AV.skins[_AV.skinIdx];
-  const hair  = overrides.hair  ?? _AV.hairColors[_AV.hairColorIdx];
-  const eye   = overrides.eye   ?? _AV.eyeColors[_AV.eyeColorIdx];
-  const bg    = overrides.bg    ?? _AV.bgs[_AV.bgIdx];
-  const acc   = overrides.acc   ?? (_AV.accs[style]?.[_AV.accIdx] ?? '');
-
-  const base = `https://api.dicebear.com/9.x/${style}/svg`;
-  const params = new URLSearchParams({
-    seed,
-    size: '200',
-    backgroundColor: bg,
-    radius: '50',
-  });
-
-  // Stil bazlı parametreler
-  if (['lorelei','avataaars','big-smile','personas','micah','open-peeps','adventurer'].includes(style)) {
-    params.set('skinColor', skin);
-  }
-  if (['lorelei','avataaars','big-smile','personas','micah'].includes(style)) {
-    params.set('hairColor', hair);
-  }
-  if (['lorelei','avataaars','big-smile','personas'].includes(style)) {
-    params.set('eyesColor', eye);
-  }
-  if (acc && acc !== '' && acc !== 'noGlasses') {
-    if (style === 'avataaars') {
-      params.set('accessories', acc);
-      params.set('accessoriesProbability', '100');
-    } else if (style === 'lorelei') {
-      // earrings / hat / headphones
-      if (acc.startsWith('earrings')) params.set('earrings', acc);
-      else if (acc === 'hat') params.set('freckles', '');
-      else params.set('earrings', acc);
-    } else if (['micah','personas'].includes(style)) {
-      params.set('glassesProbability', '100');
-      params.set('glasses', acc);
-    } else {
-      // big-smile, open-peeps, adventurer, notionists
-      params.set('glassesProbability', '100');
-    }
-  }
-
-  return `${base}?${params.toString()}`;
-}
-
-// SVG URL'yi canvas'a çiz (PNG'ye dönüştür)
-async function _svgToCanvas(svgUrl, canvasOrEl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      if (canvasOrEl instanceof HTMLCanvasElement) {
-        const ctx = canvasOrEl.getContext('2d');
-        ctx.clearRect(0, 0, canvasOrEl.width, canvasOrEl.height);
-        ctx.drawImage(img, 0, 0, canvasOrEl.width, canvasOrEl.height);
-        resolve(canvasOrEl.toDataURL('image/png'));
-      } else {
-        // DIV/IMG için src set et
-        if (canvasOrEl.tagName === 'IMG') canvasOrEl.src = svgUrl;
-        else canvasOrEl.innerHTML = `<img src="${svgUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" crossorigin="anonymous" loading="lazy">`;
-        resolve(svgUrl);
-      }
-    };
-    img.onerror = () => {
-      console.warn('[AV] SVG load failed, using URL directly');
-      resolve(svgUrl);
-    };
-    img.src = svgUrl;
-  });
-}
-
-// Önizlemeyi güncelle
-let _avUpdateTimer = null;
-function _updateAvatarPreview() {
-  if (_avUpdateTimer) clearTimeout(_avUpdateTimer);
-  _avUpdateTimer = setTimeout(async () => {
-    const url = _avUrl();
-    const prev = document.getElementById('av-preview-wrap');
-    if (prev) {
-      prev.innerHTML = `<img src="${url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" onerror="this.parentElement.innerHTML='🧑'" loading="lazy">`;
-    }
-  }, 150);
-}
-
-// Swatch builder
-function _avSwatch(containerId, items, labels, key, isColor, onSelect) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML = '';
-  items.forEach((val, i) => {
-    const btn = document.createElement('button');
-    const active = (typeof key === 'function' ? key() : _AV[key]) === i;
-    if (isColor) {
-      btn.style.cssText = `width:26px;height:26px;border-radius:50%;background:#${val};border:2.5px solid ${active?'#00FFB3':'transparent'};cursor:pointer;flex-shrink:0;transition:border-color .15s`;
-      btn.title = labels?.[i] || val;
-    } else {
-      btn.style.cssText = `padding:4px 9px;border-radius:8px;border:1.5px solid ${active?'#00FFB3':'#1E2D45'};background:${active?'rgba(0,255,179,.12)':'transparent'};cursor:pointer;font-size:11px;color:${active?'#00FFB3':'#7A8FA8'};font-family:'JetBrains Mono',monospace;white-space:nowrap;transition:all .15s`;
-      btn.textContent = labels?.[i] || val;
-    }
-    btn.onclick = () => {
-      onSelect(i);
-      el.querySelectorAll('button').forEach((b, bi) => {
-        if (isColor) b.style.borderColor = bi===i ? '#00FFB3' : 'transparent';
-        else {
-          b.style.borderColor = bi===i?'#00FFB3':'#1E2D45';
-          b.style.background  = bi===i?'rgba(0,255,179,.12)':'transparent';
-          b.style.color       = bi===i?'#00FFB3':'#7A8FA8';
-        }
-      });
-      _updateAvatarPreview();
-    };
-    el.appendChild(btn);
-  });
-}
-
-function _buildAccSwatches() {
-  const style = _AV.styles[_AV.style].id;
-  const accs  = _AV.accs[style] || _AV.accs['default'];
-  const labels = accs.map(a => _AV.accLabels[a] || a || 'Yok');
-  const sec = document.getElementById('av-acc-section');
-  if (sec) sec.style.display = accs.length > 1 ? 'block' : 'none';
-  _avSwatch('av-acc-btns', accs, labels, 'accIdx', false, i => { _AV.accIdx = Math.min(i, accs.length-1); });
-}
-
 function initAvatarMaker() {
-  // Seed = username'den üret
-  if (!_AV.seed) _AV.seed = window._currentUser?.username || 'user';
-
-  // Mevcut kaydedilmiş avatar varsa önizlemede göster
-  const cu = window._currentUser;
-  const saved = cu?.avatar_data || localStorage.getItem('cipher_avatar_data_' + cu?.username);
-  const prev = document.getElementById('av-preview-wrap');
-  if (saved && prev) {
-    prev.innerHTML = `<img src="${saved}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">`;
-  }
-
-  // Swatches
-  _avSwatch('av-style-btns',
-    _AV.styles.map(s => s.label),
-    _AV.styles.map(s => s.desc),
-    'style', false,
-    i => { _AV.style = i; _AV.accIdx = 0; _buildAccSwatches(); _updateAvatarPreview(); }
-  );
-  _avSwatch('av-skin-btns', _AV.skins, _AV.skinLabels, 'skinIdx', true, i => { _AV.skinIdx = i; });
-  _avSwatch('av-haircolor-btns', _AV.hairColors, _AV.hairColorLabels, 'hairColorIdx', true, i => { _AV.hairColorIdx = i; });
-  _avSwatch('av-eye-btns', _AV.eyeColors, _AV.eyeColorLabels, 'eyeColorIdx', true, i => { _AV.eyeColorIdx = i; });
-  _avSwatch('av-bg-btns', _AV.bgs, _AV.bgLabels, 'bgIdx', true, i => { _AV.bgIdx = i; });
-  _buildAccSwatches();
-
-  _updateAvatarPreview();
+  const buildSwatch = (containerId, arr, key, isColor=true, renderFn) => {
+    const el = document.getElementById(containerId); if (!el) return;
+    el.innerHTML = '';
+    arr.forEach((val, i) => {
+      const btn = document.createElement('button');
+      if (isColor) {
+        btn.style.cssText = `width:26px;height:26px;border-radius:50%;background:${val};border:2.5px solid ${_AV[key]===val?'#00FFB3':'transparent'};cursor:pointer;flex-shrink:0;transition:border-color .15s`;
+        btn.onclick = () => { _AV[key]=val; el.querySelectorAll('button').forEach(b=>b.style.borderColor='transparent'); btn.style.borderColor='#00FFB3'; drawAvatar(); };
+      } else {
+        btn.style.cssText = `padding:4px 10px;border-radius:8px;border:1.5px solid ${_AV[key]===i?'#00FFB3':'#1E2D45'};background:${_AV[key]===i?'rgba(0,255,179,.12)':'transparent'};cursor:pointer;font-size:11px;color:${_AV[key]===i?'#00FFB3':'#7A8FA8'};font-family:'JetBrains Mono',monospace;transition:all .15s`;
+        btn.textContent = renderFn ? renderFn(val) : val;
+        btn.onclick = () => { _AV[key]=i; el.querySelectorAll('button').forEach(b=>{ b.style.borderColor='#1E2D45'; b.style.background='transparent'; b.style.color='#7A8FA8'; }); btn.style.borderColor='#00FFB3'; btn.style.background='rgba(0,255,179,.12)'; btn.style.color='#00FFB3'; drawAvatar(); };
+      }
+      el.appendChild(btn);
+    });
+  };
+  buildSwatch('av-bg-swatches', _AV.bgs, 'bg', true);
+  buildSwatch('av-color-swatches', _AV.colors, 'color', true);
+  buildSwatch('av-shape-btns', _AV.shapes, 'shape', false, s=>({'circle':'●','square':'■','hexagon':'⬡','diamond':'◆','star':'★','rounded':'▢'}[s]||s));
+  buildSwatch('av-eye-btns', _AV.eyes, 'eye', false, e=>({'normal':'◉◉','happy':'^‿^','cool':'⊙⊙','sleepy':'−−','surprised':'○○','wink':'−◉'}[e]||e));
+  buildSwatch('av-mouth-btns', _AV.mouths, 'mouth', false, m=>({'smile':'⌣','grin':'D','flat':'−','sad':'⌢','open':'O','smirk':'⌣̃'}[m]||m));
+  buildSwatch('av-acc-btns', _AV.accs, 'acc', false, a=>({'none':'∅','hat':'🎩','crown':'👑','glasses':'👓','headphones':'🎧','horns':'😈'}[a]||a));
+  drawAvatar();
 }
 
-function randomizeAvatar() {
-  _AV.seed = Math.random().toString(36).slice(2, 10);
-  _AV.style        = Math.floor(Math.random() * _AV.styles.length);
-  _AV.skinIdx      = Math.floor(Math.random() * _AV.skins.length);
-  _AV.hairColorIdx = Math.floor(Math.random() * _AV.hairColors.length);
-  _AV.eyeColorIdx  = Math.floor(Math.random() * _AV.eyeColors.length);
-  _AV.bgIdx        = Math.floor(Math.random() * _AV.bgs.length);
-  _AV.accIdx       = 0;
-  // Swatches'ı yeniden inşa et (active state güncellenir)
-  // initAvatarMaker seed'i sıfırlar — doğrudan swatch build çağır
-  _avSwatch('av-style-btns',
-    _AV.styles.map(s => s.label), _AV.styles.map(s => s.desc),
-    'style', false, i => { _AV.style = i; _AV.accIdx = 0; _buildAccSwatches(); }
-  );
-  _avSwatch('av-skin-btns',      _AV.skins,      _AV.skinLabels,      'skinIdx',      true, i => { _AV.skinIdx = i; });
-  _avSwatch('av-haircolor-btns', _AV.hairColors,  _AV.hairColorLabels, 'hairColorIdx', true, i => { _AV.hairColorIdx = i; });
-  _avSwatch('av-eye-btns',       _AV.eyeColors,   _AV.eyeColorLabels,  'eyeColorIdx',  true, i => { _AV.eyeColorIdx = i; });
-  _avSwatch('av-bg-btns',        _AV.bgs,         _AV.bgLabels,        'bgIdx',        true, i => { _AV.bgIdx = i; });
-  _buildAccSwatches();
-  _updateAvatarPreview();
-  UI.toast('🎲 Rastgele avatar!', 'success', 1500);
+function drawAvatar() {
+  const canvas = document.getElementById('av-canvas'); if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = 200, H = 200, cx = W/2, cy = H/2;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = _AV.bg;
+  ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI*2); ctx.fill();
+  ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, 100, 0, Math.PI*2); ctx.clip();
+
+  // Shape (face/body)
+  ctx.fillStyle = _AV.color;
+  const shapeR = 52;
+  ctx.beginPath();
+  switch(_AV.shapes[_AV.shape]) {
+    case 'circle':   ctx.arc(cx, cy+8, shapeR, 0, Math.PI*2); break;
+    case 'square':   ctx.rect(cx-shapeR, cy-shapeR+8, shapeR*2, shapeR*2); break;
+    case 'hexagon':  for(let i=0;i<6;i++){const a=Math.PI/3*i-Math.PI/6;ctx.lineTo(cx+shapeR*Math.cos(a),cy+8+shapeR*Math.sin(a));} break;
+    case 'diamond':  ctx.moveTo(cx,cy-shapeR+8);ctx.lineTo(cx+shapeR,cy+8);ctx.lineTo(cx,cy+shapeR+8);ctx.lineTo(cx-shapeR,cy+8); break;
+    case 'star':     for(let i=0;i<10;i++){const a=Math.PI/5*i-Math.PI/2,r=i%2===0?shapeR:shapeR*0.45;ctx.lineTo(cx+r*Math.cos(a),cy+8+r*Math.sin(a));} break;
+    case 'rounded':  ctx.roundRect(cx-shapeR,cy-shapeR+8,shapeR*2,shapeR*2,18); break;
+    default:         ctx.arc(cx, cy+8, shapeR, 0, Math.PI*2);
+  }
+  ctx.fill();
+
+  // Eyes
+  const eyeY = cy - 2, eyeLX = cx - 18, eyeRX = cx + 18;
+  const eyeCol = _AV.bg;
+  ctx.fillStyle = eyeCol;
+  switch(_AV.eyes[_AV.eye]) {
+    case 'normal':    [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,7,0,Math.PI*2);ctx.fill();}); break;
+    case 'happy':     [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY+3,7,Math.PI,0);ctx.fill();}); break;
+    case 'cool':      [eyeLX,eyeRX].forEach(x=>{ctx.fillRect(x-9,eyeY-4,18,8);}); break;
+    case 'sleepy':    ctx.lineWidth=3;ctx.strokeStyle=eyeCol;[eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.moveTo(x-8,eyeY);ctx.lineTo(x+8,eyeY);ctx.stroke();}); break;
+    case 'surprised': [eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,9,0,Math.PI*2);ctx.fill();}); break;
+    case 'wink':      ctx.beginPath();ctx.arc(eyeRX,eyeY,7,0,Math.PI*2);ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=eyeCol;ctx.beginPath();ctx.moveTo(eyeLX-8,eyeY);ctx.lineTo(eyeLX+8,eyeY);ctx.stroke(); break;
+  }
+
+  // Mouth
+  const mY = cy + 26;
+  ctx.strokeStyle = _AV.bg; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
+  switch(_AV.mouths[_AV.mouth]) {
+    case 'smile':  ctx.beginPath();ctx.arc(cx,mY-6,14,0.2,Math.PI-0.2);ctx.stroke(); break;
+    case 'grin':   ctx.beginPath();ctx.arc(cx,mY-6,16,0.1,Math.PI-0.1);ctx.fill();ctx.stroke(); break;
+    case 'flat':   ctx.beginPath();ctx.moveTo(cx-13,mY);ctx.lineTo(cx+13,mY);ctx.stroke(); break;
+    case 'sad':    ctx.beginPath();ctx.arc(cx,mY+6,14,Math.PI+0.2,2*Math.PI-0.2);ctx.stroke(); break;
+    case 'open':   ctx.beginPath();ctx.arc(cx,mY-4,10,0,Math.PI*2);ctx.fill();ctx.stroke(); break;
+    case 'smirk':  ctx.beginPath();ctx.moveTo(cx-10,mY+2);ctx.quadraticCurveTo(cx+4,mY-6,cx+12,mY);ctx.stroke(); break;
+  }
+
+  // Accessory
+  ctx.fillStyle = _AV.color;
+  switch(_AV.accs[_AV.acc]) {
+    case 'hat':        ctx.fillRect(cx-28,cy-68,56,12);ctx.beginPath();ctx.rect(cx-20,cy-92,40,28);ctx.fill(); break;
+    case 'crown':      [cx-22,cx-8,cx+8,cx+22].forEach((x,i)=>{ctx.beginPath();ctx.moveTo(x-8,cy-58);ctx.lineTo(x,cy-74+i%2*10);ctx.lineTo(x+8,cy-58);ctx.fill();}); break;
+    case 'glasses':    ctx.lineWidth=3;ctx.strokeStyle=_AV.color;[eyeLX,eyeRX].forEach(x=>{ctx.beginPath();ctx.arc(x,eyeY,11,0,Math.PI*2);ctx.stroke();});ctx.beginPath();ctx.moveTo(eyeLX+11,eyeY);ctx.lineTo(eyeRX-11,eyeY);ctx.stroke(); break;
+    case 'headphones': ctx.lineWidth=5;ctx.strokeStyle=_AV.color;ctx.beginPath();ctx.arc(cx,cy-20,40,Math.PI*1.1,Math.PI*1.9);ctx.stroke();[cx-40,cx+40].forEach(x=>{ctx.fillRect(x-7,cy-24,14,16);}); break;
+    case 'horns':      [[cx-30,cy-72],[cx+30,cy-72]].forEach(([x,y])=>{ctx.beginPath();ctx.moveTo(x-8,y+16);ctx.lineTo(x,y);ctx.lineTo(x+8,y+16);ctx.fill();}); break;
+  }
+
+  ctx.restore();
+  // Subtle border
+  ctx.strokeStyle = 'rgba(0,0,0,.2)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(cx, cy, 99, 0, Math.PI*2); ctx.stroke();
 }
 
 async function applyMakerAvatar() {
-  const cu = window._currentUser;
-  const svgUrl = _avUrl();
-  const statusEl = document.getElementById('av-preview-wrap');
-
+  const canvas = document.getElementById('av-canvas'); if (!canvas) return;
+  const dataUrl = canvas.toDataURL('image/png');
   try {
-    // SVG'yi canvas'a çizip PNG'ye çevir
-    const canvas = document.getElementById('av-canvas');
-    let dataUrl = svgUrl; // fallback: URL olarak kaydet
-
-    if (canvas) {
-      canvas.width = 400; canvas.height = 400;
-      dataUrl = await _svgToCanvas(svgUrl, canvas).catch(() => svgUrl);
-    }
-
-    // avatar_data'ya kaydet — avatar_url'ye DOKUNMA
-    const saveUrl = dataUrl.startsWith('data:') ? dataUrl : svgUrl;
-    localStorage.setItem('cipher_avatar_data_' + cu.username, saveUrl);
-
-    await DB.updateUser(cu.username, { avatar_data: saveUrl }).catch(e => {
-      console.warn('[AV] DB column avatar_data may not exist, stored locally:', e.message);
-    });
-    cu.avatar_data = saveUrl;
-    if (_allUsers[cu.username]) _allUsers[cu.username].avatar_data = saveUrl;
-
-    // Profil önizlemesini güncelle (avatar_url değil, avatar_data göster)
+    await DB.updateUser(window._currentUser.username, { avatar_url: dataUrl });
+    window._currentUser.avatar_url = dataUrl;
+    _allUsers[window._currentUser.username].avatar_url = dataUrl;
     const prev = document.getElementById('avatar-preview');
-    if (prev) prev.innerHTML = `<img src="${saveUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">`;
-
+    if (prev) prev.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
     renderMyAvatar();
     setPeTab('profil');
-    UI.toast('🎨 Avatar kaydedildi!', 'success', 3000);
-  } catch(e) {
-    console.error('[AV] applyMakerAvatar error:', e);
-    UI.toast('Kaydedilemedi: ' + e.message, 'error');
-  }
+    UI.toast('Avatar kaydedildi ✓','success');
+  } catch(e) { UI.toast('Kaydedilemedi: '+e.message,'error'); }
 }
-
-// avatar gösterim yardımcısı
-function getUserAvatarDisplay(user) {
-  if (user?.avatar_url) return { type: 'photo', src: user.avatar_url };
-  const localData = localStorage.getItem('cipher_avatar_data_' + user?.username);
-  const src = user?.avatar_data || localData;
-  if (src) return { type: 'avatar', src };
-  return { type: 'initials', color: UI.avatarColor(user?.username || '') };
-}
-
-
 
 // ─── QR Code ────────────────────────────────────────────────────────
 function initQRCode() {
   const cu = window._currentUser;
   const label = document.getElementById('qr-username-label');
-  if (label) label.textContent = `@${_esc(cu.username)}`;
+  if (label) label.textContent = `@${cu.username}`;
   const canvas = document.getElementById('qr-canvas'); if (!canvas) return;
   // QR içerik: cipher://user/<username>
   const text = `cipher://user/${cu.username}`;
@@ -2271,36 +1658,23 @@ function downloadQR() {
 async function shareQR() {
   const cu = window._currentUser;
   const shareUrl = `${location.origin}${location.pathname}?add=${cu.username}`;
-  try {
-    if (navigator.share) {
-      await navigator.share({ title:"CIPHER'da beni ekle", text:`@${_esc(cu.username)} olarak CIPHER'dayım!`, url: shareUrl });
-    } else {
-      await navigator.clipboard.writeText(shareUrl);
-      UI.toast('Link kopyalandı ✓', 'success');
-    }
-  } catch(e) {
-    if (e.name !== 'AbortError') {
-      // Clipboard fallback
-      try { await navigator.clipboard.writeText(shareUrl); UI.toast('Link kopyalandı ✓', 'success'); }
-      catch { UI.toast('Paylaşılamadı', 'error'); }
-    }
+  if (navigator.share) {
+    await navigator.share({ title:'CIPHER\'da beni ekle', text:`@${cu.username} olarak CIPHER\'dayım!`, url: shareUrl });
+  } else {
+    navigator.clipboard.writeText(shareUrl).then(()=>UI.toast('Link kopyalandı ✓','success'));
   }
 }
 
 async function saveProfile() {
   const cu = window._currentUser;
   const _sanitize = s => (s||'').replace(/[<>]/g,'').slice(0,200);
-  const nowPlaying = document.getElementById('pe-nowplaying')?.value.trim() || '';
-  const d = {
+  const d = { 
     display_name: _sanitize(document.getElementById('pe-displayname').value)||cu.display_name,
     bio:          _sanitize(document.getElementById('pe-bio').value),
     status:       _sanitize(document.getElementById('pe-status').value).slice(0,100),
     status_emoji: (document.getElementById('pe-statusemoji').value||'').slice(0,4),
-    banner_color: window._selectedBannerColor||cu.banner_color
+    banner_color: window._selectedBannerColor||cu.banner_color 
   };
-  // now_playing localStorage'a kaydet (DB kolonu olmayabilir)
-  if (nowPlaying) localStorage.setItem('cipher_nowplaying_' + cu.username, nowPlaying);
-  else localStorage.removeItem('cipher_nowplaying_' + cu.username);
   try {
     await DB.updateUser(cu.username, d);
     Object.assign(window._currentUser, d); _allUsers[cu.username] = { ..._allUsers[cu.username], ...d };
@@ -2318,7 +1692,7 @@ async function uploadAvatar(input) {
       window._currentUser.avatar_url = r.result; _allUsers[window._currentUser.username].avatar_url = r.result;
       renderMyAvatar();
       const prev = document.getElementById('avatar-preview');
-      if (prev) prev.innerHTML = `<img src="${r.result}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">`;
+      if (prev) prev.innerHTML = `<img src="${r.result}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
       UI.toast('Fotoğraf güncellendi ✓','success');
     } catch(e) { UI.toast('Yüklenemedi: '+e.message,'error'); }
   };
@@ -2350,7 +1724,7 @@ function openBlockReport() {
   window._brTarget = u.username;
   const blocked = getBlockedList();
   const color = UI.avatarColor(u.username);
-  document.getElementById('br-user-info').innerHTML = `${u.avatar_url?`<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover" loading="lazy">`:`<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`}<div><div style="font-size:13px;font-weight:600;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div>`;
+  document.getElementById('br-user-info').innerHTML = `${u.avatar_url?`<img src="${_safeUrl(u.avatar_url)||''}" style="width:36px;height:36px;border-radius:50%;object-fit:cover">`:`<div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div>`}<div><div style="font-size:13px;font-weight:600;color:#DDE8F8">${u.display_name||u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div>`;
   document.getElementById('br-block-btn').innerHTML = blocked.includes(u.username) ? `<span style="font-size:18px">✅</span><div><div style="font-size:13px;font-weight:600">Engeli Kaldır</div></div>` : `<span style="font-size:18px">🚫</span><div><div style="font-size:13px;font-weight:600">Engelle</div></div>`;
   UI.openModal('block-report-modal');
 }
@@ -2405,17 +1779,17 @@ function openNotifs() {
   _notifs.forEach(n=>n.read=true); updateNotifBadge();
   const list=document.getElementById('notif-list');
   if(!list)return;
-  if(!_notifs.length){list.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px">Henüz bildirim yok</div>';UI.openModal('notif-modal');return;}
+  if(!_notifs.length){list.innerHTML='<div style="text-align:center;padding:24px;color:#7A8FA8;font-size:13px">Henüz bildirim yok</div>';UI.openModal('notif-modal');return;}
   const frag=document.createDocumentFragment();
   _notifs.forEach(n=>{
     const u=_allUsers[n.from]||{username:n.from,display_name:n.from};
     const c=UI.avatarColor(u.username);
     const div=document.createElement('div');
-    div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;cursor:pointer;background:var(--bg);border:1px solid var(--border);transition:background .12s;margin-bottom:6px';
+    div.style.cssText='display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;cursor:pointer;background:#06080F;border:1px solid #1E2D45;transition:background .12s;margin-bottom:6px';
     div.onmouseenter=()=>div.style.background='#0C1220';
     div.onmouseleave=()=>div.style.background='#06080F';
     div.onclick=()=>{UI.closeModal('notif-modal');openConv(n.convId);};
-    div.innerHTML=`<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.msg}</div></div><span style="font-size:10px;color:var(--muted);flex-shrink:0">${UI.fmtTime(n.time)}</span>`;
+    div.innerHTML=`<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${c}22;color:${c};font-family:Syne,sans-serif">${UI.initials(u.display_name||u.username)}</div><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:#DDE8F8">${u.display_name||u.username}</div><div style="font-size:11px;color:#7A8FA8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${n.msg}</div></div><span style="font-size:10px;color:#7A8FA8;flex-shrink:0">${UI.fmtTime(n.time)}</span>`;
     frag.appendChild(div);
   });
   list.innerHTML=''; list.appendChild(frag);
@@ -2440,13 +1814,13 @@ function openSavedMessages() {
   if (!list) return;
   const saved = JSON.parse(localStorage.getItem(_SAVED_KEY()) || '[]');
   if (!saved.length) {
-    list.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Henüz kaydedilen mesaj yok.<br><br>Mesaja uzun bas → 📌 Kaydet</div>';
+    list.innerHTML = '<div style="text-align:center;padding:32px;color:#7A8FA8;font-size:13px">Henüz kaydedilen mesaj yok.<br><br>Mesaja uzun bas → 📌 Kaydet</div>';
   } else {
     list.innerHTML = '';
     saved.forEach((m, i) => {
       const div = document.createElement('div');
-      div.style.cssText = 'padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--border);display:flex;gap:10px;align-items:start';
-      div.innerHTML = `<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);line-height:1.5;word-break:break-word">${String(m.text||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div><div style="font-size:10px;color:var(--muted2);font-family:'JetBrains Mono',monospace;margin-top:4px">${UI.fmtDate(m.time)}</div></div><div style="display:flex;gap:4px;flex-shrink:0"><button onclick="goToSavedMsg('${m.convId}');UI.closeModal('saved-messages-modal')" style="font-size:11px;padding:4px 8px;border-radius:6px;background:var(--elev);color:var(--accent);border:1px solid rgba(0,255,179,.2);cursor:pointer">Git</button><button onclick="deleteSavedMsg(${i})" style="font-size:11px;padding:4px 8px;border-radius:6px;background:var(--elev);color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer">✕</button></div>`;
+      div.style.cssText = 'padding:10px 12px;border-radius:12px;background:#06080F;border:1px solid #1E2D45;display:flex;gap:10px;align-items:start';
+      div.innerHTML = `<div style="flex:1;min-width:0"><div style="font-size:13px;color:#DDE8F8;line-height:1.5;word-break:break-word">${String(m.text||'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</div><div style="font-size:10px;color:#5A6E88;font-family:'JetBrains Mono',monospace;margin-top:4px">${UI.fmtDate(m.time)}</div></div><div style="display:flex;gap:4px;flex-shrink:0"><button onclick="goToSavedMsg('${m.convId}');UI.closeModal('saved-messages-modal')" style="font-size:11px;padding:4px 8px;border-radius:6px;background:#131D30;color:#00FFB3;border:1px solid rgba(0,255,179,.2);cursor:pointer">Git</button><button onclick="deleteSavedMsg(${i})" style="font-size:11px;padding:4px 8px;border-radius:6px;background:#131D30;color:#FF3D6B;border:1px solid rgba(255,61,107,.2);cursor:pointer">✕</button></div>`;
       list.appendChild(div);
     });
   }
@@ -2461,14 +1835,7 @@ function deleteSavedMsg(idx) {
 }
 
 function goToSavedMsg(convId) {
-  if (!convId) return;
-  UI.closeModal('saved-messages-modal');
-  // Mobilde sidebar'ı kapat, chat'e geç
-  if (window.innerWidth < 768) {
-    document.getElementById('sidebar')?.classList.add('slide-out');
-    document.getElementById('chat-area')?.classList.add('slide-in');
-  }
-  openConv(convId);
+  if (convId) openConv(convId);
 }
 
 // ── Story Görüntüleyenler ───────────────────────────────────────────
@@ -2481,7 +1848,7 @@ function openStoryViewers(storyId) {
     const list = document.getElementById('story-viewers-list');
     if (!list) return;
     if (!viewers.length) {
-      list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">Henüz kimse görmedi</div>';
+      list.innerHTML = '<div style="text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Henüz kimse görmedi</div>';
     } else {
       list.innerHTML = '';
       viewers.forEach(uid => {
@@ -2490,9 +1857,9 @@ function openStoryViewers(storyId) {
         const div = document.createElement('div');
         div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px';
         const av = u.avatar_url
-          ? `<div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover" loading="lazy"></div>`
+          ? `<div style="width:32px;height:32px;border-radius:50%;overflow:hidden;flex-shrink:0"><img src="${_safeUrl(u.avatar_url)||''}" style="width:100%;height:100%;object-fit:cover"></div>`
           : `<div style="width:32px;height:32px;border-radius:50%;background:${c}22;color:${c};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${UI.initials(u.display_name||u.username)}</div>`;
-        div.innerHTML = `${av}<div><div style="font-size:13px;color:#DDE8F8">${_esc(u.display_name||u.username)}</div><div style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono',monospace">@${_esc(u.username)}</div></div><span style="margin-left:auto;font-size:16px">👁</span>`;
+        div.innerHTML = `${av}<div><div style="font-size:13px;color:#DDE8F8">${u.display_name||u.username}</div><div style="font-size:11px;color:#7A8FA8;font-family:'JetBrains Mono',monospace">@${u.username}</div></div><span style="margin-left:auto;font-size:16px">👁</span>`;
         list.appendChild(div);
       });
     }
@@ -2513,7 +1880,7 @@ function _checkMentions(convId, text) {
     const u = _allUsers[uid];
     if (!u || !conv.participants?.includes(uid)) return;
     // Bildirim ekle
-    addNotif(`@${_esc(cu.username)} seni bahsetti: ${text.slice(0,60)}`, cu.username, convId);
+    addNotif(`@${cu.username} seni bahsetti: ${text.slice(0,60)}`, cu.username, convId);
   });
 }
 
@@ -2692,7 +2059,7 @@ function showBotCommands() {
       row.style.cssText = 'display:flex;align-items:start;gap:10px;padding:8px 10px;border-radius:8px;width:100%;text-align:left;background:transparent;border:none;cursor:pointer;transition:background .12s';
       row.onmouseenter = () => row.style.background = '#131D30';
       row.onmouseleave = () => row.style.background = 'transparent';
-      row.innerHTML = `<span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--accent);flex-shrink:0;min-width:120px">${cmd}</span><span style="font-size:12px;color:#7A8FA8">${desc}</span>`;
+      row.innerHTML = `<span style="font-size:12px;font-family:'JetBrains Mono',monospace;color:#00FFB3;flex-shrink:0;min-width:120px">${cmd}</span><span style="font-size:12px;color:#7A8FA8">${desc}</span>`;
       row.onclick = () => {
         const input = document.getElementById('msg-input');
         if (input) { input.value = cmd.includes('<') ? cmd.split('<')[0].trim() + ' ' : cmd + ' '; input.focus(); }
@@ -2777,14 +2144,8 @@ async function _botReply(convId, text) {
   const msg = { conv_id:convId, from:_BOT_ID, type:'text', text, status:'sent', created_at:now };
   try {
     await DB.createMessage(msg);
-    await DB.updateConversation(convId, { last_msg: text.slice(0,60).replace(/\*\*/g,''), last_time: now, last_from: _BOT_ID });
-    // Eğer bu sohbet şu an açıksa, mesajı anında göster
-    if (window._currentConvId === convId) {
-      DB.invalidateMsgs(convId);
-      await renderMessages().catch(() => {});
-    }
-    // Sidebar'ı güncelle
-    renderChatList();
+    await DB.updateConversation(convId, { last_msg: text.slice(0,60).replace(/\*\*/g,''), last_time: now });
+    await loadConversations();
   } catch(e) { console.error('botReply:', e); }
 }
 
@@ -3042,7 +2403,7 @@ function openForwardModal(msgId) {
   sorted.forEach(conv => {
     const name=getConvName(conv); const color=getConvColor(conv);
     const other=conv.type==='direct'?_allUsers[conv.participants?.find(p=>p!==window._currentUser.username)]:null;
-    const av=other?.avatar_url?`<img src="${_safeUrl(other.avatar_url)||''}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0" loading="lazy">`:`<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(name)}</div>`;
+    const av=other?.avatar_url?`<img src="${_safeUrl(other.avatar_url)||''}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0">`:`<div style="width:32px;height:32px;min-width:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${color}22;color:${color};font-family:Syne,sans-serif;flex-shrink:0">${UI.initials(name)}</div>`;
     const row=document.createElement('div');
     row.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .12s';
     row.onmouseenter=()=>row.style.background='#131D30';
@@ -3054,7 +2415,7 @@ function openForwardModal(msgId) {
 
   const list=document.createElement('div');
   list.style.overflow='auto'; list.appendChild(frag);
-  modal.innerHTML=`<div style="width:100%;max-width:320px;margin:0 12px;background:var(--surf);border:1px solid var(--border);border-radius:20px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-shrink:0"><span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">↪ Mesajı İlet</span><button onclick="UI.closeModal('forward-modal')" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:18px">✕</button></div></div>`;
+  modal.innerHTML=`<div style="width:100%;max-width:320px;margin:0 12px;background:#0C1220;border:1px solid #1E2D45;border-radius:20px;max-height:70vh;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .2s ease-out"><div style="display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid #1E2D45;flex-shrink:0"><span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8">↪ Mesajı İlet</span><button onclick="UI.closeModal('forward-modal')" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:18px">✕</button></div></div>`;
   modal.querySelector('div').appendChild(list);
   UI.openModal('forward-modal');
 }
@@ -3085,332 +2446,7 @@ function setupScreenshotDetection() {
   });
 }
 
-// ── Sesli Arama — WebRTC ───────────────────────────────────────────
-const VC = (() => {
-  let _pc = null;          // RTCPeerConnection
-  let _localStream = null; // getUserMedia stream
-  let _remoteAudio = null; // Audio element for remote
-  let _timerInterval = null;
-  let _callStart = 0;
-  let _muted = false;
-  let _speaker = true;
-  let _targetUser = null;
-  let _isCaller = false;
-  let _sigChannel = null;  // Supabase realtime channel for signaling
-
-  const _SIG_KEY = u => 'cipher_vc_sig_' + u;
-
-  // ── Signaling via localStorage (works for same-device) + Supabase broadcast ──
-  function _sendSignal(toUser, payload) {
-    const msg = JSON.stringify({ ...payload, from: window._currentUser?.username, ts: Date.now() });
-    // localStorage cross-tab
-    localStorage.setItem(_SIG_KEY(toUser), msg);
-    localStorage.removeItem(_SIG_KEY(toUser)); // trigger storage event
-    // Supabase broadcast (cross-device)
-    try {
-      const sb = window._sb || (typeof supabase !== 'undefined' && supabase.createClient?.(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY));
-      if (sb && !CONFIG.SUPABASE_URL?.includes('YOUR_PROJECT')) {
-        sb.channel('vc_' + toUser)
-          .send({ type: 'broadcast', event: 'signal', payload: { ...payload, from: window._currentUser?.username } })
-          .catch(() => {});
-      }
-    } catch {}
-  }
-
-  function _listenSignals() {
-    const cu = window._currentUser?.username;
-    if (!cu) return;
-    // localStorage events
-    window.addEventListener('storage', e => {
-      if (e.key === _SIG_KEY(cu) && e.newValue) {
-        try { _handleSignal(JSON.parse(e.newValue)); } catch {}
-      }
-    });
-    // Supabase broadcast
-    try {
-      const sb = window._sb || (typeof supabase !== 'undefined' && supabase?.createClient?.(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY));
-      if (sb && !CONFIG.SUPABASE_URL?.includes('YOUR_PROJECT')) {
-        _sigChannel = sb.channel('vc_' + cu)
-          .on('broadcast', { event: 'signal' }, ({ payload }) => { if (payload) _handleSignal(payload); })
-          .subscribe();
-      }
-    } catch {}
-  }
-
-  async function _handleSignal(sig) {
-    console.debug('[VC] Signal:', sig.type, 'from:', sig.from);
-    if (!sig.from || sig.from === window._currentUser?.username) return;
-
-    if (sig.type === 'offer') {
-      _targetUser = sig.from;
-      _isCaller = false;
-      _showIncomingCall(sig.from, sig.offer);
-    } else if (sig.type === 'answer' && _pc) {
-      try { await _pc.setRemoteDescription(new RTCSessionDescription(sig.answer)); }
-      catch(e) { console.warn('[VC] setRemoteDescription error:', e); }
-    } else if (sig.type === 'ice' && _pc) {
-      try { await _pc.addIceCandidate(new RTCIceCandidate(sig.candidate)); }
-      catch(e) { console.warn('[VC] addIceCandidate error:', e); }
-    } else if (sig.type === 'hangup') {
-      _vcEnd(false);
-    } else if (sig.type === 'decline') {
-      _vcEnd(false);
-      UI.toast('📵 Arama reddedildi', 'info');
-    }
-  }
-
-  function _showIncomingCall(fromUser, offer) {
-    const u = window._allUsers?.[fromUser] || { username: fromUser, display_name: fromUser };
-    const color = UI.avatarColor(u.username);
-    const icAv = document.getElementById('ic-avatar');
-    const icName = document.getElementById('ic-name');
-    if (icAv) {
-      icAv.style.background = u.avatar_url ? 'transparent' : `${color}22`;
-      icAv.style.color = color;
-      icAv.innerHTML = u.avatar_url
-        ? `<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
-        : UI.initials(u.display_name || u.username);
-    }
-    if (icName) icName.textContent = u.display_name || u.username;
-    // Store offer for accept
-    window._vcPendingOffer = offer;
-    // Ringtone
-    _playRingtone();
-    UI.openModal('incoming-call-modal');
-  }
-
-  function _playRingtone() {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const play = (freq, start, dur) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.frequency.value = freq;
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(0, ctx.currentTime + start);
-        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + start + 0.05);
-        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
-        osc.start(ctx.currentTime + start);
-        osc.stop(ctx.currentTime + start + dur + 0.1);
-      };
-      play(880, 0, 0.4); play(880, 0.5, 0.4); play(880, 1.0, 0.4);
-      window._vcRingtoneCtx = ctx;
-    } catch {}
-  }
-
-  function _stopRingtone() {
-    try { window._vcRingtoneCtx?.close(); window._vcRingtoneCtx = null; } catch {}
-  }
-
-  async function _createPC(targetUser) {
-    const config = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun.cloudflare.com:3478' },
-      ]
-    };
-    _pc = new RTCPeerConnection(config);
-
-    _pc.onicecandidate = e => {
-      if (e.candidate) _sendSignal(targetUser, { type: 'ice', candidate: e.candidate.toJSON() });
-    };
-
-    _pc.ontrack = e => {
-      console.debug('[VC] Remote track received');
-      if (!_remoteAudio) {
-        _remoteAudio = new Audio();
-        _remoteAudio.autoplay = true;
-      }
-      _remoteAudio.srcObject = e.streams[0];
-      document.getElementById('vc-status').textContent = 'Bağlandı';
-      document.getElementById('vc-wave').style.opacity = '1';
-      document.getElementById('vc-timer').style.opacity = '1';
-      document.getElementById('vc-ring').style.animation = 'vcRing 1.5s ease-out infinite';
-      _callStart = Date.now();
-      _timerInterval = setInterval(_updateTimer, 1000);
-    };
-
-    _pc.onconnectionstatechange = () => {
-      const s = _pc?.connectionState;
-      console.debug('[VC] Connection state:', s);
-      const statusEl = document.getElementById('vc-status');
-      if (s === 'failed' || s === 'disconnected') {
-        if (statusEl) statusEl.textContent = 'Bağlantı kesildi';
-        _vcEnd(false);
-      }
-    };
-
-    _pc.onsignalingstatechange = () => console.debug('[VC] Signaling:', _pc?.signalingState);
-
-    return _pc;
-  }
-
-  function _updateTimer() {
-    if (!_callStart) return;
-    const s = Math.floor((Date.now() - _callStart) / 1000);
-    const m = Math.floor(s / 60), sec = s % 60;
-    const el = document.getElementById('vc-timer');
-    if (el) el.textContent = `${m}:${sec.toString().padStart(2,'0')}`;
-  }
-
-  function _showCallUI(user) {
-    const color = UI.avatarColor(user.username);
-    const vcAv = document.getElementById('vc-avatar');
-    if (vcAv) {
-      vcAv.style.background = user.avatar_url ? 'transparent' : `${color}22`;
-      vcAv.style.color = color;
-      const ring = vcAv.querySelector('#vc-ring');
-      vcAv.innerHTML = user.avatar_url
-        ? `<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" loading="lazy">`
-        : `<span style="font-weight:700;font-size:28px;color:${color}">${UI.initials(user.display_name||user.username)}</span>`;
-      if (ring) vcAv.appendChild(ring);
-    }
-    const vcName = document.getElementById('vc-name');
-    if (vcName) vcName.textContent = user.display_name || user.username;
-    const vcStatus = document.getElementById('vc-status');
-    if (vcStatus) vcStatus.textContent = 'Bağlanıyor…';
-    document.getElementById('vc-wave').style.opacity = '0';
-    document.getElementById('vc-timer').style.opacity = '0';
-    document.getElementById('vc-error').style.display = 'none';
-    UI.openModal('voice-call-modal');
-  }
-
-  function _vcEnd(sendHangup = true) {
-    _stopRingtone();
-    clearInterval(_timerInterval); _timerInterval = null; _callStart = 0;
-    if (sendHangup && _targetUser) _sendSignal(_targetUser, { type: 'hangup' });
-    if (_localStream) { _localStream.getTracks().forEach(t => t.stop()); _localStream = null; }
-    if (_remoteAudio) { _remoteAudio.srcObject = null; _remoteAudio = null; }
-    if (_pc) { _pc.close(); _pc = null; }
-    _muted = false; _speaker = true; _targetUser = null;
-    document.getElementById('vc-mute-btn').textContent = '🎙';
-    document.getElementById('vc-speaker-btn').textContent = '🔈';
-    UI.closeModal('voice-call-modal');
-    UI.closeModal('incoming-call-modal');
-  }
-
-  // ── Public API ─────────────────────────────────────────────────
-  async function call(targetUsername) {
-    if (_pc) { UI.toast('Zaten bir arama var', 'warn'); return; }
-    const u = window._allUsers?.[targetUsername];
-    if (!u) { UI.toast('Kullanıcı bulunamadı', 'error'); return; }
-
-    // Mikrofon izni
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        UI.toast('Bu tarayıcı/bağlantı sesli aramayı desteklemiyor (HTTPS gerekli)', 'error');
-        _vcEnd(false);
-        return;
-      }
-      _localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    } catch(e) {
-      const msg = e.name === 'NotAllowedError' ? 'Mikrofon izni reddedildi' :
-                  e.name === 'NotFoundError'   ? 'Mikrofon bulunamadı' :
-                  'Mikrofon hatası: ' + e.message;
-      UI.toast(msg, 'error');
-      _vcEnd(false);
-      return;
-    }
-
-    _targetUser = targetUsername;
-    _isCaller = true;
-    _showCallUI(u);
-
-    await _createPC(targetUsername);
-    _localStream.getTracks().forEach(t => _pc.addTrack(t, _localStream));
-
-    try {
-      const offer = await _pc.createOffer({ offerToReceiveAudio: true });
-      await _pc.setLocalDescription(offer);
-      _sendSignal(targetUsername, { type: 'offer', offer: _pc.localDescription.toJSON() });
-    } catch(e) {
-      console.error('[VC] Offer error:', e);
-      document.getElementById('vc-error').textContent = 'Bağlantı kurulamadı: ' + e.message;
-      document.getElementById('vc-error').style.display = 'block';
-    }
-  }
-
-  async function accept() {
-    _stopRingtone();
-    UI.closeModal('incoming-call-modal');
-    const offer = window._vcPendingOffer;
-    const u = window._allUsers?.[_targetUser] || { username: _targetUser, display_name: _targetUser };
-    _showCallUI(u);
-
-    try {
-      _localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    } catch(e) {
-      document.getElementById('vc-error').textContent = 'Mikrofon erişimi reddedildi';
-      document.getElementById('vc-error').style.display = 'block';
-      return;
-    }
-
-    await _createPC(_targetUser);
-    _localStream.getTracks().forEach(t => _pc.addTrack(t, _localStream));
-
-    try {
-      await _pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await _pc.createAnswer();
-      await _pc.setLocalDescription(answer);
-      _sendSignal(_targetUser, { type: 'answer', answer: _pc.localDescription.toJSON() });
-    } catch(e) {
-      console.error('[VC] Answer error:', e);
-      document.getElementById('vc-error').textContent = 'Yanıt gönderilemedi: ' + e.message;
-      document.getElementById('vc-error').style.display = 'block';
-    }
-  }
-
-  function decline() {
-    _stopRingtone();
-    if (_targetUser) _sendSignal(_targetUser, { type: 'decline' });
-    _targetUser = null;
-    window._vcPendingOffer = null;
-    UI.closeModal('incoming-call-modal');
-  }
-
-  function hangUp() { _vcEnd(true); }
-
-  function toggleMute() {
-    if (!_localStream) return;
-    _muted = !_muted;
-    _localStream.getAudioTracks().forEach(t => { t.enabled = !_muted; });
-    const btn = document.getElementById('vc-mute-btn');
-    if (btn) btn.textContent = _muted ? '🔇' : '🎙';
-    if (btn) btn.style.background = _muted ? 'rgba(255,61,107,.3)' : '#1E2D45';
-    UI.toast(_muted ? '🔇 Mikrofon kapatıldı' : '🎙 Mikrofon açıldı', 'info', 1500);
-  }
-
-  function toggleSpeaker() {
-    _speaker = !_speaker;
-    if (_remoteAudio) _remoteAudio.volume = _speaker ? 1 : 0;
-    const btn = document.getElementById('vc-speaker-btn');
-    if (btn) btn.textContent = _speaker ? '🔈' : '🔇';
-    if (btn) btn.style.background = _speaker ? '#1E2D45' : 'rgba(255,165,53,.3)';
-    UI.toast(_speaker ? '🔈 Hoparlör açık' : '🔕 Hoparlör kapalı', 'info', 1500);
-  }
-
-  function init() { _listenSignals(); }
-
-  return { call, accept, decline, hangUp, toggleMute, toggleSpeaker, init };
-})();
-
-function startVoiceCall() {
-  const conv = _convs.find(c => c.id === window._currentConvId);
-  if (!conv || conv.type !== 'direct') {
-    UI.toast('Sesli arama sadece birebir sohbetlerde çalışır', 'info'); return;
-  }
-  const other = conv.participants?.find(p => p !== window._currentUser.username);
-  if (!other) return;
-  VC.call(other);
-}
-
-function vcAccept()        { VC.accept(); }
-function vcDecline()       { VC.decline(); }
-function vcHangUp()        { VC.hangUp(); }
-function vcToggleMute()    { VC.toggleMute(); }
-function vcToggleSpeaker() { VC.toggleSpeaker(); }
+function startVoiceCall() { UI.toast('📞 Sesli arama (Demo)','info'); setTimeout(()=>UI.toast('Yanıt verilmiyor.','warn'),2500); }
 
 // ── CCode (Promosyon Kodu) ─────────────────────────────────────────
 const _CCODE_USED_KEY = () => 'cipher_ccode_used_' + (window._currentUser?.username || '');
@@ -3538,8 +2574,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   await bootApp();
   Messages.initEvents();
   setupScreenshotDetection();
-  VC.init();
-  I18N.init();
 
   // Long-press delegation for chat list pin (avoids per-item listeners)
   let _clPressTimer = null, _clPressId = null;
@@ -3686,6 +2720,20 @@ function customizeApply() {
     document.documentElement.style.setProperty('--bubble-sent-1',      _mix(acc, '#06080F', 0.18));
     document.documentElement.style.setProperty('--bubble-sent-2',      _mix(acc, '#06080F', 0.10));
     document.documentElement.style.setProperty('--bubble-sent-border', _mix(acc, 'transparent', 0.28));
+    // CSS variables for sent bubble and accent-bg
+    document.documentElement.style.setProperty('--sent-bg', `linear-gradient(135deg,${acc},${dark})`);
+    // accent-rgb for rgba() usage
+    try {
+      const r=parseInt(acc.slice(1,3),16),g=parseInt(acc.slice(3,5),16),b=parseInt(acc.slice(5,7),16);
+      document.documentElement.style.setProperty('--accent-rgb', `${r},${g},${b}`);
+      document.documentElement.style.setProperty('--accent-bg',  `rgba(${r},${g},${b},.1)`);
+    } catch {}
+    // Sent text: dark for light colors, white for dark
+    try {
+      const r=parseInt(acc.slice(1,3),16),g=parseInt(acc.slice(3,5),16),b=parseInt(acc.slice(5,7),16);
+      const lum = (r*299+g*587+b*114)/1000;
+      document.documentElement.style.setProperty('--sent-text', lum > 140 ? '#062B1F' : '#fff');
+    } catch {}
   }
 
   // Sohbet arkaplanı
@@ -3801,10 +2849,10 @@ function _renderCustomizeModal() {
         const wrap = document.createElement('button');
         wrap.style.cssText = `display:flex;flex-direction:column;align-items:center;gap:6px;background:transparent;border:none;cursor:pointer;-webkit-tap-highlight-color:transparent`;
         const box = document.createElement('div');
-        box.style.cssText = `width:56px;height:56px;border-radius:14px;overflow:hidden;border:2.5px solid ${active ? 'var(--accent)' : '#1E2D45'};background:var(--elev);display:flex;align-items:center;justify-content:center;transition:border-color .15s;flex-shrink:0`;
+        box.style.cssText = `width:56px;height:56px;border-radius:14px;overflow:hidden;border:2.5px solid ${active ? 'var(--accent)' : '#1E2D45'};background:#131D30;display:flex;align-items:center;justify-content:center;transition:border-color .15s;flex-shrink:0`;
         box.innerHTML = `<img src="customize/${l.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.innerHTML='<span style=font-size:22px>🔒</span>'">`;
         const lbl = document.createElement('span');
-        lbl.style.cssText = 'font-size:10px;color:var(--muted);font-family:\'JetBrains Mono\',monospace';
+        lbl.style.cssText = 'font-size:10px;color:#7A8FA8;font-family:\'JetBrains Mono\',monospace';
         lbl.textContent = l.label;
         wrap.appendChild(box);
         wrap.appendChild(lbl);
@@ -3874,7 +2922,7 @@ function _renderCustomizeModal() {
           if (b.file) box.innerHTML = `<img src="customize/${b.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.background='#0D1424'">`;
           else box.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2A3A50">∅</div>';
           const lbl = document.createElement('span');
-          lbl.style.cssText = "font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace";
+          lbl.style.cssText = "font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace";
           lbl.textContent = b.label;
           wrap.appendChild(box); wrap.appendChild(lbl);
           wrap.onclick = () => selectBg(b, box);
@@ -3886,7 +2934,7 @@ function _renderCustomizeModal() {
         const tab = document.createElement('button');
         tab.dataset.c = cat.category;
         tab.textContent = cat.category;
-        tab.style.cssText = "padding:5px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap;border:1px solid var(--border);color:var(--muted);background:transparent;flex-shrink:0";
+        tab.style.cssText = "padding:5px 12px;border-radius:20px;font-size:11px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all .15s;white-space:nowrap;border:1px solid #1E2D45;color:#7A8FA8;background:transparent;flex-shrink:0";
         tab.onclick = () => showCat(cat.category);
         tabBar.appendChild(tab);
       });
@@ -3908,7 +2956,7 @@ function _renderCustomizeModal() {
         if (b.file) box.innerHTML = `<img src="customize/${b.file}?v=1" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.style.background='#0D1424'">`;
         else box.innerHTML = '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;color:#2A3A50">∅</div>';
         const lbl = document.createElement('span');
-        lbl.style.cssText = "font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace";
+        lbl.style.cssText = "font-size:10px;color:#7A8FA8;font-family:'JetBrains Mono',monospace";
         lbl.textContent = b.label;
         wrap.appendChild(box); wrap.appendChild(lbl);
         wrap.onclick = () => selectBg(b, box);
@@ -3964,8 +3012,8 @@ function openScheduler() {
   bar.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00E5FF" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     <span style="font-size:11px;color:#00E5FF;font-family:'JetBrains Mono',monospace;flex-shrink:0">Zamanlanmış:</span>
     <input type="datetime-local" id="schedule-dt" min="${now.toISOString().slice(0,16)}"
-      style="background:transparent;border:none;outline:none;font-size:11px;color:var(--text);font-family:'JetBrains Mono',monospace;cursor:pointer;flex:1">
-    <button onclick="clearScheduler()" style="color:var(--muted);background:none;border:none;cursor:pointer;font-size:16px">✕</button>`;
+      style="background:transparent;border:none;outline:none;font-size:11px;color:#DDE8F8;font-family:'JetBrains Mono',monospace;cursor:pointer;flex:1">
+    <button onclick="clearScheduler()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:16px">✕</button>`;
   const compose = document.getElementById('compose');
   if (compose) compose.insertBefore(bar, compose.firstChild);
 }
@@ -4113,10 +3161,10 @@ function switchDocTab(tab) {
   document.getElementById('doc-draw-panel').style.display = tab === 'draw' ? 'flex' : 'none';
   document.getElementById('doc-tab-text').style.cssText = tab === 'text'
     ? 'padding:5px 14px;border-radius:8px;border:1px solid var(--accent,#00FFB3);background:rgba(0,255,179,.12);color:var(--accent,#00FFB3);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-weight:600'
-    : 'padding:5px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
+    : 'padding:5px 14px;border-radius:8px;border:1px solid #1E2D45;background:transparent;color:#7A8FA8;font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
   document.getElementById('doc-tab-draw').style.cssText = tab === 'draw'
     ? 'padding:5px 14px;border-radius:8px;border:1px solid var(--accent,#00FFB3);background:rgba(0,255,179,.12);color:var(--accent,#00FFB3);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-weight:600'
-    : 'padding:5px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
+    : 'padding:5px 14px;border-radius:8px;border:1px solid #1E2D45;background:transparent;color:#7A8FA8;font-size:12px;cursor:pointer;font-family:\'JetBrains Mono\',monospace';
   if (tab === 'draw') requestAnimationFrame(() => initCanvas());
 }
 
@@ -4280,12 +3328,12 @@ function openDocViewer(msgId) {
   overlay.id = 'doc-viewer-overlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(6,8,15,.98);display:flex;flex-direction:column';
   overlay.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #1E2D45;background:#0A1018;flex-shrink:0">
       <span style="font-size:18px">📄</span>
-      <span style="font-family:Syne,sans-serif;font-weight:700;color:var(--text);flex:1">${msg.text||'Döküman'}</span>
-      <button onclick="document.getElementById('doc-viewer-overlay').remove()" style="width:32px;height:32px;border-radius:8px;background:var(--elev);border:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
+      <span style="font-family:Syne,sans-serif;font-weight:700;color:#DDE8F8;flex:1">${msg.text||'Döküman'}</span>
+      <button onclick="document.getElementById('doc-viewer-overlay').remove()" style="width:32px;height:32px;border-radius:8px;background:#131D30;border:1px solid #1E2D45;color:#7A8FA8;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
-    <div id="doc-viewer-body" style="flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;color:var(--text);font-size:15px;line-height:1.7;font-family:'DM Sans',sans-serif"></div>`;
+    <div id="doc-viewer-body" style="flex:1;overflow-y:auto;padding:24px;max-width:760px;margin:0 auto;width:100%;color:#DDE8F8;font-size:15px;line-height:1.7;font-family:'DM Sans',sans-serif"></div>`;
   document.body.appendChild(overlay);
   // Safe injection: only allow formatting tags, no scripts
   const body = overlay.querySelector('#doc-viewer-body');
@@ -4320,197 +3368,181 @@ setInterval(async () => {
   if (toSend.length) UI.toast(`⏰ ${toSend.length} zamanlanmış mesaj gönderildi`, 'success');
 }, 15000);
 
-// ── Çok Dil Sistemi (i18n) ─────────────────────────────────────────
-const I18N = (() => {
-  const _KEY = 'cipher_language';
-  const langs = [
-    { code:'tr', label:'Türkçe',    flag:'🇹🇷' },
-    { code:'en', label:'English',   flag:'🇬🇧' },
-    { code:'es', label:'Español',   flag:'🇪🇸' },
-    { code:'hi', label:'हिन्दी',    flag:'🇮🇳' },
-    { code:'fr', label:'Français',  flag:'🇫🇷' },
-    { code:'ru', label:'Русский',   flag:'🇷🇺' },
-    { code:'de', label:'Deutsch',   flag:'🇩🇪' },
-    { code:'pt', label:'Português', flag:'🇧🇷' },
-  ];
-  const T = {
-    tr:{ nav_profile:'Profil', nav_messages:'Mesajlar', nav_contacts:'Kişiler', nav_updates:'Güncellemeler', settings_language:'Dil', type_message:'Mesaj yaz…', all_filter:'Tümü', unread_filter:'Okunmamış', groups_filter:'Gruplar', search_chat:'Sohbet ara…' },
-    en:{ nav_profile:'Profile', nav_messages:'Messages', nav_contacts:'Contacts', nav_updates:'Updates', settings_language:'Language', type_message:'Type a message…', all_filter:'All', unread_filter:'Unread', groups_filter:'Groups', search_chat:'Search chats…' },
-    es:{ nav_profile:'Perfil', nav_messages:'Mensajes', nav_contacts:'Contactos', nav_updates:'Novedades', settings_language:'Idioma', type_message:'Escribe un mensaje…', all_filter:'Todo', unread_filter:'No leído', groups_filter:'Grupos', search_chat:'Buscar chats…' },
-    hi:{ nav_profile:'प्रोफ़ाइल', nav_messages:'संदेश', nav_contacts:'संपर्क', nav_updates:'अपडेट', settings_language:'भाषा', type_message:'संदेश लिखें…', all_filter:'सभी', unread_filter:'अपठित', groups_filter:'समूह', search_chat:'चैट खोजें…' },
-    fr:{ nav_profile:'Profil', nav_messages:'Messages', nav_contacts:'Contacts', nav_updates:'Actualités', settings_language:'Langue', type_message:'Écrire un message…', all_filter:'Tous', unread_filter:'Non lus', groups_filter:'Groupes', search_chat:'Rechercher…' },
-    ru:{ nav_profile:'Профиль', nav_messages:'Сообщения', nav_contacts:'Контакты', nav_updates:'Обновления', settings_language:'Язык', type_message:'Написать сообщение…', all_filter:'Все', unread_filter:'Непрочитанные', groups_filter:'Группы', search_chat:'Поиск чатов…' },
-    de:{ nav_profile:'Profil', nav_messages:'Nachrichten', nav_contacts:'Kontakte', nav_updates:'Neuigkeiten', settings_language:'Sprache', type_message:'Nachricht schreiben…', all_filter:'Alle', unread_filter:'Ungelesen', groups_filter:'Gruppen', search_chat:'Chats suchen…' },
-    pt:{ nav_profile:'Perfil', nav_messages:'Mensagens', nav_contacts:'Contatos', nav_updates:'Atualizações', settings_language:'Idioma', type_message:'Escreva uma mensagem…', all_filter:'Tudo', unread_filter:'Não lidas', groups_filter:'Grupos', search_chat:'Pesquisar chats…' },
-  };
-  let _cur = localStorage.getItem(_KEY) || 'tr';
+// ══════════════════════════════════════════════════════════════════
+// YENİ ÖZELLİKLER — Light Mode, Crop, i18n, Theme
+// ══════════════════════════════════════════════════════════════════
 
-  function t(key) { return T[_cur]?.[key] || T.tr?.[key] || key; }
-
-  function apply(code) {
-    if (!T[code]) return;
-    _cur = code;
-    localStorage.setItem(_KEY, code);
-    // data-i18n elements
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const v = t(el.getAttribute('data-i18n'));
-      if (!v) return;
-      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.placeholder = v;
-      else el.textContent = v;
-    });
-    // Placeholders
-    const mi = document.getElementById('msg-input');
-    if (mi) mi.placeholder = t('type_message');
-    const si = document.getElementById('search-input');
-    if (si) si.placeholder = t('search_chat');
-    // Filter pills
-    const fa = document.getElementById('filter-all');
-    const fu = document.getElementById('filter-unread');
-    const fg = document.getElementById('filter-groups');
-    if (fa) fa.textContent = t('all_filter');
-    if (fu) fu.textContent = t('unread_filter');
-    if (fg) fg.textContent = t('groups_filter');
-    // Settings label
-    const lang = langs.find(l => l.code === code);
-    const lbl = document.getElementById('settings-lang-label');
-    if (lbl && lang) lbl.textContent = lang.flag + ' ' + lang.label;
-    UI.closeModal('language-modal');
-    if (lang) UI.toast(lang.flag + ' ' + lang.label, 'success', 1500);
-  }
-
-  function openModal() {
-    const list = document.getElementById('language-list');
-    if (!list) return;
-    list.innerHTML = '';
-    langs.forEach(lang => {
-      const active = lang.code === _cur;
-      const btn = document.createElement('button');
-      btn.style.cssText = 'display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border-radius:10px;border:none;background:' + (active ? 'rgba(0,255,179,.12)' : 'transparent') + ';cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent';
-      btn.innerHTML = '<span style="font-size:24px;flex-shrink:0">' + lang.flag + '</span>' +
-        '<span style="flex:1;font-size:14px;color:' + (active ? '#00FFB3' : '#DDE8F8') + ';font-weight:' + (active ? '700' : '400') + ';text-align:left">' + lang.label + '</span>' +
-        (active ? '<span style="color:var(--accent);font-size:18px">✓</span>' : '');
-      btn.onmouseenter = () => { if (!active) btn.style.background = '#131D30'; };
-      btn.onmouseleave = () => { if (!active) btn.style.background = 'transparent'; };
-      btn.onclick = () => apply(lang.code);
-      list.appendChild(btn);
-    });
-    UI.openModal('language-modal');
-  }
-
-  function init() {
-    _cur = localStorage.getItem(_KEY) || 'tr';
-    setTimeout(() => apply(_cur), 150);
-  }
-
-  return { t, apply, openModal, init, current: () => _cur };
-})();
-
-function openLanguage() { I18N.openModal(); }
-function setLanguage(code) { I18N.apply(code); }
-
-// ── Avatar Kırpma — Cropper.js ─────────────────────────────────────
+// ── Avatar Kırpma — Cropper.js ────────────────────────────────────
 let _cropper = null;
 
 function openCropModal(input) {
-  const file = input.files?.[0];
+  const file = input?.files?.[0];
   if (!file) return;
-  if (file.size > (CONFIG.MAX_FILE_MB || 5) * 1024 * 1024) {
-    UI.toast(`Maks. ${CONFIG.MAX_FILE_MB || 5}MB`, 'error'); return;
-  }
+  if (file.size > (CONFIG.MAX_FILE_MB||5)*1024*1024) { UI.toast(`Max ${CONFIG.MAX_FILE_MB||5}MB`, 'error'); return; }
   const reader = new FileReader();
   reader.onload = e => {
-    const img = document.getElementById('crop-image');
-    if (!img) return;
-
-    // Destroy previous cropper
+    const imgEl = document.getElementById('crop-image');
+    if (!imgEl) return;
     if (_cropper) { _cropper.destroy(); _cropper = null; }
-
-    img.src = e.target.result;
-    img.onload = () => {
-      if (typeof Cropper === 'undefined') {
-        // Cropper.js yüklenmemişse doğrudan uygula
-        _applyCropFallback(e.target.result);
-        return;
-      }
-      _cropper = new Cropper(img, {
-        aspectRatio: 1,
-        viewMode: 1,
-        dragMode: 'move',
-        autoCropArea: 0.85,
-        restore: false,
-        guides: false,
-        center: true,
-        highlight: false,
-        cropBoxMovable: false,
-        cropBoxResizable: false,
-        toggleDragModeOnDblclick: false,
+    imgEl.src = e.target.result;
+    imgEl.onload = () => {
+      document.getElementById('crop-modal')?.classList.replace('hidden','flex');
+      if (typeof Cropper === 'undefined') return; // fallback below
+      _cropper = new Cropper(imgEl, {
+        aspectRatio: 1, viewMode: 1, dragMode: 'move',
+        autoCropArea: 0.85, guides: false, center: true,
+        cropBoxMovable: false, cropBoxResizable: false,
         preview: '#crop-preview-wrap',
-        ready() {
-          // Preview img'yi circle olarak göster
-          const pw = document.querySelector('#crop-preview-wrap .cropper-preview');
-          if (pw) pw.style.borderRadius = '50%';
-        }
       });
-      document.getElementById('crop-modal')?.classList.replace('hidden', 'flex');
     };
   };
   reader.readAsDataURL(file);
-  // Input'u sıfırla ki aynı dosya tekrar seçilebilsin
   input.value = '';
 }
 
 function closeCropModal() {
   if (_cropper) { _cropper.destroy(); _cropper = null; }
-  document.getElementById('crop-modal')?.classList.replace('flex', 'hidden');
+  document.getElementById('crop-modal')?.classList.replace('flex','hidden');
 }
 
-function cropRotate(deg)  { _cropper?.rotate(deg); }
-function cropFlip()       { _cropper?.scaleX((_cropper.getData().scaleX || 1) * -1); }
-function cropZoom(ratio)  { _cropper?.zoom(ratio); }
+function cropRotate(deg) { _cropper?.rotate(deg); }
+function cropFlip()      { _cropper?.scaleX((_cropper.getData().scaleX||1)*-1); }
+function cropZoom(r)     { _cropper?.zoom(r); }
 
 async function applyCrop() {
   if (!_cropper) return;
   try {
-    // 400×400 yüksek çözünürlüklü canvas
-    const canvas = _cropper.getCroppedCanvas({ width: 400, height: 400, imageSmoothingEnabled: true, imageSmoothingQuality: 'high' });
+    const canvas = _cropper.getCroppedCanvas({ width:400, height:400, imageSmoothingQuality:'high' });
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
     closeCropModal();
-    await _saveAvatarUrl(dataUrl);
-  } catch(e) {
-    UI.toast('Kırpma hatası: ' + e.message, 'error');
-  }
+    await _saveAvatarDataUrl(dataUrl);
+  } catch(e) { UI.toast('Kırpma hatası: '+e.message,'error'); }
 }
 
-async function _applyCropFallback(dataUrl) {
-  // Cropper yüklenmediyse doğrudan canvas'a yükle ve kırp
-  closeCropModal();
-  const img = new Image();
-  img.onload = async () => {
-    const size = Math.min(img.width, img.height);
-    const canvas = document.createElement('canvas');
-    canvas.width = canvas.height = 400;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, (img.width-size)/2, (img.height-size)/2, size, size, 0, 0, 400, 400);
-    await _saveAvatarUrl(canvas.toDataURL('image/jpeg', 0.9));
-  };
-  img.src = dataUrl;
-}
-
-async function _saveAvatarUrl(dataUrl) {
+async function _saveAvatarDataUrl(dataUrl) {
   const cu = window._currentUser;
   try {
     await DB.updateUser(cu.username, { avatar_url: dataUrl });
     cu.avatar_url = dataUrl;
     if (_allUsers[cu.username]) _allUsers[cu.username].avatar_url = dataUrl;
     const prev = document.getElementById('avatar-preview');
-    if (prev) prev.innerHTML = '<img src="' + dataUrl + '" style="width:100%;height:100%;border-radius:50%;object-fit:cover" loading="lazy">';
+    if (prev) prev.innerHTML = `<img src="${dataUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
     renderMyAvatar();
     UI.toast('Profil fotoğrafı güncellendi ✓', 'success');
-  } catch(e) {
-    UI.toast('Kaydedilemedi: ' + e.message, 'error');
-  }
+  } catch(e) { UI.toast('Kaydedilemedi: '+e.message, 'error'); }
 }
 
-// uploadAvatar artık openCropModal'a yönlendiriyor —
-// eski fonksiyonu da çalışır tut (backup)
-async function uploadAvatar(input) { openCropModal(input); }
+// uploadAvatar artık crop açıyor
+function uploadAvatar(input) { openCropModal(input); }
+
+// ── Profil Kaydet — düzeltilmiş ───────────────────────────────────
+// (saveProfile fonksiyonu var ama avatar-preview güncellemesi eksikti)
+// Override et:
+const _origSaveProfile = typeof saveProfile === 'function' ? saveProfile : null;
+async function saveProfile() {
+  const cu = window._currentUser;
+  const _s = s => (s||'').replace(/[<>]/g,'').slice(0,200);
+  const d = {
+    display_name: _s(document.getElementById('pe-displayname')?.value)||cu.display_name,
+    bio:          _s(document.getElementById('pe-bio')?.value),
+    status:       _s(document.getElementById('pe-status')?.value).slice(0,100),
+    status_emoji: (document.getElementById('pe-statusemoji')?.value||'').slice(0,4),
+    banner_color: window._selectedBannerColor||cu.banner_color,
+  };
+  const np = document.getElementById('pe-nowplaying')?.value.trim()||'';
+  if (np) localStorage.setItem('cipher_nowplaying_'+cu.username, np);
+  else    localStorage.removeItem('cipher_nowplaying_'+cu.username);
+  try {
+    await DB.updateUser(cu.username, d);
+    Object.assign(cu, d);
+    if (_allUsers[cu.username]) Object.assign(_allUsers[cu.username], d);
+    // avatar-preview yenile
+    const prev = document.getElementById('avatar-preview');
+    if (prev && cu.avatar_url) prev.innerHTML = `<img src="${cu.avatar_url}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
+    renderMyAvatar();
+    renderChatList();
+    UI.closeModal('profile-edit-modal');
+    UI.toast('Profil güncellendi ✓','success');
+  } catch(e) { UI.toast('Güncellenemedi: '+e.message,'error'); }
+}
+
+// ── Çok Dil (i18n) ────────────────────────────────────────────────
+const I18N = (() => {
+  const _KEY = 'cipher_lang';
+  const langs = [
+    {code:'tr',label:'Türkçe',   flag:'🇹🇷'},
+    {code:'en',label:'English',  flag:'🇬🇧'},
+    {code:'es',label:'Español',  flag:'🇪🇸'},
+    {code:'hi',label:'हिन्दी',   flag:'🇮🇳'},
+    {code:'fr',label:'Français', flag:'🇫🇷'},
+    {code:'ru',label:'Русский',  flag:'🇷🇺'},
+    {code:'de',label:'Deutsch',  flag:'🇩🇪'},
+    {code:'pt',label:'Português',flag:'🇧🇷'},
+  ];
+  const T = {
+    tr:{nav_profile:'Profil',nav_messages:'Mesajlar',nav_contacts:'Kişiler',nav_updates:'Güncellemeler',settings_language:'Dil',msg_placeholder:'Mesaj yaz…',search_placeholder:'Sohbet ara…'},
+    en:{nav_profile:'Profile',nav_messages:'Messages',nav_contacts:'Contacts',nav_updates:'Updates',settings_language:'Language',msg_placeholder:'Type a message…',search_placeholder:'Search chats…'},
+    es:{nav_profile:'Perfil',nav_messages:'Mensajes',nav_contacts:'Contactos',nav_updates:'Novedades',settings_language:'Idioma',msg_placeholder:'Escribe un mensaje…',search_placeholder:'Buscar chats…'},
+    hi:{nav_profile:'प्रोफ़ाइल',nav_messages:'संदेश',nav_contacts:'संपर्क',nav_updates:'अपडेट',settings_language:'भाषा',msg_placeholder:'संदेश लिखें…',search_placeholder:'चैट खोजें…'},
+    fr:{nav_profile:'Profil',nav_messages:'Messages',nav_contacts:'Contacts',nav_updates:'Actualités',settings_language:'Langue',msg_placeholder:'Écrire un message…',search_placeholder:'Rechercher…'},
+    ru:{nav_profile:'Профиль',nav_messages:'Сообщения',nav_contacts:'Контакты',nav_updates:'Обновления',settings_language:'Язык',msg_placeholder:'Написать сообщение…',search_placeholder:'Поиск чатов…'},
+    de:{nav_profile:'Profil',nav_messages:'Nachrichten',nav_contacts:'Kontakte',nav_updates:'Neuigkeiten',settings_language:'Sprache',msg_placeholder:'Nachricht schreiben…',search_placeholder:'Chats suchen…'},
+    pt:{nav_profile:'Perfil',nav_messages:'Mensagens',nav_contacts:'Contatos',nav_updates:'Atualizações',settings_language:'Idioma',msg_placeholder:'Escreva uma mensagem…',search_placeholder:'Pesquisar chats…'},
+  };
+  let _cur = localStorage.getItem(_KEY)||'tr';
+
+  function t(k){ return T[_cur]?.[k]||T.tr?.[k]||k; }
+
+  function apply(code){
+    if(!T[code]) return;
+    _cur = code; localStorage.setItem(_KEY, code);
+    // data-i18n
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const v=t(el.getAttribute('data-i18n'));
+      if(!v) return;
+      if(el.tagName==='INPUT'||el.tagName==='TEXTAREA') el.placeholder=v;
+      else el.textContent=v;
+    });
+    // Placeholders
+    const mi=document.getElementById('msg-input');
+    if(mi) mi.placeholder=t('msg_placeholder');
+    const si=document.getElementById('search-input');
+    if(si) si.placeholder=t('search_placeholder');
+    // Settings dil label
+    const lang=langs.find(l=>l.code===code);
+    const lbl=document.getElementById('settings-lang-label');
+    if(lbl&&lang) lbl.textContent=lang.flag+' '+lang.label;
+    UI.closeModal('language-modal');
+    if(lang) UI.toast(lang.flag+' '+lang.label,'success',1500);
+  }
+
+  function openModal(){
+    const list=document.getElementById('language-list');
+    if(!list) return;
+    list.innerHTML='';
+    langs.forEach(lang=>{
+      const active=lang.code===_cur;
+      const btn=document.createElement('button');
+      btn.style.cssText='display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border-radius:10px;border:none;background:'+(active?'rgba(0,255,179,.1)':'transparent')+';cursor:pointer;transition:background .12s;-webkit-tap-highlight-color:transparent';
+      btn.innerHTML='<span style="font-size:24px;flex-shrink:0">'+lang.flag+'</span><span style="flex:1;font-size:14px;color:'+(active?'var(--accent)':'#DDE8F8')+';font-weight:'+(active?'700':'400')+';text-align:left">'+lang.label+'</span>'+(active?'<span style="color:var(--accent);font-size:16px">✓</span>':'');
+      btn.onmouseenter=()=>{ if(!active) btn.style.background='#131D30'; };
+      btn.onmouseleave=()=>{ if(!active) btn.style.background='transparent'; };
+      btn.onclick=()=>apply(lang.code);
+      list.appendChild(btn);
+    });
+    UI.openModal('language-modal');
+  }
+
+  function init(){
+    _cur=localStorage.getItem(_KEY)||'tr';
+    setTimeout(()=>apply(_cur),200);
+  }
+
+  return {t,apply,openModal,init,current:()=>_cur};
+})();
+
+function openLanguage() { I18N.openModal(); }
+function setLanguage(c) { I18N.apply(c); }
+
+// Boot'a ekle
+document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(()=>{ I18N.init(); },300); }, {once:true});
