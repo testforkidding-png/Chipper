@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>404 — CIPHER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --accent: #00FFB3;
+    --bg: #06080F;
+    --surf: #0C1220;
+    --border: #1E2D45;
+    --text: #DDE8F8;
+    --muted: #7A8FA8;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    overflow: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,179,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,179,.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Radial glow */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,255,179,.07) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    gap: 0;
+  }
+
+  /* Big 404 */
+  .code-wrap {
+    position: relative;
+    margin-bottom: 8px;
+  }
+  .code {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(96px, 22vw, 180px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -4px;
+    background: linear-gradient(135deg, #DDE8F8 0%, #7A8FA8 60%, #1E2D45 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    user-select: none;
+  }
+  .code-accent {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(96px, 22vw, 180px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -4px;
+    background: linear-gradient(135deg, var(--accent), #00C48A);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 0;
+    animation: glitch 5s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes glitch {
+    0%, 90%, 100% { opacity: 0; transform: translate(-50%, -50%); clip-path: none; }
+    92% { opacity: .7; transform: translate(calc(-50% - 3px), -50%); clip-path: polygon(0 20%, 100% 20%, 100% 40%, 0 40%); }
+    94% { opacity: .5; transform: translate(calc(-50% + 4px), -50%); clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%); }
+    96% { opacity: .7; transform: translate(calc(-50% - 2px), -50%); clip-path: polygon(0 10%, 100% 10%, 100% 30%, 0 30%); }
+    98% { opacity: 0; }
+  }
+
+  /* Status badge */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    background: rgba(0,255,179,.08);
+    border: 1px solid rgba(0,255,179,.2);
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 20px;
+    letter-spacing: .06em;
+  }
+  .badge-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(.7)} }
+
+  /* Title */
+  .title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: clamp(18px, 4vw, 26px);
+    color: var(--text);
+    margin-bottom: 10px;
+    letter-spacing: -.3px;
+  }
+  .subtitle {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 340px;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  /* Terminal block */
+  .terminal {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    width: 100%;
+    max-width: 380px;
+    text-align: left;
+    margin-bottom: 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .terminal-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .dot { width:10px;height:10px;border-radius:50%; }
+  .dot-r { background:#FF5F56; }
+  .dot-y { background:#FFBD2E; }
+  .dot-g { background:#27C93F; }
+  .terminal-title { flex:1; text-align:center; color:var(--muted); font-size:11px; }
+  .term-line { display:flex; gap:8px; margin-bottom:4px; line-height:1.5; }
+  .term-prompt { color:var(--accent); flex-shrink:0; }
+  .term-cmd { color:var(--text); }
+  .term-out { color:var(--muted); }
+  .term-err { color:#FF3D6B; }
+  .cursor {
+    display:inline-block;
+    width:8px; height:14px;
+    background:var(--accent);
+    animation:blink .9s step-end infinite;
+    vertical-align:middle;
+    margin-left:2px;
+    border-radius:1px;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* Buttons */
+  .btn-row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .btn-primary {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:11px 24px;
+    background:linear-gradient(135deg,#00FFB3,#00C48A);
+    color:#062B1F; font-weight:700; font-size:14px;
+    border-radius:12px; border:none; cursor:pointer;
+    font-family:'Syne',sans-serif;
+    text-decoration:none;
+    transition:transform .15s, box-shadow .15s;
+    box-shadow:0 0 0 rgba(0,255,179,0);
+  }
+  .btn-primary:hover {
+    transform:translateY(-2px);
+    box-shadow:0 8px 24px rgba(0,255,179,.3);
+  }
+  .btn-secondary {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:11px 24px;
+    background:transparent;
+    color:var(--text); font-size:14px;
+    border-radius:12px; border:1px solid var(--border); cursor:pointer;
+    font-family:'DM Sans',sans-serif;
+    text-decoration:none;
+    transition:border-color .15s, background .15s;
+  }
+  .btn-secondary:hover { border-color:var(--accent); background:rgba(0,255,179,.05); }
+
+  /* Floating particles */
+  .particles { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+  .particle {
+    position:absolute;
+    width:2px; height:2px;
+    background:var(--accent);
+    border-radius:50%;
+    opacity:0;
+    animation:float var(--dur,8s) var(--delay,0s) ease-in-out infinite;
+  }
+  @keyframes float {
+    0%   { opacity:0; transform:translateY(100vh) translateX(0); }
+    10%  { opacity:var(--op,.4); }
+    90%  { opacity:var(--op,.4); }
+    100% { opacity:0; transform:translateY(-20vh) translateX(var(--drift,30px)); }
+  }
+
+  /* Scan line */
+  .scanline {
+    position:fixed; top:0; left:0; right:0;
+    height:2px;
+    background:linear-gradient(90deg,transparent,rgba(0,255,179,.4),transparent);
+    animation:scan 4s linear infinite;
+    pointer-events:none; z-index:2;
+  }
+  @keyframes scan { 0%{top:-2px} 100%{top:100vh} }
+</style>
+</head>
+<body>
+
+<div class="scanline"></div>
+
+<!-- Floating particles -->
+<div class="particles" id="particles"></div>
+
+<div class="container">
+
+  <div class="badge">
+    <div class="badge-dot"></div>
+    CIPHER — ERROR
+  </div>
+
+  <div class="code-wrap">
+    <div class="code">404</div>
+    <div class="code-accent">404</div>
+  </div>
+
+  <div class="title">Sayfa Bulunamadı</div>
+  <div class="subtitle">Aradığın sayfa silinmiş, taşınmış ya da hiç var olmamış olabilir. Sinyal kayboldu.</div>
+
+  <div class="terminal">
+    <div class="terminal-header">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <div class="terminal-title">cipher_debug.sh</div>
+    </div>
+    <div class="term-line"><span class="term-prompt">›</span><span class="term-cmd">GET <span id="req-path">/unknown</span></span></div>
+    <div class="term-line"><span class="term-prompt" style="color:#FF3D6B">✗</span><span class="term-out">HTTP 404 — Resource not found</span></div>
+    <div class="term-line"><span class="term-prompt">›</span><span class="term-cmd">cipher --locate route</span></div>
+    <div class="term-line"><span class="term-err">Error: Route mapping failed. Path does not exist.</span></div>
+    <div class="term-line"><span class="term-prompt">›</span><span class="term-cmd">cipher --redirect home<span class="cursor"></span></span></div>
+  </div>
+
+  <div class="btn-row">
+    <a href="/app.html" class="btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Ana Sayfaya Dön
+    </a>
+    <a href="javascript:history.back()" class="btn-secondary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      Geri Git
+    </a>
+  </div>
+
+</div>
+
+<script>
+  // Show current path
+  document.getElementById('req-path').textContent = location.pathname || '/';
+
+  // Generate particles
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `
+      left: ${Math.random()*100}%;
+      --dur: ${6 + Math.random()*8}s;
+      --delay: ${Math.random()*6}s;
+      --drift: ${(Math.random()-0.5)*80}px;
+      --op: ${0.2 + Math.random()*0.4};
+    `;
+    container.appendChild(p);
+  }
+</script>
+</body>
+</html>
