@@ -86,12 +86,12 @@ const Messages = (() => {
         .replace(/\*([^*]+)\*/g,'<em>$1</em>')
         .replace(/~~([^~]+)~~/g,'<s>$1</s>')
         .replace(/\n/g,'<br>')
-        // 4. Linkify — must run after HTML escape
-        .replace(/(https?:\/\/[^\s<>"]+)/g, function(url) {
-          var clean = url.replace(/[.,;:!?\)\]]+$/, '');
+        // Linkify URLs
+        .replace(/(https?:\/\/[^\s<>"']+)/g, function(url) {
+          var clean = url.replace(/[.,;:!?)\]>]+$/, '');
           var trail = url.slice(clean.length);
           var short = clean.length > 45 ? clean.slice(0,45) + '\u2026' : clean;
-          return '<a href="' + clean + '" target="_blank" rel="noopener noreferrer" style="color:#00FFB3;text-decoration:underline;word-break:break-all">' + short + '</a>' + trail;
+          return '<a href="' + clean + '" target="_blank" rel="noopener noreferrer" style="color:var(--n-accent,#00FFB3);text-decoration:underline;word-break:break-all">' + short + '</a>' + trail;
         });
     }
 
@@ -124,7 +124,8 @@ const Messages = (() => {
           </div>`;
         } catch{ contentHtml='<div style="color:#FF3D6B;font-size:12px">Anket yüklenemedi</div>'; }
       } else if (msg.type==='gif' && msg.gif_url) {
-        contentHtml = '<img src="' + (msg.gif_url||'') + '" data-lightbox="1" style="max-width:220px;max-height:180px;border-radius:10px;display:block;margin-top:4px;cursor:pointer;object-fit:cover" loading="lazy">';
+        const _gSrc = (msg.gif_url||'').replace(/"/g,'&quot;');
+        contentHtml = '<img src="' + _gSrc + '" data-lightbox="1" style="max-width:220px;max-height:180px;border-radius:10px;display:block;margin-top:4px;cursor:pointer;object-fit:cover" loading="lazy">';
       } else if (msg.type==='sticker' && msg.sticker) {
         contentHtml=`<div style="font-size:52px;line-height:1;padding:4px 0">${msg.sticker}</div>`;
       } else if (msg.type==='file' && msg.file_data) {
@@ -164,7 +165,7 @@ const Messages = (() => {
     const noBubble = msg.type==='sticker' && !recalled;
     const bubStyle = noBubble ? 'background:transparent;border:none;padding:4px 8px' : `padding:9px 13px;border-radius:${isMine?'18px 18px 4px 18px':'18px 18px 18px 4px'}`;
     const senderName = (!isMine && window._isGroup) ? `<div style="font-size:11px;font-weight:600;color:${color};margin-bottom:2px;cursor:pointer;font-family:Syne,sans-serif" onclick="window.showProfile?.('${_e(sender.username)}')">${_e(sender.display_name||sender.username)}</div>` : '';
-    const avatarHtml = !isMine ? (sender.avatar_url ? `<img src="${sender.avatar_url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;cursor:pointer;flex-shrink:0;align-self:flex-end" onclick="window.showProfile?.('${sender.username}')" loading="lazy">` : `<div onclick="window.showProfile?.('${sender.username}')" style="width:28px;height:28px;min-width:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;align-self:flex-end;cursor:pointer;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(sender.display_name||sender.username)}</div>`) : '';
+    const avatarHtml = !isMine ? (sender.avatar_url ? `<img src="${sender.avatar_url}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;cursor:pointer;flex-shrink:0;align-self:flex-end" onclick="window.showProfile?.('${sender.username}')">` : `<div onclick="window.showProfile?.('${sender.username}')" style="width:28px;height:28px;min-width:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;align-self:flex-end;cursor:pointer;background:${color}22;color:${color};font-family:Syne,sans-serif">${UI.initials(sender.display_name||sender.username)}</div>`) : '';
 
     const w = document.createElement('div');
     w.id='msg-'+msg.id; w.dataset.msgId=msg.id; w.dataset.isMine=isMine?'1':'0';
@@ -263,61 +264,50 @@ const Messages = (() => {
   // Tenor API helper (free, no quota issues)
   async function _fetchTenor(q) {
     const key = CONFIG.TENOR_KEY || 'AIzaSyAyimkuYQYF_FXVALexPuGQctUWRURdCyk';
-    // Tenor API v2 — mediafilter (no comma, use 'gif' only for stability)
-    const base = q
-      ? 'https://tenor.googleapis.com/v2/search?q=' + encodeURIComponent(q) + '&key=' + key + '&limit=20&mediafilter=gif&locale=tr_TR&contentfilter=medium'
-      : 'https://tenor.googleapis.com/v2/featured?key=' + key + '&limit=20&mediafilter=gif&locale=tr_TR&contentfilter=medium';
-    const res = await fetch(base);
+    const endpoint = q
+      ? `https://tenor.googleapis.com/v2/search?q=${encodeURIComponent(q)}&key=${key}&limit=20&media_filter=gif,tinygif&locale=tr_TR`
+      : `https://tenor.googleapis.com/v2/featured?key=${key}&limit=20&media_filter=gif,tinygif&locale=tr_TR`;
+    const res = await fetch(endpoint);
     if (!res.ok) throw new Error('Tenor HTTP ' + res.status);
     const json = await res.json();
-    return (json.results || []).map(r => {
-      const gifUrl = r.media_formats?.gif?.url || r.media_formats?.tinygif?.url || '';
-      const smallUrl = r.media_formats?.tinygif?.url || gifUrl;
-      return {
-        id: r.id,
-        title: r.content_description || r.title || '',
-        images: {
-          fixed_height_small: { url: smallUrl },
-          fixed_height:        { url: gifUrl },
-          original:            { url: gifUrl },
-        }
-      };
-    });
+    // Normalize Tenor results to Giphy format for renderGifs()
+    return (json.results || []).map(r => ({
+      id: r.id,
+      title: r.content_description || '',
+      images: {
+        fixed_height_small: { url: r.media_formats?.tinygif?.url || r.media_formats?.gif?.url },
+        fixed_height:        { url: r.media_formats?.gif?.url },
+        original:            { url: r.media_formats?.gif?.url },
+      }
+    }));
   }
 
   async function searchGifs(q=''){
     if(_gifLoading)return; _gifLoading=true;
     const grid=document.getElementById('gif-grid');if(!grid){_gifLoading=false;return;}
     _gifResults=[];
-    // Skeleton loading
-    grid.innerHTML=Array(6).fill('<div style="border-radius:10px;aspect-ratio:1;background:linear-gradient(90deg,#0C1220 0%,#1A2535 50%,#0C1220 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite"></div>').join('');
+    grid.innerHTML=Array(6).fill(0).map(()=>'<div style="border-radius:10px;aspect-ratio:1;background:linear-gradient(90deg,#0C1220 0%,#1A2535 50%,#0C1220 100%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite"></div>').join('');
     try{
+      // Try Tenor first (free, reliable)
       _gifResults = await _fetchTenor(q);
-      if(!q){_gifCache=_gifResults;_gifCacheTs=Date.now();}
+      if(!q) _gifCache = _gifResults;
       renderGifs();
     }catch(e1){
-      console.warn('[GIF] Tenor failed:', e1.message);
-      // Fallback: Giphy
+      console.warn('Tenor failed, trying Giphy:', e1.message);
       try{
+        // Fallback: Giphy
         const qs=q
           ?`search?api_key=${CONFIG.GIPHY_API_KEY}&q=${encodeURIComponent(q)}&limit=18&rating=pg`
           :`trending?api_key=${CONFIG.GIPHY_API_KEY}&limit=18&rating=pg`;
-        const res=await fetch('https://api.giphy.com/v1/gifs/'+qs);
-        if(!res.ok)throw new Error('Giphy HTTP '+res.status);
+        const res=await fetch(`https://api.giphy.com/v1/gifs/${qs}`);
+        if(!res.ok)throw new Error('HTTP '+res.status);
         const json=await res.json();
-        _gifResults=(json.data||[]).map(g=>({
-          id:g.id, title:g.title||'',
-          images:{
-            fixed_height_small:{url:g.images?.fixed_height_small?.url||g.images?.downsized?.url||''},
-            fixed_height:{url:g.images?.fixed_height?.url||g.images?.original?.url||''},
-            original:{url:g.images?.original?.url||''},
-          }
-        }));
+        _gifResults=json.data||[];
         if(!q){_gifCache=_gifResults;_gifCacheTs=Date.now();}
         renderGifs();
       }catch(e2){
-        console.warn('[GIF] Giphy also failed:', e2.message);
-        if(grid)grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px;font-family:\'JetBrains Mono\',monospace">⚠️ GIF yüklenemedi<br><span style="color:#7A8FA8;font-size:11px">İnternet bağlantısını kontrol et</span></div>';
+        console.warn('Giphy also failed:', e2.message);
+        grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:24px;color:#FF3D6B;font-size:12px">GIF yüklenemedi</div>';
       }
     }
     _gifLoading=false;
@@ -327,8 +317,9 @@ const Messages = (() => {
     if(!_gifResults.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:20px;color:#7A8FA8;font-size:13px">Sonuç bulunamadı</div>';return;}
     const frag=document.createDocumentFragment();
     _gifResults.forEach(g=>{
+      // Prefer fixed_height_small for faster loading, fallback to others
       const url=g.images?.fixed_height_small?.url||g.images?.fixed_height?.url||g.images?.downsized?.url||g.images?.original?.url;
-      if(!url||url.trim()==='')return; // skip empty URLs
+      if(!url)return;
       const previewUrl=g.images?.fixed_height_still?.url||url; // static preview while loading
       const div=document.createElement('div');
       div.className='gif-item';
@@ -471,7 +462,7 @@ const Messages = (() => {
   }
 
   // ── Files ─────────────────────────────────────────────────────
-  function handleFiles(files){_files=[];const bar=document.getElementById('file-preview-bar');if(!bar)return;bar.innerHTML='';bar.style.display='block';Array.from(files).forEach(f=>{if(f.size>CONFIG.MAX_FILE_MB*1024*1024){UI.toast(`Maks. ${CONFIG.MAX_FILE_MB}MB`,'error');return;}const r=new FileReader();r.readAsDataURL(f);r.onload=()=>{_files.push({name:f.name,type:f.type,data:r.result});const d=document.createElement('div');d.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;background:#0A1018;border:1px solid #1E2D45;margin-bottom:4px';const _esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));d.innerHTML=`${f.type.startsWith('image/')?`<img src="${r.result}" style="width:32px;height:32px;border-radius:6px;object-fit:cover" loading="lazy">`:'<span style="font-size:20px">📄</span>'}<span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#DDE8F8">${_esc(f.name)}</span><button onclick="Messages.clearFiles()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:14px">✕</button>`;bar.appendChild(d);};});}
+  function handleFiles(files){_files=[];const bar=document.getElementById('file-preview-bar');if(!bar)return;bar.innerHTML='';bar.style.display='block';Array.from(files).forEach(f=>{if(f.size>CONFIG.MAX_FILE_MB*1024*1024){UI.toast(`Maks. ${CONFIG.MAX_FILE_MB}MB`,'error');return;}const r=new FileReader();r.readAsDataURL(f);r.onload=()=>{_files.push({name:f.name,type:f.type,data:r.result});const d=document.createElement('div');d.style.cssText='display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:10px;background:#0A1018;border:1px solid #1E2D45;margin-bottom:4px';const _esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));d.innerHTML=`${f.type.startsWith('image/')?`<img src="${r.result}" style="width:32px;height:32px;border-radius:6px;object-fit:cover">`:'<span style="font-size:20px">📄</span>'}<span style="font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#DDE8F8">${_esc(f.name)}</span><button onclick="Messages.clearFiles()" style="color:#7A8FA8;background:none;border:none;cursor:pointer;font-size:14px">✕</button>`;bar.appendChild(d);};});}
   function clearFiles(){_files=[];const b=document.getElementById('file-preview-bar');if(b){b.innerHTML='';b.style.display='none';}const fi=document.getElementById('file-input');if(fi)fi.value='';}
   function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 
@@ -482,7 +473,7 @@ const Messages = (() => {
       if(pill&&pill.dataset.msgid&&pill.dataset.emoji){
         _toggleReaction(pill.dataset.msgid,pill.dataset.emoji);
       }
-      // GIF/image lightbox via data-lightbox
+      // GIF/image lightbox via data-lightbox attribute
       const lb=e.target.closest('[data-lightbox]');
       if(lb&&lb.src) _lightbox(lb.src);
     });
